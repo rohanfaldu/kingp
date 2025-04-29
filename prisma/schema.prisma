@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                     Role?        @default(BUSINESS)
+  name                     String?      @db.VarChar
+  emailAddress             String       @unique @db.VarChar
+  password                 String       @db.VarChar
+  countryId                String?      @db.Uuid
+  brandType                BrandType?    @default(STARTUP)
+  referralCode             String?      @db.VarChar
+  userImage                String?      @db.VarChar
+  applicationLink          String?      @db.VarChar
+  description              String?      @db.VarChar
+  contactPersonName        String?      @db.VarChar
+  contactPersonPhoneNumber String?      @db.VarChar
+  gstNumber                String?      @db.VarChar
+  status                   Boolean?     @default(false)
+  createsAt                DateTime?    @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
+  createdBy                String?      @db.Uuid
+  updatedBy                String?      @db.Uuid
+  CountryData              Country?     @relation(fields: [countryId], references: [id])
+  UserDetail               UserDetail[]
+}
+
+model Category {
+  id                       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                     String?       @db.VarChar
+  image                    String?       @db.VarChar
+  status                   Boolean       @default(true)
+  createsAt                DateTime?     @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?     @default(now()) @db.Timestamp(6)
+  createdBy                String?       @db.Uuid
+  updatedBy                String?       @db.Uuid
+  SubCategoryInformation   SubCategory[]
+}
+
+model Country {
+  id                       String       @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  name                     String?      @db.VarChar
+  countryCode              String?      @unique@db.VarChar
+  CountryData              User[]
+}
+
+model SubCategory {
+  id                     String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  categoryId             String?        @db.Uuid
+  name                   String?        @db.VarChar
+  image                  String?        @db.VarChar
+  status                 Boolean        @default(true)
+  createsAt              DateTime?      @default(now())@db.Timestamp(6)
+  updatedAt              DateTime?      @default(now())@db.Timestamp(6)
+  createdBy              String?        @db.Uuid
+  updatedBy              String?        @db.Uuid
+  SubCategoryInformation Category?      @relation(fields: [categoryId], references: [id])
+}
+
+model UserDetail {
+  id                     String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  userId                 String?        @db.Uuid
+  key                    String?        @db.VarChar
+  Value                  String?        @db.VarChar
+  createsAt              DateTime?      @default(now())@db.Timestamp(6)
+  updatedAt              DateTime?      @default(now())@db.Timestamp(6)
+  User                   User?          @relation(fields: [userId], references: [id])
+}
+
+
+enum BrandType {
+  STARTUP
+  AGENCY
+  LOCAL_STORE
+}
+
+enum Role {
+  BUSINESS
+  INFLUENCER
+}
