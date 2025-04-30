@@ -23,6 +23,10 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
+app.get('/api/get', (req, res) => {
+  res.json({ message: 'Hello, Welcome to KingP!' });
+});
+
 app.use('/api', authRoutes);
 app.use('/api/country', countryRoutes);
 app.use('/api/upload', imageRoutes);

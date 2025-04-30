@@ -7,9 +7,7 @@ import { UserType, BrandType } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
 
-
 const prisma = new PrismaClient();
-
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
     try {
