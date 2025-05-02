@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { ICategory } from '../interfaces/category.interface';
-import { validateUser } from '../utils/userValidation';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { resolveStatus } from '../utils/commonFunction'
+import { paginate } from '../utils/pagination';
+
 
 
 const prisma = new PrismaClient();
@@ -76,8 +77,8 @@ export const getByIdCategory = async (req: Request, res: Response): Promise<any>
 
 export const getAllCategory = async (req: Request, res: Response): Promise<any> => {
     try {
-        const categories = await prisma.category.findMany ();
-
+        const categories = await paginate(req, prisma.category, {}, "categories");
+    
         if(!categories || categories.length === 0){
             throw new Error("Country not Found");
             

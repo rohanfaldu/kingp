@@ -29,6 +29,7 @@ model User {
   updatedBy                String?      @db.Uuid
   CountryData              Country?     @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
+  userData                 PaswordReset[]
 }
 
 model Category {
@@ -56,7 +57,7 @@ model SubCategory {
   name                   String?        @db.VarChar
   image                  String?        @db.VarChar
   status                 Boolean        @default(true)
-  createsAt              DateTime?      @default(now())@db.Timestamp(6)
+  createdAt              DateTime?      @default(now())@db.Timestamp(6)
   updatedAt              DateTime?      @default(now())@db.Timestamp(6)
   createdBy              String?        @db.Uuid
   updatedBy              String?        @db.Uuid
@@ -73,6 +74,16 @@ model UserDetail {
   User                   User?          @relation(fields: [userId], references: [id])
 }
 
+model PaswordReset {
+  id                     String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  emailAddress           String         @db.VarChar
+  otp                    String         @db.VarChar
+  expireAt               DateTime?
+  verified               Boolean        @default(false)
+  createdAt              DateTime       @default(now())@db.Timestamp(6)
+  updatedAt              DateTime       
+  userData               User?          @relation( fields: [emailAddress], references: [emailAddress], onDelete: Cascade ) 
+}
 
 enum BrandType {
   STARTUP

@@ -7,6 +7,8 @@ import { UserType, BrandType } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
 import { validate as isUuid } from 'uuid';
+import { paginate } from '../utils/pagination';
+
 
 
 const prisma = new PrismaClient();
@@ -23,11 +25,11 @@ export const createSubCategory = async (req: Request, res: Response): Promise<an
 
         const existingCategory = await prisma.category.findUnique({
             where: { id: subcategoryData.categoryId },
-          });
-          
-          if (!existingCategory) {
+        });
+
+        if (!existingCategory) {
             return response.error(res, 'Invalid categoryId: Category not found.');
-          }
+        }
 
         // Optional: Check for duplicate name within same category
         const existingSubCategory = await prisma.subCategory.findFirst({
@@ -59,20 +61,80 @@ export const createSubCategory = async (req: Request, res: Response): Promise<an
 };
 
 
+export const editSubCategory = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        const categoryData: ISubCategory = req.body;
+        const status = resolveStatus(categoryData.status);
+        const { ...subCategoryFields } = categoryData;
+        if (!isUuid(id)) {
+            response.error(res, 'Invalid UUID format');
+        }
 
-// export const getAllSubCategories = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const subCategories = await prisma.subCategory.findMany({
-//             include: {
-//                 Category: true, // Join category table
-//             },
-//             orderBy: {
-//                 createdAt: 'desc',
-//             },
-//         });
+        const updateCategory = await prisma.subCategory.update({
+            where: { id: id },
+            data: {
+                ...subCategoryFields,
+            },
+            include: {
+                SubCategoryInformation: true,
+            },
+        });
+        response.success(res, 'Category Updated successfully!', updateCategory);
 
-//         return response.success(res, 'Fetched all sub-categories successfully.', subCategories);
-//     } catch (error: any) {
-//         return response.serverError(res, error.message || 'Failed to fetch sub-categories.');
-//     }
-// };
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Failed to efit sub-categories.');
+    }
+}
+
+export const getByIdSubCategories = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            response.error(res, 'Invalid UUID format');
+        }
+        const subCategory = await prisma.subCategory.findUnique({
+            where: { id: id },
+            include: {
+                SubCategoryInformation: true,
+            },
+        });
+        response.success(res, 'Sub-Category Get successfully!', subCategory);
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Failed to fetch sub-categories.');
+    }
+}
+
+
+
+export const getAllSubCategories = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const subCategories = await paginate(req, prisma.subCategory, {
+            include: {
+                SubCategoryInformation: true,
+            },
+        }, "Sub Categories"
+        );
+
+        return response.success(res, 'Fetched all sub-categories successfully.', subCategories);
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Failed to fetch sub-categories.');
+    }
+};
+
+
+export const deleteSubCategory = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            response.error(res, 'Invalid UUID formate')
+        }
+        const deletedSubCategory = await prisma.subCategory.delete({
+            where: { id: id },
+        });
+        response.success(res, 'Sub-Category Deleted successfully!', null);
+
+    } catch (error: any) {
+        response.error(res, error.message);
+    }
+}

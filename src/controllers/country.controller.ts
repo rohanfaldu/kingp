@@ -1,10 +1,10 @@
-import { Country } from './../../node_modules/.prisma/client/index.d';
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { ICountry } from './../interfaces/country.interface';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
-import { error } from 'console';
+import { paginate } from '../utils/pagination';
+
 
 const prisma = new PrismaClient();
 
@@ -31,7 +31,8 @@ export const createCountry = async (req: Request, res: Response): Promise<any> =
 export const editCountry = async (req: Request, res: Response): Promise<any> => {
     try{
         const {id} = req.params;
-        const {name, countryCode} = req.body;
+        const categoryData: ICountry  = req.body;
+        const { ...countryFields } = categoryData;
 
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID format');
@@ -39,7 +40,9 @@ export const editCountry = async (req: Request, res: Response): Promise<any> => 
 
         const updateCountry = await prisma.country.update({
             where: { id: id }, 
-            data: { name, countryCode },
+            data: {
+                ...countryFields,
+            },
         });
         response.success(res, 'Country Updated successfully!', updateCountry);
 
@@ -68,12 +71,13 @@ export const getByIdCountry = async (req: Request, res: Response): Promise<any> 
 
 export const getAllCountry = async (req: Request, res: Response): Promise<any> => {
     try {
-        const countries = await prisma.country.findMany ();
+        const countries = await paginate(req, prisma.country, {}, "countries");
+        // const countries = await prisma.country.findMany ();
 
-        if(!countries || countries.length === 0){
-            throw new Error("Country not Found");
-            
+        if(!countries || countries.countries.length === 0){
+            throw new Error("Country not Found");    
         }
+    
         response.success(res, 'Get All Countries successfully!', countries);
 
     } catch (error: any) {

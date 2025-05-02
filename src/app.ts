@@ -5,6 +5,8 @@ import countryRoutes from './routes/country.routes';
 import imageRoutes from './routes/image.routes';
 import categoryRoutes from './routes/category.routes';
 import subcategoryRoutes from './routes/subcategory.routes';
+import passwordRoutes from './routes/password.routes';
+
 
 
 import path from 'path';
@@ -32,6 +34,7 @@ app.use('/api/country', countryRoutes);
 app.use('/api/upload', imageRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/sub-categories', subcategoryRoutes);
+app.use('/api', passwordRoutes);
 
 
 
