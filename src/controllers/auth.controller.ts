@@ -1,4 +1,3 @@
-import { error } from 'console';
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
@@ -17,7 +16,7 @@ import { paginate } from '../utils/pagination';
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
-export const signupBusiness = async (req: Request, res: Response): Promise<any> => {
+export const signup = async (req: Request, res: Response): Promise<any> => {
     try {
         const userData: IUser = req.body;
 
@@ -61,6 +60,8 @@ export const signupBusiness = async (req: Request, res: Response): Promise<any> 
         return response.serverError(res, error.message);
     }
 }
+
+
 
 
 export const login = async (req: Request, res: Response): Promise<any> => {
@@ -108,10 +109,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         return response.serverError(res, error.message || 'Login failed.');
     }
 };
-
-
-
-
 
 
 

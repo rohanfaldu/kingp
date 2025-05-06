@@ -1,4 +1,4 @@
-import { UserType, BrandType } from '../enums/userType.enum'; 
+import { UserType, BrandType, Gender } from '../enums/userType.enum'; 
 
 export interface IUser {
   type?: UserType;
@@ -15,6 +15,16 @@ export interface IUser {
   contactPersonPhoneNumber?: string;
   gstNumber?: string;
   status?: boolean;
+  workEmail?: string;
+  socialMediaPlatform?: string[];
+  birthDate?: Date;
+  gender?: Gender;
+  cityId?: string;
+  stateId?: string;
+  socialMediaLink?: string;
+  sampleWorkLink?: string;
+  aboutYou?: string;
+  bio?: string;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;

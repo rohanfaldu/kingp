@@ -23,6 +23,16 @@ model User {
   contactPersonPhoneNumber String?      @db.VarChar
   gstNumber                String?      @db.VarChar
   status                   Boolean?     @default(false)
+  workEmail                String?      @db.VarChar
+  socialMediaPlatform      String[]     @db.VarChar
+  birthDate                DateTime?
+  gender                   Gender?
+  cityId                   String?      @db.VarChar
+  stateId                  String?      @db.VarChar
+  socialMediaLink          String?      @db.VarChar
+  sampleWorkLink           String?      @db.VarChar
+  aboutYou                 String?      @db.VarChar
+  bio                      String?      @db.VarChar
   createsAt                DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
   createdBy                String?      @db.Uuid
@@ -95,4 +105,10 @@ enum BrandType {
 enum Role {
   BUSINESS
   INFLUENCER
+}
+
+enum Gender {
+  M
+  F 
+  O
 }

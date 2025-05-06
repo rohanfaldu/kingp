@@ -7,4 +7,10 @@ export enum BrandType {
     STARTUP = "STARTUP",
     AGENCY = "AGENCY",
     LOCAL_STORE = "LOCAL_STORE",
-  }
+}
+
+export enum Gender {
+    M = "MALE",
+    F = "FEMALE",
+    O = "OTHER"
+}
