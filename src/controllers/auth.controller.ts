@@ -17,7 +17,7 @@ import { paginate } from '../utils/pagination';
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
-export const signup = async (req: Request, res: Response): Promise<any> => {
+export const signupBusiness = async (req: Request, res: Response): Promise<any> => {
     try {
         const userData: IUser = req.body;
 
@@ -65,13 +65,13 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
 export const login = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { emailAddress, password } = req.body;
+        const { emailAddress, password, fcmToken: fcmToken } = req.body;
 
         if (!emailAddress || !password) {
             return response.error(res, 'Email and password are required.');
         }
 
-        const user = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
             where: { emailAddress },
         });
 
@@ -84,22 +84,36 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, 'Invalid password.');
         }
 
-        // Generate JWT token
+        if (fcmToken) {
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { fcmToken },
+            });
+        }
+
         const token = jwt.sign(
             { userId: user.id, email: user.emailAddress },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
 
-        // Omit password in response
-        // const { password: _, ...safeUser } = user;
+        const { password: _, ...userWithFcm } = user;
 
-        return response.success(res, 'Login successful!', { user: user, token });
+        return response.success(res, 'Login successful!', {
+            user: userWithFcm,
+            token,
+        });
 
     } catch (error: any) {
         return response.serverError(res, error.message || 'Login failed.');
     }
-}
+};
+
+
+
+
+
+
 
 
 export const getByIdUser = async (req: Request, res: Response): Promise<any> => {

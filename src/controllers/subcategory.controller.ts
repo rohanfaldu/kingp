@@ -77,7 +77,7 @@ export const editSubCategory = async (req: Request, res: Response): Promise<any>
                 ...subCategoryFields,
             },
             include: {
-                SubCategoryInformation: true,
+                categoryInformation: true,
             },
         });
         response.success(res, 'Category Updated successfully!', updateCategory);
@@ -96,7 +96,7 @@ export const getByIdSubCategories = async (req: Request, res: Response): Promise
         const subCategory = await prisma.subCategory.findUnique({
             where: { id: id },
             include: {
-                SubCategoryInformation: true,
+                categoryInformation: true,
             },
         });
         response.success(res, 'Sub-Category Get successfully!', subCategory);
@@ -111,10 +111,9 @@ export const getAllSubCategories = async (req: Request, res: Response): Promise<
     try {
         const subCategories = await paginate(req, prisma.subCategory, {
             include: {
-                SubCategoryInformation: true,
+                categoryInformation: true,
             },
-        }, "Sub Categories"
-        );
+        });
 
         return response.success(res, 'Fetched all sub-categories successfully.', subCategories);
     } catch (error: any) {

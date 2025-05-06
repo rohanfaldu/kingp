@@ -27,6 +27,7 @@ model User {
   updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
   createdBy                String?      @db.Uuid
   updatedBy                String?      @db.Uuid
+  fcmToken                String?
   CountryData              Country?     @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 PaswordReset[]
@@ -41,7 +42,7 @@ model Category {
   updatedAt                DateTime?     @default(now()) @db.Timestamp(6)
   createdBy                String?       @db.Uuid
   updatedBy                String?       @db.Uuid
-  SubCategoryInformation   SubCategory[]
+  categoryInformation   SubCategory[]
 }
 
 model Country {
@@ -61,7 +62,7 @@ model SubCategory {
   updatedAt              DateTime?      @default(now())@db.Timestamp(6)
   createdBy              String?        @db.Uuid
   updatedBy              String?        @db.Uuid
-  SubCategoryInformation Category?      @relation(fields: [categoryId], references: [id])
+  categoryInformation Category?      @relation(fields: [categoryId], references: [id])
 }
 
 model UserDetail {

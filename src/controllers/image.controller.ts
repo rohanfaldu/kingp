@@ -46,8 +46,6 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
                 };
             });
 
-           
-
             response.success(res, 'Image Uploaded successfully!', imagesData);
         } catch (serverError: any) {
             response.serverError(res, 'Server Error')
