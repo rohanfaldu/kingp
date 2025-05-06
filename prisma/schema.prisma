@@ -37,7 +37,7 @@ model User {
   updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
   createdBy                String?      @db.Uuid
   updatedBy                String?      @db.Uuid
-  fcmToken                String?
+  fcmToken                 String?
   CountryData              Country?     @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 PaswordReset[]
@@ -56,11 +56,37 @@ model Category {
 }
 
 model Country {
-  id                       String       @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
-  name                     String?      @db.VarChar
-  countryCode              String?      @unique@db.VarChar
+  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  name                     String?        @db.VarChar
+  countryCode              String?        @unique@db.VarChar
+  status                   Boolean        @default(true)
+  createsAt                DateTime?      @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?      @default(now()) @db.Timestamp(6)
   CountryData              User[]
+  countryKey               State[]
 }
+
+model State {
+  id                       String        @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  name                     String?       @db.VarChar
+  status                   Boolean       @default(true)
+  createsAt                DateTime?     @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?     @default(now()) @db.Timestamp(6)
+  countryId                String?       @db.Uuid
+  countryKey               Country?      @relation(fields: [countryId], references: [id])
+  stateKey                 City[]
+}
+
+model City {
+  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  name                     String?        @db.VarChar
+  status                   Boolean        @default(true)
+  createsAt                DateTime?      @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?      @default(now()) @db.Timestamp(6)
+  stateId                  String?        @db.Uuid
+  stateKey                 State?         @relation(fields: [stateId], references: [id])
+}
+
 
 model SubCategory {
   id                     String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid

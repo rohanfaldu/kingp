@@ -1,6 +1,6 @@
-export interface ICountry {
+export interface IState {
     name?: string;
-    countryCode?: string;
+    countryId?: string;
     status?: boolean;
     createdAt: Date;
     updatedAt: Date;

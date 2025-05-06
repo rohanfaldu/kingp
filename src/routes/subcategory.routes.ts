@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/create', createSubCategory);
 router.post('/edit/:id', editSubCategory);
 router.get('/get/:id', getByIdSubCategories);
-router.get('/getAll', getAllSubCategories);
+router.post('/getAll', getAllSubCategories);
 router.delete('/delete/:id', deleteSubCategory);
 
 

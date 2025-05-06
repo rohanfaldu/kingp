@@ -4,6 +4,8 @@ import { ICountry } from './../interfaces/country.interface';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
+import { resolveStatus } from '../utils/commonFunction'
+
 
 
 const prisma = new PrismaClient();
@@ -13,6 +15,7 @@ export const createCountry = async (req: Request, res: Response): Promise<any> =
     try {
         const countryData: ICountry = req.body;
 
+        const status = resolveStatus(countryData.status);
         const { ...countryFields } = countryData;
 
         const newCountry = await prisma.country.create({

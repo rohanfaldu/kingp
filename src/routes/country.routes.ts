@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/create', createCountry);
 router.post('/edit/:id', editCountry);
 router.get('/get/:id', getByIdCountry);
-router.get('/getAll', getAllCountry);
+router.post('/getAll', getAllCountry);
 router.delete('/delete/:id', deleteCountry);
 
 

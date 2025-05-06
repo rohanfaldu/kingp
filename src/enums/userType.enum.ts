@@ -10,7 +10,7 @@ export enum BrandType {
 }
 
 export enum Gender {
-    M = "MALE",
-    F = "FEMALE",
-    O = "OTHER"
+    MALE = "MALE",
+    FEMALE = "FEMALE",
+    OTHER = "OTHER"
 }
