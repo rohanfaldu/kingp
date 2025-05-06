@@ -182,7 +182,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
       const { id } = req.params;
       const userData: IUser = req.body;
   
-      if (!isUuid(id)) {
+      if (!id || !isUuid(id)) {
         return response.error(res, 'Invalid UUID format');
       }
   
@@ -199,7 +199,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
       }
   
       const editedUser = await prisma.user.update({
-        where: { id },
+        where: { id: id },
         data: updatableFields,
       });
 

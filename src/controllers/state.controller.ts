@@ -4,7 +4,7 @@ import { IState } from './../interfaces/state.interface';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
-
+import { resolveStatus } from '../utils/commonFunction';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +12,28 @@ const prisma = new PrismaClient();
 export const createState = async (req: Request, res: Response): Promise<any> => {
     try {
         const stateData: IState = req.body;
+
+        if (!stateData.countryId) {
+            return response.error(res, 'countryId is required.');
+        }
+
+        const existingCountry = await prisma.country.findUnique({
+            where: { id: stateData.countryId },
+        });
+        if (!existingCountry) {
+            return response.error(res, 'Invalid countryId: Country not found.');
+        }
+
+        const existingState = await prisma.state.findFirst({
+            where: {
+                name: stateData.name,
+                countryId: stateData.countryId,
+            },
+        });
+        if (existingState) {
+            return response.error(res, 'State with this name already exists in the selected Country.');
+        }
+
 
         const { ...stateFields } = stateData;
 
@@ -21,7 +43,7 @@ export const createState = async (req: Request, res: Response): Promise<any> => 
             },
            
         });
-        response.success(res, 'Country Created successfully!', newState);
+        response.success(res, 'State Created successfully!', newState);
     } catch (error: any) {
         response.error(res, error.message);
     }
@@ -32,6 +54,8 @@ export const editState = async (req: Request, res: Response): Promise<any> => {
     try{
         const {id} = req.params;
         const stateData: IState  = req.body;
+        const status = resolveStatus(stateData.status);
+        
         const { ...stateFields } = stateData;
 
         if (!isUuid(id)) {
@@ -55,51 +79,51 @@ export const editState = async (req: Request, res: Response): Promise<any> => {
 }
 
 
-// export const getByIdCountry = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const {id} = req.params;
-//         if (!isUuid(id)) {
-//             response.error(res, 'Invalid UUID format');
-//         }
-        
-//         const country = await prisma.country.findUnique({
-//             where: { id: id },
-//         });
-//         response.success(res, 'Country Get successfully!', country);
-//     } catch (error: any) {
-//         response.error(res, error.message);
-//     }
-// }
+export const getByIdState = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            response.error(res, 'Invalid UUID format');
+        }
+        const state = await prisma.state.findUnique({
+            where: { id: id },
+            include: { 
+                countryKey: true,
+            },
+        });
+        response.success(res, 'State Get successfully!', state);
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Failed to fetch state.');
+    }
+}
 
 
-// export const getAllCountry = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const countries = await paginate(req, prisma.country, {}, "countries");
-//         // const countries = await prisma.country.findMany ();
+export const getAllStates = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const states = await paginate(req, prisma.state, {
+            include: {
+                countryKey: true,
+            },
+        });
 
-//         if(!countries || countries.countries.length === 0){
-//             throw new Error("Country not Found");    
-//         }
-    
-//         response.success(res, 'Get All Countries successfully!', countries);
+        return response.success(res, 'Fetched all States successfully.', states);
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Failed to fetch States.');
+    }
+};
 
-//     } catch (error: any) {
-//         response.error(res, error.message);
-//     }
-// }
+export const deleteState = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            response.error(res, 'Invalid UUID formate')
+        }
+        const deleteState = await prisma.state.delete({
+            where: { id: id },
+        });
+        response.success(res, 'State Deleted successfully!', null);
 
-// export const deleteCountry = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const {id} = req.params;
-//         if (!isUuid(id)) {
-//             response.error(res, 'Invalid UUID formate')
-//         }
-//         const deletedCountry = await prisma.country.delete({
-//             where: {id: id},
-//         });
-//         response.success(res, 'Country Deleted successfully!',null);
-
-//     } catch (error: any) {
-//         response.error(res, error.message);
-//     }
-// }
+    } catch (error: any) {
+        response.error(res, error.message);
+    }
+}

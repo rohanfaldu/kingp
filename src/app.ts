@@ -7,8 +7,7 @@ import categoryRoutes from './routes/category.routes';
 import subcategoryRoutes from './routes/subcategory.routes';
 import passwordRoutes from './routes/password.routes';
 import stateRoutes from './routes/state.routes';
-
-
+import cityRoutes from './routes/city.routes';
 
 
 import path from 'path';
@@ -38,6 +37,8 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/sub-categories', subcategoryRoutes);
 app.use('/api', passwordRoutes);
 app.use('/api/state', stateRoutes);
+app.use('/api/city', cityRoutes);
+
 
 
 
