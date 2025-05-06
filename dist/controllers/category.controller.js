@@ -23,91 +23,91 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCountry = exports.getAllCountry = exports.getByIdCountry = exports.editCountry = exports.createCountry = void 0;
+exports.deleteCategory = exports.getAllCategory = exports.getByIdCategory = exports.editCategory = exports.createCategory = void 0;
 const client_1 = require("@prisma/client");
 const response_1 = __importDefault(require("../utils/response"));
 const uuid_1 = require("uuid");
-const pagination_1 = require("../utils/pagination");
 const commonFunction_1 = require("../utils/commonFunction");
+const pagination_1 = require("../utils/pagination");
 const prisma = new client_1.PrismaClient();
-const createCountry = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const createCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const countryData = req.body;
-        const status = (0, commonFunction_1.resolveStatus)(countryData.status);
-        const countryFields = __rest(countryData, []);
-        const newCountry = yield prisma.country.create({
-            data: Object.assign({}, countryFields),
+        const categoryData = req.body;
+        const status = (0, commonFunction_1.resolveStatus)(categoryData.status);
+        const categoryFields = __rest(categoryData, []);
+        const newCategory = yield prisma.category.create({
+            data: Object.assign(Object.assign({}, categoryFields), { status: status }),
         });
-        response_1.default.success(res, 'Country Created successfully!', newCountry);
+        return response_1.default.success(res, 'Category Created successfully!', newCategory);
     }
     catch (error) {
-        response_1.default.error(res, error.message);
+        return response_1.default.error(res, error.message);
     }
 });
-exports.createCountry = createCountry;
-const editCountry = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.createCategory = createCategory;
+const editCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         const categoryData = req.body;
-        const countryFields = __rest(categoryData, []);
+        const status = (0, commonFunction_1.resolveStatus)(categoryData.status);
+        const categoryFields = __rest(categoryData, []);
         if (!(0, uuid_1.validate)(id)) {
             response_1.default.error(res, 'Invalid UUID format');
         }
-        const updateCountry = yield prisma.country.update({
+        const updateCategory = yield prisma.category.update({
             where: { id: id },
-            data: Object.assign({}, countryFields),
+            data: Object.assign({}, categoryFields),
         });
-        response_1.default.success(res, 'Country Updated successfully!', updateCountry);
+        response_1.default.success(res, 'Category Updated successfully!', updateCategory);
     }
     catch (error) {
         response_1.default.error(res, error.message);
     }
 });
-exports.editCountry = editCountry;
-const getByIdCountry = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.editCategory = editCategory;
+const getByIdCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         if (!(0, uuid_1.validate)(id)) {
             response_1.default.error(res, 'Invalid UUID format');
         }
-        const country = yield prisma.country.findUnique({
+        const category = yield prisma.category.findUnique({
             where: { id: id },
         });
-        response_1.default.success(res, 'Country Get successfully!', country);
+        response_1.default.success(res, 'Category Get successfully!', category);
     }
     catch (error) {
         response_1.default.error(res, error.message);
     }
 });
-exports.getByIdCountry = getByIdCountry;
-const getAllCountry = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getByIdCategory = getByIdCategory;
+const getAllCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const countries = yield (0, pagination_1.paginate)(req, prisma.country, {}, "countries");
-        // const countries = await prisma.country.findMany ();
-        if (!countries || countries.countries.length === 0) {
+        const categories = yield (0, pagination_1.paginate)(req, prisma.category, {}, "categories");
+        if (!categories || categories.length === 0) {
             throw new Error("Country not Found");
         }
-        response_1.default.success(res, 'Get All Countries successfully!', countries);
+        response_1.default.success(res, 'Get All categories successfully!', categories);
     }
     catch (error) {
         response_1.default.error(res, error.message);
     }
 });
-exports.getAllCountry = getAllCountry;
-const deleteCountry = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAllCategory = getAllCategory;
+const deleteCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         if (!(0, uuid_1.validate)(id)) {
             response_1.default.error(res, 'Invalid UUID formate');
         }
-        const deletedCountry = yield prisma.country.delete({
+        const deletedCategory = yield prisma.category.delete({
             where: { id: id },
         });
-        response_1.default.success(res, 'Country Deleted successfully!', null);
+        response_1.default.success(res, 'Category Deleted successfully!', null);
     }
     catch (error) {
         response_1.default.error(res, error.message);
     }
 });
-exports.deleteCountry = deleteCountry;
-//# sourceMappingURL=country.controller.js.map
+exports.deleteCategory = deleteCategory;
+//# sourceMappingURL=category.controller.js.map

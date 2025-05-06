@@ -134,7 +134,7 @@ enum Role {
 }
 
 enum Gender {
-  M
-  F 
-  O
+  MALE
+  FEMALE
+  OTHER
 }
