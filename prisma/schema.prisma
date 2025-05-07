@@ -33,6 +33,9 @@ model User {
   sampleWorkLink           String?      @db.VarChar
   aboutYou                 String?      @db.VarChar
   bio                      String?      @db.VarChar
+  ratings                  Int? 
+  influencerType           InfluencerType?
+  viewCount                Int?         @default(0)
   createsAt                DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
   createdBy                String?      @db.Uuid
@@ -43,6 +46,7 @@ model User {
   userData                 PaswordReset[]
   brandData                BrandType?     @relation(fields: [brandTypeId], references: [id])
   userUniqueId             SocialMediaPlatform[]
+  subCategories            UserSubCategory[]
 }
 
 model Category {
@@ -101,6 +105,7 @@ model SubCategory {
   createdBy              String?        @db.Uuid
   updatedBy              String?        @db.Uuid
   categoryInformation    Category?      @relation(fields: [categoryId], references: [id])
+  users                  UserSubCategory[] 
 }
 
 model UserDetail {
@@ -152,6 +157,15 @@ model SocialMediaPlatform {
   @@unique([userId, platform])
 }
 
+model UserSubCategory {
+  id            String         @default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  userId        String          @db.Uuid
+  subCategoryId String          @db.Uuid
+  user          User         @relation(fields: [userId], references: [id])
+  subCategory   SubCategory  @relation(fields: [subCategoryId], references: [id])
+  @@id([userId, subCategoryId]) 
+}
+
 enum Role {
   BUSINESS
   INFLUENCER
@@ -168,4 +182,9 @@ enum Platform {
   FACEBOOK
   TWITTER
   YOUTUBE
+}
+
+enum InfluencerType {
+  PRO 
+  NORMAL
 }

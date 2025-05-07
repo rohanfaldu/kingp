@@ -5,6 +5,8 @@ import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { resolveStatus } from '../utils/commonFunction'
 import { paginate } from '../utils/pagination';
+import { validate as isUuidValid } from 'uuid';
+
 
 
 
@@ -106,3 +108,53 @@ export const deleteCategory = async (req: Request, res: Response): Promise<any> 
         response.error(res, error.message);
     }
 }
+
+
+// get influencer by category Id
+export const getInfluencersBySubCategories = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { subcategoriesId } = req.body;
+
+        // Validate input
+        if (!Array.isArray(subcategoriesId) || subcategoriesId.length === 0) {
+            return res.status(400).json({ message: 'subcategoriesId must be a non-empty array.' });
+        }
+
+        // Validate UUIDs
+        const validSubcategoryIds = subcategoriesId.filter(id => isUuidValid(id));
+        const invalidIds = subcategoriesId.filter(id => !isUuidValid(id));
+
+        if (invalidIds.length > 0) {
+            return res.status(400).json({ message: `Invalid UUID(s): ${invalidIds.join(', ')}` });
+        }
+
+        // Query with pagination
+        const influencers = await paginate(
+            req,
+            prisma.user,
+            {
+                where: {
+                    subCategories: {
+                        some: {
+                            subCategoryId: { in: validSubcategoryIds }
+                        }
+                    },
+                    type: 'INFLUENCER',
+                    status: true
+                },
+                include: {
+                    subCategories: {
+                        include: {
+                            subCategory: true
+                        }
+                    }
+                }
+            },
+            "influencers"
+        );
+        response.success(res, 'Influencers fetched successfully', influencers);
+
+    } catch (error: any) {
+        response.error(res, error.message);
+    }
+};

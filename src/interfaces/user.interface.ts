@@ -6,6 +6,7 @@ export interface IUser {
   emailAddress: string;
   password: string;
   countryId?: string;
+  subcategoriesId?: string[];
   brandTypeId?: string;
   referralCode?: string;
   userImage?: string;
