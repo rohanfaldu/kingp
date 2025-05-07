@@ -105,6 +105,33 @@ export const getByIdCity = async (req: Request, res: Response): Promise<any> => 
     }
 }
 
+// get city listing by StateId
+export const getCityByStateId = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+
+        if (!isUuid(id)) {
+            return response.error(res, 'Invalid UUID format');
+        }
+
+        const state = await prisma.state.findUnique({
+            where: { id },
+            include: {
+                stateKey: true // Include all cities under this state
+            }
+        });
+
+        if (!state) {
+            return response.error(res, 'State not found');
+        }
+
+        return response.success(res, 'Cities fetched successfully!', state.stateKey);
+    } catch (error: any) {
+        return response.error(res, error.message);
+    }
+};
+
+
 
 export const getAllCity = async (req: Request, res: Response): Promise<any> => {
     try {

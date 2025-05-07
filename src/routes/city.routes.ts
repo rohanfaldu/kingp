@@ -1,5 +1,5 @@
 import express from 'express';
-import { createCity, editCity, getByIdCity, getAllCity, deleteCity } from '../controllers/city.controller';
+import { createCity, editCity, getByIdCity, getAllCity, deleteCity, getCityByStateId } from '../controllers/city.controller';
 
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.get('/get/:id', getByIdCity);
 router.post('/getAll', getAllCity);
 router.delete('/delete/:id', deleteCity);
 
+router.post('/get-state-id/:id', getCityByStateId);
 
 
 export default router;  

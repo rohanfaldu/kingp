@@ -42,7 +42,7 @@ model User {
   UserDetail               UserDetail[]
   userData                 PaswordReset[]
   brandData                BrandType?     @relation(fields: [brandTypeId], references: [id])
-
+  userUniqueId             SocialMediaPlatform[]
 }
 
 model Category {
@@ -133,6 +133,23 @@ model BrandType {
   brandData                User[]        
 }
 
+model SocialMediaPlatform {
+  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  image                    String?        
+  userId                   String         @db.Uuid
+  platform                 Platform?  
+  userName                 String?        @db.VarChar
+  followerCount            String?        @db.VarChar
+  engagementRate           String?        @db.VarChar
+  averageLikes             String?        @db.VarChar
+  averageComments          String?        @db.VarChar
+  averageShares            String?        @db.VarChar
+  price                    String?        @db.VarChar
+  status                   Boolean        @default(true)
+  createsAt                DateTime?      @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
+  userUniqueId             User?          @relation(fields: [userId], references: [id]) 
+}
 
 enum Role {
   BUSINESS
@@ -143,4 +160,11 @@ enum Gender {
   MALE
   FEMALE
   OTHER
+}
+
+enum Platform {
+  INSTAGRAM
+  FACEBOOK
+  TWITTER
+  YOUTUBE
 }

@@ -97,6 +97,33 @@ export const getByIdState = async (req: Request, res: Response): Promise<any> =>
     }
 }
 
+// get state listing by CountryId
+export const getStateByCountryId = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+
+        if (!isUuid(id)) {
+            return response.error(res, 'Invalid UUID format');
+        }
+
+        const country = await prisma.country.findUnique({
+            where: { id },
+            include: {
+                countryKey: { }
+            }
+        });
+
+        if (!country) {
+            return response.error(res, 'Country not found');
+        }
+
+        return response.success(res, 'States fetched successfully!', country.countryKey);
+    } catch (error: any) {
+        return response.error(res, error.message);
+    }
+};
+
+
 
 export const getAllStates = async (req: Request, res: Response): Promise<any> => {
     try {

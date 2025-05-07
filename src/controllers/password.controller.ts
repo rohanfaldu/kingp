@@ -13,14 +13,22 @@ const prisma = new PrismaClient();
 export const changePassword = async (req: Request, res: Response): Promise<any> => {
   try {
     const userId = req.user?.userId;
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
 
     if (!userId) {
       return response.error(res, 'Unauthorized user.');
     }
 
-    if (!currentPassword || !newPassword) {
-      return response.error(res, 'Current and new password required.');
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return response.error(res, 'Current password, new password, and confirm password are required.');
+    }
+
+    if (newPassword !== confirmPassword) {
+      return response.error(res, 'New password and confirm password do not match.');
+    }
+
+    if (newPassword.length < 8) {
+      return response.error(res, 'New password must be at least 8 characters long.');
     }
 
     const user = await prisma.user.findUnique({
@@ -28,8 +36,7 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
     });
 
     if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
+      return response.error(res, 'User not found.');
     }
 
     const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
@@ -38,15 +45,18 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
     await prisma.user.update({
       where: { id: userId },
       data: { password: hashedNewPassword },
     });
+
     return response.success(res, 'Password changed successfully.', null);
-    } catch (error: any) {
+  } catch (error: any) {
     return response.serverError(res, error.message);
   }
 };
+
 
 
 
