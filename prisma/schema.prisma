@@ -149,6 +149,7 @@ model SocialMediaPlatform {
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
   userUniqueId             User?          @relation(fields: [userId], references: [id]) 
+  @@unique([userId, platform])
 }
 
 enum Role {

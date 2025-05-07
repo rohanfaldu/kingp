@@ -14,39 +14,39 @@ const prisma = new PrismaClient();
 export const createSocialMediaPlatform = async (req: Request, res: Response): Promise<any> => {
     try {
         const socialData: ISocialMediaPlatform = req.body;
-        const { userId, platform } = socialData;
+
+        const { userId, platform, ...otherFields } = socialData;
 
         if (!userId || !platform) {
-            return response.error(res, 'User ID and platform are required.');
+            return response.error(res, 'userId and platform are required.');
         }
 
-        // Check for existing entry with same userId and platform
-        // const existing = await prisma.socialMediaPlatform.findFirst({
-        //     where: {
-        //         userId,
-        //         platform,
-        //     },
-        // });
-        const existing = await prisma.socialMediaPlatform.findFirst();
+        const existing = await prisma.socialMediaPlatform.findFirst({
+            where: {
+                userId,
+                platform,
+            },
+        });
 
         if (existing) {
-            return response.error(res, 'Social media platform already exists for this user.');
+            return response.error(res, 'This social media platform already exists for the user.');
         }
-
-        const status = resolveStatus(socialData.status);
-
-        const { ...socialMediaFields } = socialData;
 
         const newSocialMedia = await prisma.socialMediaPlatform.create({
             data: {
-                ...socialMediaFields,
+                userId,
+                platform,
+                ...otherFields,
             },
         });
-        return response.success(res, 'Social Medial Platform Created successfully!', newSocialMedia);
+
+        return response.success(res, 'Social Media Platform created successfully!', newSocialMedia);
+
     } catch (error: any) {
         return response.error(res, error.message);
     }
-}
+};
+
 
 
 export const editSocialMediaPlatform = async (req: Request, res: Response): Promise<any> => {
