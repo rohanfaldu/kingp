@@ -21,12 +21,13 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
         }
 
         // Check for existing entry with same userId and platform
-        const existing = await prisma.socialMediaPlatform.findFirst({
-            where: {
-                userId,
-                platform,
-            },
-        });
+        // const existing = await prisma.socialMediaPlatform.findFirst({
+        //     where: {
+        //         userId,
+        //         platform,
+        //     },
+        // });
+        const existing = await prisma.socialMediaPlatform.findFirst();
 
         if (existing) {
             return response.error(res, 'Social media platform already exists for this user.');
