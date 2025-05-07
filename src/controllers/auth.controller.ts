@@ -50,9 +50,11 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                 CountryData: {
                     connect: { id: countryId }
                 },
-                brandData: {
-                    connect: { id: userData.brandTypeId }
-                },
+                ...(userData.brandTypeId && {
+                    brandData: {
+                      connect: { id: userData.brandTypeId }
+                    }
+                  }),
             },
             include: {
                 CountryData: false // Include country in response if needed

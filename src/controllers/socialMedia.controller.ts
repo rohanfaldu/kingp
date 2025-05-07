@@ -20,6 +20,11 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
         if (!userId || !platform) {
             return response.error(res, 'userId and platform are required.');
         }
+        
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return response.error(res, 'User not found.');
+        }
 
         const existing = await prisma.socialMediaPlatform.findFirst({
             where: {
