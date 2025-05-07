@@ -144,7 +144,7 @@ model SocialMediaPlatform {
   averageLikes             String?        @db.VarChar
   averageComments          String?        @db.VarChar
   averageShares            String?        @db.VarChar
-  price                    String?        @db.VarChar
+  price                    Decimal?       @db.Decimal
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
