@@ -1,4 +1,4 @@
-import { UserType, BrandType, Gender } from '../enums/userType.enum'; 
+import { UserType, Gender } from '../enums/userType.enum'; 
 
 export interface IUser {
   type?: UserType;
@@ -6,7 +6,7 @@ export interface IUser {
   emailAddress: string;
   password: string;
   countryId?: string;
-  brandType?: BrandType;
+  brandTypeId?: string;
   referralCode?: string;
   userImage?: string;
   applicationLink?: string;

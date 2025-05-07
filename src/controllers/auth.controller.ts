@@ -3,13 +3,14 @@ import { PrismaClient } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
 import { validateUser } from '../utils/userValidation';
 import * as bcrypt from 'bcryptjs';
-import { UserType, BrandType, Gender } from '../enums/userType.enum';
+import { UserType, Gender } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
 import { isEmail } from 'class-validator/types';
 import jwt from 'jsonwebtoken';
 import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
+import { connect } from "http2";
 
 
 
@@ -22,7 +23,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
         validateUser(userData);
         const hashedPassword = await bcrypt.hash(userData.password, 10);
-        const { countryId, password, emailAddress, ...userFields } = userData;
+        const { countryId, password, emailAddress, brandTypeId, ...userFields } = userData;
 
         if (!countryId) {
             return response.error(res, 'countryId is required.');
@@ -38,19 +39,20 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
         const status = resolveStatus(userData.status);
         const gender = (userData.gender ?? Gender.MALE) as unknown as any;
-       
+
         const newUser = await prisma.user.create({
             data: {
                 ...userFields,
                 password: hashedPassword,
                 type: userData.type ?? UserType.BUSINESS,
-                brandType: userData.brandType ?? BrandType.STARTUP,
-                gender,
                 status: status,
                 emailAddress,
                 CountryData: {
                     connect: { id: countryId }
-                }
+                },
+                brandData: {
+                    connect: { id: userData.brandTypeId }
+                },
             },
             include: {
                 CountryData: false // Include country in response if needed
@@ -179,33 +181,33 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
     try {
-      const { id } = req.params;
-      const userData: IUser = req.body;
-  
-      if (!id || !isUuid(id)) {
-        return response.error(res, 'Invalid UUID format');
-      }
-  
-      // Destructure to remove uneditable fields
-      const { emailAddress, password, ...updatableFields } = userData;
-  
-      // Optional: Normalize or validate status
-      if ('status' in userData) {
-        updatableFields.status = resolveStatus(userData.status);
-      }
+        const { id } = req.params;
+        const userData: IUser = req.body;
 
-      if ('gender' in userData) {
-        updatableFields.gender = userData.gender as unknown as any;
-      }
-  
-      const editedUser = await prisma.user.update({
-        where: { id: id },
-        data: updatableFields,
-      });
+        if (!id || !isUuid(id)) {
+            return response.error(res, 'Invalid UUID format');
+        }
 
-      return response.success(res, 'User profile updated successfully!', editedUser);
+        // Destructure to remove uneditable fields
+        const { emailAddress, password, ...updatableFields } = userData;
+
+        // Optional: Normalize or validate status
+        if ('status' in userData) {
+            updatableFields.status = resolveStatus(userData.status);
+        }
+
+        if ('gender' in userData) {
+            updatableFields.gender = userData.gender as unknown as any;
+        }
+
+        const editedUser = await prisma.user.update({
+            where: { id: id },
+            data: updatableFields,
+        });
+
+        return response.success(res, 'User profile updated successfully!', editedUser);
     } catch (error: any) {
-      return response.error(res, error.message || 'Failed to update user profile');
+        return response.error(res, error.message || 'Failed to update user profile');
     }
-  }
-  
+}
+

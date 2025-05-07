@@ -14,7 +14,7 @@ model User {
   emailAddress             String       @unique @db.VarChar
   password                 String       @db.VarChar
   countryId                String?      @db.Uuid
-  brandType                BrandType?    @default(STARTUP)
+  brandTypeId              String?      @db.Uuid
   referralCode             String?      @db.VarChar
   userImage                String?      @db.VarChar
   applicationLink          String?      @db.VarChar
@@ -41,6 +41,8 @@ model User {
   CountryData              Country?     @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 PaswordReset[]
+  brandData                BrandType?     @relation(fields: [brandTypeId], references: [id])
+
 }
 
 model Category {
@@ -52,7 +54,7 @@ model Category {
   updatedAt                DateTime?     @default(now()) @db.Timestamp(6)
   createdBy                String?       @db.Uuid
   updatedBy                String?       @db.Uuid
-  categoryInformation   SubCategory[]
+  categoryInformation      SubCategory[]
 }
 
 model Country {
@@ -98,7 +100,7 @@ model SubCategory {
   updatedAt              DateTime?      @default(now())@db.Timestamp(6)
   createdBy              String?        @db.Uuid
   updatedBy              String?        @db.Uuid
-  categoryInformation Category?      @relation(fields: [categoryId], references: [id])
+  categoryInformation    Category?      @relation(fields: [categoryId], references: [id])
 }
 
 model UserDetail {
@@ -122,11 +124,15 @@ model PaswordReset {
   userData               User?          @relation( fields: [emailAddress], references: [emailAddress], onDelete: Cascade ) 
 }
 
-enum BrandType {
-  STARTUP
-  AGENCY
-  LOCAL_STORE
+model BrandType {
+  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  name                     String?        @db.VarChar
+  status                   Boolean        @default(true)
+  createsAt                DateTime?      @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
+  brandData                User[]        
 }
+
 
 enum Role {
   BUSINESS

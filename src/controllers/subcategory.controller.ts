@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { ISubCategory } from '../interfaces/subcategory.interface';
 import { validateUser } from '../utils/userValidation';
 import * as bcrypt from 'bcryptjs';
-import { UserType, BrandType } from '../enums/userType.enum';
+import { UserType } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
 import { validate as isUuid } from 'uuid';

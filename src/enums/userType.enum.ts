@@ -3,11 +3,6 @@ export enum UserType {
     INFLUENCER = "INFLUENCER",
 }
 
-export enum BrandType {
-    STARTUP = "STARTUP",
-    AGENCY = "AGENCY",
-    LOCAL_STORE = "LOCAL_STORE",
-}
 
 export enum Gender {
     MALE = "MALE",
