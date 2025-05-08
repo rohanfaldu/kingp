@@ -137,3 +137,21 @@ export const deleteSubCategory = async (req: Request, res: Response): Promise<an
         response.error(res, error.message);
     }
 }
+
+export const getByCategoriesId = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            response.error(res, 'Invalid UUID format');
+        }
+        const subCategory = await prisma.subCategory.findMany({
+            where: { categoryId: id },
+            include: {
+                categoryInformation: true,
+            },
+        });
+        response.success(res, 'Sub-Category Get successfully!', subCategory);
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Failed to fetch sub-categories.');
+    }
+}
