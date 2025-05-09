@@ -27,8 +27,8 @@ model User {
   socialMediaPlatform      String[]     @db.VarChar
   birthDate                DateTime?
   gender                   Gender?
-  cityId                   String?      @db.VarChar
-  stateId                  String?      @db.VarChar
+  cityId                   String?      @db.Uuid
+  stateId                  String?      @db.Uuid
   socialMediaLink          String?      @db.VarChar
   sampleWorkLink           String?      @db.VarChar
   aboutYou                 String?      @db.VarChar
@@ -45,8 +45,10 @@ model User {
   UserDetail               UserDetail[]
   userData                 PaswordReset[]
   brandData                BrandType?     @relation(fields: [brandTypeId], references: [id])
-  userUniqueId             SocialMediaPlatform[]
+  socialMediaPlatforms             SocialMediaPlatform[]
   subCategories            UserSubCategory[]
+  CityData   City?    @relation(fields: [cityId], references: [id])
+  StateData  State?   @relation(fields: [stateId], references: [id])
 }
 
 model Category {
@@ -81,6 +83,7 @@ model State {
   countryId                String?       @db.Uuid
   countryKey               Country?      @relation(fields: [countryId], references: [id])
   stateKey                 City[]
+  StateData                User[]
 }
 
 model City {
@@ -91,6 +94,7 @@ model City {
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6)
   stateId                  String?        @db.Uuid
   stateKey                 State?         @relation(fields: [stateId], references: [id])
+  CityData                 User[]
 }
 
 
@@ -144,16 +148,16 @@ model SocialMediaPlatform {
   userId                   String         @db.Uuid
   platform                 Platform?  
   userName                 String?        @db.VarChar
-  followerCount            String?        @db.VarChar
-  engagementRate           String?        @db.VarChar
-  averageLikes             String?        @db.VarChar
-  averageComments          String?        @db.VarChar
-  averageShares            String?        @db.VarChar
+  followerCount            Int?        
+  engagementRate           Int?        
+  averageLikes             Int?        
+  averageComments          Int?        
+  averageShares            Int?        
   price                    Decimal?       @db.Decimal
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
-  userUniqueId             User?          @relation(fields: [userId], references: [id]) 
+  user             User?          @relation(fields: [userId], references: [id]) 
   @@unique([userId, platform])
 }
 

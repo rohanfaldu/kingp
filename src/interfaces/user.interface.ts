@@ -1,4 +1,5 @@
 import { UserType, Gender } from '../enums/userType.enum'; 
+import { ISocialMediaPlatform } from '../interfaces/socialMedia.interface'
 
 export interface IUser {
   type?: UserType;
@@ -17,7 +18,7 @@ export interface IUser {
   gstNumber?: string;
   status?: boolean;
   workEmail?: string;
-  socialMediaPlatform?: string[];
+  socialMediaPlatform?: ISocialMediaPlatform[];
   birthDate?: Date;
   gender?: Gender;
   cityId?: string;
@@ -31,7 +32,6 @@ export interface IUser {
   createdBy: string;
   updatedBy: string;
 }
-
 
 
 export type RequiredUser = Required<Pick<IUser, 'emailAddress' | 'password' >> & Omit<IUser, 'emailAddress' | 'password' >;

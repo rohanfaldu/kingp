@@ -5,11 +5,11 @@ export interface ISocialMediaPlatform {
     userId: string;
     platform?: Platform;
     userName?: string;
-    followerCount?: string;
-    engagementRate?: string;
-    averageLikes?: string;
-    averageComments?: string;
-    averageShares?: string;
+    followerCount?: number;
+    engagementRate?: number;
+    averageLikes?: number;
+    averageComments?: number;
+    averageShares?: number;
     price?: number;
     status?: boolean;
     createdAt?: Date;
