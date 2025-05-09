@@ -17,6 +17,27 @@ import { connect } from "http2";
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+const formatBirthDate = (birthDate: string): Date | null => {
+    // Check if the birthDate is in DD/MM/YYYY format
+    const regexDDMMYYYY = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    // Check if the birthDate is in YYYY-MM-DD format
+    const regexYYYYMMDD = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+    if (regexDDMMYYYY.test(birthDate)) {
+        const match = birthDate.match(regexDDMMYYYY);
+        if (match) {
+            const day = parseInt(match[1]);
+            const month = parseInt(match[2]) - 1;  // Adjust for zero-based month
+            const year = parseInt(match[3]);
+            const date = new Date(year, month, day);
+            return date;
+        }
+    } else if (regexYYYYMMDD.test(birthDate)) {
+        return new Date(birthDate);  // Directly return the date if it's already in YYYY-MM-DD format
+    }
+
+    return null;  // Return null if format is invalid
+};
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
 
@@ -36,6 +57,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             brandTypeId,
             cityId,
             stateId,
+            birthDate,
             subcategoriesId = [],
             ...userFields
         } = req.body;
@@ -52,6 +74,26 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, 'A user with this email already exists.');
         }
 
+        const isValidDate = (dateString: string): boolean => {
+            if (validateDateFormatDDMMYYYY(dateString)) {
+                const [day, month, year] = dateString.split('-').map(Number);
+                const date = new Date(year, month - 1, day);  // Adjust month for zero-indexed months
+                return date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year;
+            }
+        
+            if (validateDateFormatYYYYMMDD(dateString)) {
+                const [year, month, day] = dateString.split('-').map(Number);
+                const date = new Date(year, month - 1, day);  // Adjust month for zero-indexed months
+                return date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year;
+            }
+        
+            return false;  // Return false if neither format is matched
+        };
+        // Validate birthDate if it is provided
+        const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
+        if (birthDate && !formattedBirthDate) {
+            return response.error(res, 'Invalid birthDate format. Allowed formats: DD/MM/YYYY or YYYY/MM/DD');
+        }
         if (stateId) {
             const state = await prisma.state.findUnique({ where: { id: stateId } });
             if (!state) return response.error(res, 'Invalid stateId');
@@ -79,6 +121,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                 emailAddress,
                 status,
                 gender,
+                birthDate: formattedBirthDate,
                 type: userData.type ?? UserType.BUSINESS,
                 CountryData: {
                     connect: { id: countryId }
@@ -260,6 +303,8 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
     try {
         const { platform } = req.body;
         const { type } = req.body;
+        // const { countryId } = req.body;
+
         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'TIKTOK'];
 
         const filter: any = {};
@@ -287,6 +332,14 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                 return response.error(res, 'Invalid user type, Allowed: BUSINESS, INFLUENCER');
             }
         }
+
+        // if (countryId) {
+        //     filter.CountryData = {
+        //         some: { id: countryId }  // Ensure CountryData contains the given countryId
+        //     };
+        // } else {
+        //     return response.error(res, 'countryId is required.');
+        // }
 
         const users = await paginate(
             req,
@@ -493,7 +546,7 @@ export const getUsersWithType = async (req: Request, res: Response): Promise<any
 
 export const incrementInfluencerClick = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { id } = req.params;
+        const { id } = req.body;
 
         const user = await prisma.user.findUnique({
             where: { id },

@@ -13,7 +13,7 @@ router.delete('/user/delete', authenticateToken, deleteUser)
 router.post('/user/edit/:id', authenticateToken, editProfile)
 
 router.post('/user/get-user-type', authenticateToken, getUsersWithType)
-router.post('/influencer/:id/click', incrementInfluencerClick)
+router.post('/influencer/click', incrementInfluencerClick)
 
 
 export default router;  
