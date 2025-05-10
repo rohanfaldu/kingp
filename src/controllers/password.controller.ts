@@ -97,7 +97,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
   <p>Your OTP is: <strong>${otp}</strong></p>
 `;
 
-
   const result = await sendEmail({
       to: emailAddress,
       subject: 'Reset your password',
