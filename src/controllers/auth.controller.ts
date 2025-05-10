@@ -41,7 +41,7 @@ const formatBirthDate = (birthDate: string): Date | null => {
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
 
-    try {
+    //try {
         const userData: IUser = req.body;
 
         // Validate user input
@@ -204,10 +204,10 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
         // Return success response with the newly created user
         return response.success(res, 'Sign Up successfully!', newUser);
-    } catch (error: any) {
-        console.error('Error during signup:', error);  // Log the error for debugging
-        return response.serverError(res, error.message || 'Internal server error');
-    }
+    // } catch (error: any) {
+    //     console.error('Error during signup:', error);  // Log the error for debugging
+    //     return response.serverError(res, error.message || 'Internal server error');
+    // }
 };
 
 

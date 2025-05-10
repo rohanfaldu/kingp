@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import * as bcrypt from 'bcryptjs';
 import response from '../utils/response';
 import jwt from 'jsonwebtoken';
-
+import { sendEmail } from '../utils/sendMail';
 
 import { resolveStatus } from '../utils/commonFunction'
 
@@ -91,7 +91,24 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
         },
       });
     }
-    return response.success(res, 'OTP sent to your email.', otp);
+
+    const htmlContent = `
+  <p>Hello ${emailAddress},</p>
+  <p>Your OTP is: <strong>${otp}</strong></p>
+`;
+
+
+  const result = await sendEmail({
+      to: emailAddress,
+      subject: 'Reset your password',
+      html: htmlContent,
+    });
+    
+    if (!result) {
+      return response.error(res, 'Failed to send OTP. Please try again.');
+    }else {
+      return response.success(res, 'OTP sent to your email.', otp);
+    }
 
   } catch (error: any) {
     return response.serverError(res, error.message);
