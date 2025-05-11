@@ -10,7 +10,7 @@ router.post('/user/login', login);
 router.post('/user/get', authenticateToken, getByIdUser)
 router.post('/user/getAll', authenticateToken, getAllUsers)
 router.post('/user/getAllInfo', getAllInfo)
-router.delete('/user/delete', authenticateToken, deleteUser)
+router.delete('/user/delete', deleteUser)
 router.post('/user/edit/:id', authenticateToken, editProfile)
 
 router.post('/user/get-user-type', authenticateToken, getUsersWithType)
