@@ -28,7 +28,6 @@ export async function sendEmail({ to, subject, html }: EmailOptions): Promise<bo
     subject,
     html,
   };
-
   try {
     const info = await transporter.sendMail(mailOptions);
     return (info.accepted.length > 0) ? true : false;
