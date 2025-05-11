@@ -378,6 +378,83 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 };
 
 
+export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { platform } = req.body;
+        const { type } = req.body;
+        // const { countryId } = req.body;
+
+        const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'TIKTOK'];
+
+        const filter: any = {};
+
+        // Validate and apply platform filter
+        if (platform) {
+            const platformValue = platform.toString().toUpperCase();
+            if (!allowedPlatforms.includes(platformValue)) {
+                return response.error(res, 'Invalid platform value. Allowed: INSTAGRAM, TWITTER, YOUTUBE, TIKTOK');
+            }
+
+            filter.socialMediaPlatforms = {
+                some: {
+                    platform: platformValue, // must match enum value
+                },
+            };
+        }
+
+        // type of user business or influencer
+        if (type && typeof type === 'string') {
+            const normalizedType = type.toUpperCase();
+            if (['BUSINESS', 'INFLUENCER'].includes(normalizedType)) {
+                filter.type = normalizedType;
+            } else {
+                return response.error(res, 'Invalid user type, Allowed: BUSINESS, INFLUENCER');
+            }
+        }
+
+        // if (countryId) {
+        //     filter.CountryData = {
+        //         some: { id: countryId }  // Ensure CountryData contains the given countryId
+        //     };
+        // } else {
+        //     return response.error(res, 'countryId is required.');
+        // }
+        console.log(filter, '>>>>>>>>Filter Data:' );
+        const users = await paginate(
+            req,
+            prisma.user,
+            {
+                where: filter,
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    subCategories: {
+                        include: {
+                            subCategory: {
+                                include: {
+                                    categoryInformation: true,
+                                },
+                            },
+                        },
+                    },
+                    CountryData: true,
+                    StateData: true,
+                    CityData: true,
+                },
+            },
+            "Users"
+        );
+
+        if (!users || users.length === 0) {
+            throw new Error("User not Found");
+        }
+
+        response.success(res, 'Get All Users successfully!', users);
+    } catch (error: any) {
+        console.error("Error in getAllUsers:", error);
+        response.error(res, error.message);
+    }
+};
 
 
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
