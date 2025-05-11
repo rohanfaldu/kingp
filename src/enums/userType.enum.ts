@@ -1,6 +1,7 @@
 export enum UserType {
     BUSINESS = "BUSINESS",
     INFLUENCER = "INFLUENCER",
+    ADMIN = "ADMIN",
 }
 
 export enum Gender {

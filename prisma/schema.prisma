@@ -173,6 +173,7 @@ model UserSubCategory {
 enum Role {
   BUSINESS
   INFLUENCER
+  ADMIN
 }
 
 enum Gender {
