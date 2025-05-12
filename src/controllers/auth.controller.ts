@@ -12,6 +12,7 @@ import jwt from 'jsonwebtoken';
 import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
 import { connect } from "http2";
+import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '../utils/calculateProfileCompletion';
 
 
 
@@ -55,6 +56,12 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             ...userFields
         } = req.body;
 
+        // Normalize loginType (handle null, 'NULL', undefined as NONE)
+        const normalizedLoginType =
+            loginType === null || loginType === 'NULL' || loginType === undefined
+                ? LoginType.NONE
+                : loginType;
+
         // Validate email and login type
         if (!emailAddress) {
             return response.error(res, 'Email is required.');
@@ -77,9 +84,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, `Email already registered via ${existingUser.loginType}.`);
         }
 
-        // Hash password only for email-password login
+        // Hash password only if loginType is NONE
         let hashedPassword: string | undefined = undefined;
-        if (loginType === LoginType.NONE) {
+        if (normalizedLoginType === LoginType.NONE) {
             hashedPassword = await bcrypt.hash(password, 10);
         }
 
@@ -106,19 +113,42 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             }
         }
 
+        // Calculate profile completion BEFORE creation using request body
+        // const calculatedProfileCompletion = Math.round(
+        //     calculateProfileCompletion({
+        //         ...req.body,
+        //         socialMediaPlatforms: socialMediaPlatform,
+        //         subcategoriesId,
+        //     })
+        // );
+
+        // Calculate profile completion based on user type
+        let calculatedProfileCompletion = 0;
+        if (req.body.type === UserType.INFLUENCER) {
+            calculatedProfileCompletion = calculateProfileCompletion({
+                ...req.body,
+                subcategoriesId,
+                socialMediaPlatforms: socialMediaPlatform,
+            });
+        } else {
+            calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
+        }
+
         const status = resolveStatus(userFields.status);
         const gender = (userFields.gender ?? Gender.MALE) as any;
+
 
         // Create user
         const newUser = await prisma.user.create({
             data: {
                 ...userFields,
-                password: hashedPassword ?? 'SOCIAL_LOGIN', 
+                password: hashedPassword ?? 'SOCIAL_LOGIN',
                 emailAddress,
                 status,
                 gender,
                 birthDate: formattedBirthDate,
                 loginType,
+                profileCompletion: calculatedProfileCompletion,
                 type: userFields.type ?? UserType.BUSINESS,
                 CountryData: { connect: { id: countryId } },
                 ...(stateId && { StateData: { connect: { id: stateId } } }),
@@ -145,6 +175,8 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             },
         });
 
+
+
         // Validate and create UserSubCategory relations if any
         if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
             const validSubCategories = await prisma.subCategory.findMany({
@@ -167,8 +199,12 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                 skipDuplicates: true,
             });
         }
+        // return response.success(res, 'Sign Up successfully!', newUser);
 
-        return response.success(res, 'Sign Up successfully!', newUser);
+        return response.success(res, 'Sign Up successfully!', {
+            ...newUser,
+            profileCompletion: `${newUser.profileCompletion}%`
+        });
 
     } catch (error: any) {
         return response.serverError(res, error.message || 'Internal server error');
@@ -510,27 +546,48 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, 'Invalid UUID format');
     }
 
+    // First, fetch the existing user to preserve existing data
+    const existingUser = await prisma.user.findUnique({
+        where: { id },
+        include: {
+            socialMediaPlatforms: true,
+            subCategories: {
+                include: {
+                    subCategory: true
+                }
+            }
+        }
+    });
+
+    if (!existingUser) {
+        return response.error(res, 'User not found');
+    }
+
     const {
         emailAddress, password, subcategoriesId = [], stateId, cityId, countryId, brandTypeId, status, gender, ...updatableFields
     } = userData;
 
-    // Optional: Normalize or validate status
+    // Prepare update data while preserving existing values
+    const finalUpdateData: any = {};
+
+    // Status handling
     if (status !== undefined) {
-        updatableFields.status = resolveStatus(status);
+        finalUpdateData.status = resolveStatus(status);
     }
 
+    // Gender handling
     if (gender !== undefined) {
-        updatableFields.gender = gender as unknown as any;
+        finalUpdateData.gender = gender as unknown as any;
     }
 
-    // Location and brand handling only if provided
+    // Location handling
     if (stateId) {
         const state = await prisma.state.findUnique({ where: { id: stateId } });
         if (!state) return response.error(res, 'Invalid stateId');
         if (countryId && state.countryId !== countryId) {
             return response.error(res, 'State does not belong to provided country');
         }
-        updatableFields.StateData = { connect: { id: stateId } };
+        finalUpdateData.StateData = { connect: { id: stateId } };
     }
 
     if (cityId) {
@@ -539,18 +596,26 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         if (stateId && city.stateId !== stateId) {
             return response.error(res, 'City does not belong to provided State');
         }
-        updatableFields.CityData = { connect: { id: cityId } };
+        finalUpdateData.CityData = { connect: { id: cityId } };
     }
 
     if (countryId) {
-        updatableFields.CountryData = { connect: { id: countryId } };
+        finalUpdateData.CountryData = { connect: { id: countryId } };
     }
 
     if (brandTypeId) {
-        updatableFields.brandData = { connect: { id: brandTypeId } };
+        finalUpdateData.brandData = { connect: { id: brandTypeId } };
     }
 
+    // Add other updatable fields, preserving existing values if not provided
+    Object.keys(updatableFields).forEach(key => {
+        if (updatableFields[key] !== undefined) {
+            finalUpdateData[key] = updatableFields[key];
+        }
+    });
+
     // Subcategories handling
+    let updatedSubcategories: string[] = [];
     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
         const validSubCategories = await prisma.subCategory.findMany({
             where: { id: { in: subcategoriesId.filter(Boolean) } },
@@ -564,6 +629,9 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
         }
 
+        updatedSubcategories = validIds;
+
+        // Delete existing subcategories and create new ones
         await prisma.userSubCategory.deleteMany({
             where: { userId: id }
         });
@@ -575,21 +643,38 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             })),
             skipDuplicates: true
         });
-    }
-
-    // Remove any undefined fields to avoid Prisma trying to set them to undefined or null
-    const finalUpdateData = {};
-    for (const [key, value] of Object.entries(updatableFields)) {
-        if (value !== undefined) {
-            finalUpdateData[key] = value;
-        }
+    } else {
+        // If no subcategories provided, use existing ones
+        updatedSubcategories = existingUser.subCategories.map(sc => sc.subCategory.id);
     }
 
     try {
-        // Perform update only if there are fields to update
+        // Prepare data for profile completion calculation
+         // Prepare data for profile completion calculation
+        const profileCompletionData = {
+            ...existingUser,
+            ...userData,
+            subcategoriesId: updatedSubcategories
+        };
+
+        // Calculate profile completion based on user type
+        let calculatedProfileCompletion = 0;
+        if (existingUser.type === UserType.INFLUENCER) {
+            calculatedProfileCompletion = calculateProfileCompletion({
+                ...profileCompletionData,
+                subcategoriesId: updatedSubcategories
+            });
+        } else {
+            calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
+        }
+
+        // Add profile completion to update data
+        finalUpdateData.profileCompletion = calculatedProfileCompletion;
+
+        // Perform update
         const editedUser = await prisma.user.update({
             where: { id },
-            data: finalUpdateData, // Ensure only fields with values are included
+            data: finalUpdateData,
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -608,13 +693,15 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             }
         });
 
-        return response.success(res, 'User profile updated successfully!', editedUser);
+        return response.success(res, 'User profile updated successfully!', {
+            ...editedUser,
+            profileCompletionDisplay: `${editedUser.profileCompletion ?? 0}%`
+        });
 
     } catch (error: any) {
         return response.error(res, error.message || 'Failed to update user profile');
     }
 };
-
 
 
 

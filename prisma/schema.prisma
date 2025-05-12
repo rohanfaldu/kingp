@@ -37,6 +37,7 @@ model User {
   influencerType           InfluencerType?
   loginType                LoginType?
   viewCount                Int?         @default(0)
+  profileCompletion        Int          @default(0)
   createsAt                DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
   createdBy                String?      @db.Uuid
