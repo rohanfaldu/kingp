@@ -1,11 +1,11 @@
-import { UserType, Gender } from '../enums/userType.enum'; 
+import { UserType, Gender, LoginType } from '../enums/userType.enum'; 
 import { ISocialMediaPlatform } from '../interfaces/socialMedia.interface'
 
 export interface IUser {
   type?: UserType;
   name?: string;
   emailAddress: string;
-  password: string;
+  password?: string;
   countryId?: string;
   subcategoriesId?: string[];
   brandTypeId?: string;
@@ -27,6 +27,7 @@ export interface IUser {
   sampleWorkLink?: string;
   aboutYou?: string;
   bio?: string;
+  LoginType?: LoginType,
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;

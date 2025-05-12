@@ -4,7 +4,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
 import { validateUser } from '../utils/userValidation';
 import * as bcrypt from 'bcryptjs';
-import { UserType, Gender } from '../enums/userType.enum';
+import { UserType, Gender, LoginType } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
 import { isEmail } from 'class-validator/types';
@@ -40,15 +40,7 @@ const formatBirthDate = (birthDate: string): Date | null => {
 };
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
-
-    //try {
-        const userData: IUser = req.body;
-
-        // Validate user input
-        validateUser(userData);
-        const hashedPassword = await bcrypt.hash(userData.password, 10);
-
-        // const { countryId, password, emailAddress, brandTypeId, subcategoriesId = [], socialMediaPlatform = [], ...userFields } = userData;
+    try {
         const {
             socialMediaPlatform = [],
             password,
@@ -58,42 +50,46 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             cityId,
             stateId,
             birthDate,
+            loginType = LoginType.NONE, // Default to NONE if not provided
             subcategoriesId = [],
             ...userFields
         } = req.body;
+
+        // Validate email and login type
+        if (!emailAddress) {
+            return response.error(res, 'Email is required.');
+        }
+
+        if (loginType === LoginType.NONE && !password) {
+            return response.error(res, 'Password is required for email-password signup.');
+        }
 
         if (!countryId) {
             return response.error(res, 'countryId is required.');
         }
 
+        // Check existing user
         const existingUser = await prisma.user.findUnique({
             where: { emailAddress },
         });
 
         if (existingUser) {
-            return response.error(res, 'A user with this email already exists.');
+            return response.error(res, `Email already registered via ${existingUser.loginType}.`);
         }
 
-        const isValidDate = (dateString: string): boolean => {
-            if (validateDateFormatDDMMYYYY(dateString)) {
-                const [day, month, year] = dateString.split('-').map(Number);
-                const date = new Date(year, month - 1, day);  // Adjust month for zero-indexed months
-                return date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year;
-            }
-        
-            if (validateDateFormatYYYYMMDD(dateString)) {
-                const [year, month, day] = dateString.split('-').map(Number);
-                const date = new Date(year, month - 1, day);  // Adjust month for zero-indexed months
-                return date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year;
-            }
-        
-            return false;  // Return false if neither format is matched
-        };
-        // Validate birthDate if it is provided
+        // Hash password only for email-password login
+        let hashedPassword: string | undefined = undefined;
+        if (loginType === LoginType.NONE) {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
+
+        // Validate birthDate if present
         const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
         if (birthDate && !formattedBirthDate) {
             return response.error(res, 'Invalid birthDate format. Allowed formats: DD/MM/YYYY or YYYY/MM/DD');
         }
+
+        // Validate state and city if present
         if (stateId) {
             const state = await prisma.state.findUnique({ where: { id: stateId } });
             if (!state) return response.error(res, 'Invalid stateId');
@@ -101,6 +97,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                 return response.error(res, 'State does not belong to provided country');
             }
         }
+
         if (cityId) {
             const city = await prisma.city.findUnique({ where: { id: cityId } });
             if (!city) return response.error(res, 'Invalid cityId');
@@ -109,40 +106,26 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             }
         }
 
-        // console.log(req.body, '>>>>>>>>Request Data:' ); 
-        const status = resolveStatus(userData.status);
-        const gender = (userData.gender ?? Gender.MALE) as unknown as any;
+        const status = resolveStatus(userFields.status);
+        const gender = (userFields.gender ?? Gender.MALE) as any;
 
         // Create user
         const newUser = await prisma.user.create({
             data: {
                 ...userFields,
-                password: hashedPassword,
+                password: hashedPassword ?? 'SOCIAL_LOGIN', 
                 emailAddress,
                 status,
                 gender,
                 birthDate: formattedBirthDate,
-                type: userData.type ?? UserType.BUSINESS,
-                CountryData: {
-                    connect: { id: countryId }
-                },
-                ...(stateId && {
-                    StateData: {
-                        connect: { id: stateId }
-                    }
-                }),
-                ...(cityId && {
-                    CityData: {
-                        connect: { id: cityId }
-                    }
-                }),
-                ...(brandTypeId && {
-                    brandData: {
-                        connect: { id: brandTypeId }
-                    }
-                }),
+                loginType,
+                type: userFields.type ?? UserType.BUSINESS,
+                CountryData: { connect: { id: countryId } },
+                ...(stateId && { StateData: { connect: { id: stateId } } }),
+                ...(cityId && { CityData: { connect: { id: cityId } } }),
+                ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
                 socialMediaPlatforms: {
-                    create: userData.socialMediaPlatform.map((platform: any) => ({
+                    create: socialMediaPlatform.map((platform: any) => ({
                         platform: platform.platform,
                         userName: platform.userName,
                         image: platform.image,
@@ -153,77 +136,54 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                         averageShares: platform.averageShares,
                         price: platform.price,
                         status: platform.status,
-                    }))
-                }
-
+                    })),
+                },
             },
             include: {
                 CountryData: false,
                 socialMediaPlatforms: true,
-            }
-
+            },
         });
 
-        if (socialMediaPlatform.length > 0) {
-            const platformsToInsert = socialMediaPlatform.map((platform: any) => ({
-                ...platform,
-                userId: newUser.id,
-                price: new Prisma.Decimal(platform.price) // 👈 This now works
-            }));
-
-            await prisma.socialMediaPlatform.createMany({
-                data: platformsToInsert,
-                skipDuplicates: true,
-            });
-        }
-
-        // Validate and create UserSubCategory relations
+        // Validate and create UserSubCategory relations if any
         if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
             const validSubCategories = await prisma.subCategory.findMany({
-                where: {
-                    id: { in: subcategoriesId }
-                },
-                select: { id: true }
+                where: { id: { in: subcategoriesId } },
+                select: { id: true },
             });
 
-            const validIds = validSubCategories.map(sub => sub.id);
-            const invalidIds = subcategoriesId.filter(id => !validIds.includes(id));
+            const validIds = validSubCategories.map((sub) => sub.id);
+            const invalidIds = subcategoriesId.filter((id) => !validIds.includes(id));
 
             if (invalidIds.length > 0) {
                 return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
             }
 
             await prisma.userSubCategory.createMany({
-                data: validIds.map(subCategoryId => ({
+                data: validIds.map((subCategoryId) => ({
                     userId: newUser.id,
-                    subCategoryId
+                    subCategoryId,
                 })),
-                skipDuplicates: true
+                skipDuplicates: true,
             });
         }
 
-        // Return success response with the newly created user
         return response.success(res, 'Sign Up successfully!', newUser);
-    // } catch (error: any) {
-    //     console.error('Error during signup:', error);  // Log the error for debugging
-    //     return response.serverError(res, error.message || 'Internal server error');
-    // }
+
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Internal server error');
+    }
 };
-
-
-
-
-
 
 
 
 
 export const login = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { emailAddress, password, fcmToken: fcmToken } = req.body;
+        const { emailAddress, password, loginType, fcmToken } = req.body;
 
-        if (!emailAddress || !password) {
-            return response.error(res, 'Email and password are required.');
+        if (!emailAddress) {
+            return response.error(res, 'Email is required.');
         }
 
         let user = await prisma.user.findUnique({
@@ -234,9 +194,31 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, 'Invalid email address.');
         }
 
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-            return response.error(res, 'Invalid password.');
+        // Check login type compatibility
+        if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
+            // Trying social login
+            if (user.loginType === LoginType.NONE) {
+                return response.error(res, 'Please login with Email & Password.');
+            }
+
+            if (user.loginType !== loginType) {
+                return response.error(res, `Please login using ${user.loginType} with this email.`);
+            }
+
+        } else {
+            // Trying Email/Password login
+            if (user.loginType === LoginType.GOOGLE || user.loginType === LoginType.APPLE) {
+                return response.error(res, `Please login using ${user.loginType}.`);
+            }
+
+            if (!password) {
+                return response.error(res, 'Password is required.');
+            }
+
+            const validPassword = await bcrypt.compare(password, user.password);
+            if (!validPassword) {
+                return response.error(res, 'Invalid password.');
+            }
         }
 
         if (fcmToken) {
@@ -252,10 +234,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             { expiresIn: '7d' }
         );
 
-        const { password: _, ...userWithFcm } = user;
+        const { password: _, ...userWithoutPassword } = user;
 
         return response.success(res, 'Login successful!', {
-            user: userWithFcm,
+            user: userWithoutPassword,
             token,
         });
 
@@ -299,21 +281,27 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
     }
 }
 
+
+
+
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
     try {
         const { platform } = req.body;
         const { type } = req.body;
-        // const { countryId } = req.body;
+        const { countryId, influencerType, status } = req.body;
+        const { subCategoryId, ratings } = req.body;
 
-        const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'TIKTOK'];
 
+        const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
+        const allowedInfluencerTypes = ['PRO', 'NORMAL'];
+        const andFilters: any[] = [];
         const filter: any = {};
 
         // Validate and apply platform filter
         if (platform) {
             const platformValue = platform.toString().toUpperCase();
             if (!allowedPlatforms.includes(platformValue)) {
-                return response.error(res, 'Invalid platform value. Allowed: INSTAGRAM, TWITTER, YOUTUBE, TIKTOK');
+                return response.error(res, 'Invalid platform value. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK');
             }
 
             filter.socialMediaPlatforms = {
@@ -333,18 +321,64 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             }
         }
 
-        // if (countryId) {
-        //     filter.CountryData = {
-        //         some: { id: countryId }  // Ensure CountryData contains the given countryId
-        //     };
-        // } else {
-        //     return response.error(res, 'countryId is required.');
-        // }
+        // Country filter
+        if (countryId) {
+            filter.countryId = countryId.toString();
+        }
+
+        // Ratings filter (optional)
+        if (ratings) {
+            const minRating = parseInt(ratings.toString());
+            if (isNaN(minRating) || minRating < 0) {
+                return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
+            }
+            filter.ratings = { gte: minRating };
+        }
+
+        // SubCategory filter (optional)
+        if (subCategoryId) {
+            filter.subCategories = {
+                some: { subCategoryId: subCategoryId.toString() },
+            };
+        }
+
+        // Influencer Type filter with strict logic
+        if (influencerType) {
+            const inflType = influencerType.toString().toUpperCase();
+            if (!['PRO', 'NORMAL'].includes(inflType)) {
+                return response.error(res, 'Invalid influencer type. Allowed: PRO, NORMAL');
+            }
+
+            if (inflType === 'PRO') {
+                andFilters.push({
+                    influencerType: 'PRO',
+                });
+            }
+
+            if (inflType === 'NORMAL') {
+                andFilters.push({
+                    OR: [
+                        { influencerType: 'NORMAL' },
+                        { influencerType: null },
+                    ],
+                });
+            }
+        }
+
+        // Status filter (optional)
+        if (status !== undefined) {
+            if (status === 'true' || status === 'false') {
+                filter.status = status === 'true';
+            } else {
+                return response.error(res, 'Invalid status value. Use true or false.');
+            }
+        }
 
         const users = await paginate(
             req,
             prisma.user,
             {
+
                 where: filter,
                 include: {
                     socialMediaPlatforms: true,
@@ -367,7 +401,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         );
 
         if (!users || users.length === 0) {
-            throw new Error("User not Found");
+            throw new Error("No users found matching the criteria.");
         }
 
         response.success(res, 'Get All Users successfully!', users);
@@ -376,6 +410,8 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         response.error(res, error.message);
     }
 };
+
+
 
 
 export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
@@ -412,14 +448,6 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
             }
         }
 
-        // if (countryId) {
-        //     filter.CountryData = {
-        //         some: { id: countryId }  // Ensure CountryData contains the given countryId
-        //     };
-        // } else {
-        //     return response.error(res, 'countryId is required.');
-        // }
-        console.log(filter, '>>>>>>>>Filter Data:' );
         const users = await paginate(
             req,
             prisma.user,

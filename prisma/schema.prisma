@@ -35,6 +35,7 @@ model User {
   bio                      String?      @db.VarChar
   ratings                  Int? 
   influencerType           InfluencerType?
+  loginType                LoginType?
   viewCount                Int?         @default(0)
   createsAt                DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
@@ -192,4 +193,10 @@ enum Platform {
 enum InfluencerType {
   PRO 
   NORMAL
+}
+
+enum LoginType {
+  GOOGLE 
+  APPLE
+  NONE
 }

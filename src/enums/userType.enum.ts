@@ -15,4 +15,10 @@ export enum Platform {
     FACEBOOK = "FACEBOOK",
     TWITTER = "TWITTER",
     YOUTUBE = "YOUTUBE",
-  }
+}
+
+export enum LoginType {
+    GOOGLE = 'GOOGLE',
+    APPLE = 'APPLE',
+    NONE = 'NONE',
+}
