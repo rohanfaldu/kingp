@@ -27,6 +27,7 @@ export interface IUser {
   sampleWorkLink?: string;
   aboutYou?: string;
   bio?: string;
+  socialId?: String;
   LoginType?: LoginType,
   createdAt: Date;
   updatedAt: Date;

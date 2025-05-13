@@ -41,174 +41,173 @@ const formatBirthDate = (birthDate: string): Date | null => {
 };
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const {
-            socialMediaPlatform = [],
-            password,
-            emailAddress,
-            countryId,
-            brandTypeId,
-            cityId,
-            stateId,
-            birthDate,
-            loginType = LoginType.NONE, // Default to NONE if not provided
-            subcategoriesId = [],
-            ...userFields
-        } = req.body;
+    // try {
+    const {
+        socialMediaPlatform = [],
+        password,
+        emailAddress,
+        countryId,
+        brandTypeId,
+        cityId,
+        stateId,
+        birthDate,
+        loginType = LoginType.NONE, // Default to NONE if not provided
+        subcategoriesId = [],
+        ...userFields
+    } = req.body;
 
-        // Normalize loginType (handle null, 'NULL', undefined as NONE)
-        const normalizedLoginType =
-            loginType === null || loginType === 'NULL' || loginType === undefined
-                ? LoginType.NONE
-                : loginType;
+    // Normalize loginType (handle null, 'NULL', undefined as NONE)
+    const normalizedLoginType =
+        loginType === null || loginType === 'NULL' || loginType === undefined
+            ? LoginType.NONE
+            : loginType;
 
-        // Validate email and login type
-        if (!emailAddress) {
-            return response.error(res, 'Email is required.');
-        }
-
-        if (loginType === LoginType.NONE && !password) {
-            return response.error(res, 'Password is required for email-password signup.');
-        }
-
-        if (!countryId) {
-            return response.error(res, 'countryId is required.');
-        }
-
-        // Check existing user
-        const existingUser = await prisma.user.findUnique({
-            where: { emailAddress },
-        });
-
-        if (existingUser) {
-            return response.error(res, `Email already registered via ${existingUser.loginType}.`);
-        }
-
-        // Hash password only if loginType is NONE
-        let hashedPassword: string | undefined = undefined;
-        if (normalizedLoginType === LoginType.NONE) {
-            hashedPassword = await bcrypt.hash(password, 10);
-        }
-
-        // Validate birthDate if present
-        const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
-        if (birthDate && !formattedBirthDate) {
-            return response.error(res, 'Invalid birthDate format. Allowed formats: DD/MM/YYYY or YYYY/MM/DD');
-        }
-
-        // Validate state and city if present
-        if (stateId) {
-            const state = await prisma.state.findUnique({ where: { id: stateId } });
-            if (!state) return response.error(res, 'Invalid stateId');
-            if (state.countryId !== countryId) {
-                return response.error(res, 'State does not belong to provided country');
-            }
-        }
-
-        if (cityId) {
-            const city = await prisma.city.findUnique({ where: { id: cityId } });
-            if (!city) return response.error(res, 'Invalid cityId');
-            if (city.stateId !== stateId) {
-                return response.error(res, 'City does not belong to provided State');
-            }
-        }
-
-        // Calculate profile completion BEFORE creation using request body
-        // const calculatedProfileCompletion = Math.round(
-        //     calculateProfileCompletion({
-        //         ...req.body,
-        //         socialMediaPlatforms: socialMediaPlatform,
-        //         subcategoriesId,
-        //     })
-        // );
-
-        // Calculate profile completion based on user type
-        let calculatedProfileCompletion = 0;
-        if (req.body.type === UserType.INFLUENCER) {
-            calculatedProfileCompletion = calculateProfileCompletion({
-                ...req.body,
-                subcategoriesId,
-                socialMediaPlatforms: socialMediaPlatform,
-            });
-        } else {
-            calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
-        }
-
-        const status = resolveStatus(userFields.status);
-        const gender = (userFields.gender ?? Gender.MALE) as any;
-
-
-        // Create user
-        const newUser = await prisma.user.create({
-            data: {
-                ...userFields,
-                password: hashedPassword ?? 'SOCIAL_LOGIN',
-                emailAddress,
-                status,
-                gender,
-                birthDate: formattedBirthDate,
-                loginType,
-                profileCompletion: calculatedProfileCompletion,
-                type: userFields.type ?? UserType.BUSINESS,
-                CountryData: { connect: { id: countryId } },
-                ...(stateId && { StateData: { connect: { id: stateId } } }),
-                ...(cityId && { CityData: { connect: { id: cityId } } }),
-                ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
-                socialMediaPlatforms: {
-                    create: socialMediaPlatform.map((platform: any) => ({
-                        platform: platform.platform,
-                        userName: platform.userName,
-                        image: platform.image,
-                        followerCount: platform.followerCount,
-                        engagementRate: platform.engagementRate,
-                        averageLikes: platform.averageLikes,
-                        averageComments: platform.averageComments,
-                        averageShares: platform.averageShares,
-                        price: platform.price,
-                        status: platform.status,
-                    })),
-                },
-            },
-            include: {
-                CountryData: false,
-                socialMediaPlatforms: true,
-            },
-        });
-
-
-
-        // Validate and create UserSubCategory relations if any
-        if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
-            const validSubCategories = await prisma.subCategory.findMany({
-                where: { id: { in: subcategoriesId } },
-                select: { id: true },
-            });
-
-            const validIds = validSubCategories.map((sub) => sub.id);
-            const invalidIds = subcategoriesId.filter((id) => !validIds.includes(id));
-
-            if (invalidIds.length > 0) {
-                return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
-            }
-
-            await prisma.userSubCategory.createMany({
-                data: validIds.map((subCategoryId) => ({
-                    userId: newUser.id,
-                    subCategoryId,
-                })),
-                skipDuplicates: true,
-            });
-        }
-        // return response.success(res, 'Sign Up successfully!', newUser);
-
-        return response.success(res, 'Sign Up successfully!', {
-            ...newUser,
-            profileCompletion: `${newUser.profileCompletion}%`
-        });
-
-    } catch (error: any) {
-        return response.serverError(res, error.message || 'Internal server error');
+    // Validate email and login type
+    if (!emailAddress) {
+        return response.error(res, 'Email is required.');
     }
+
+    if (loginType === LoginType.NONE && !password) {
+        return response.error(res, 'Password is required for email-password signup.');
+    }
+
+    // if (!countryId) {
+    //     return response.error(res, 'countryId is required.');
+    // }
+
+    // Check existing user
+    const existingUser = await prisma.user.findUnique({
+        where: { emailAddress },
+    });
+
+    if (existingUser) {
+        return response.error(res, `Email already registered via ${existingUser.loginType}.`);
+    }
+
+    // Hash password only if loginType is NONE
+    let hashedPassword: string | undefined = undefined;
+    if (normalizedLoginType === LoginType.NONE) {
+        hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    // Validate birthDate if present
+    const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
+    if (birthDate && !formattedBirthDate) {
+        return response.error(res, 'Invalid birthDate format. Allowed formats: DD/MM/YYYY or YYYY/MM/DD');
+    }
+
+    // Validate state and city if present
+    if (stateId) {
+        const state = await prisma.state.findUnique({ where: { id: stateId } });
+        if (!state) return response.error(res, 'Invalid stateId');
+        if (state.countryId !== countryId) {
+            return response.error(res, 'State does not belong to provided country');
+        }
+    }
+
+    if (cityId) {
+        const city = await prisma.city.findUnique({ where: { id: cityId } });
+        if (!city) return response.error(res, 'Invalid cityId');
+        if (city.stateId !== stateId) {
+            return response.error(res, 'City does not belong to provided State');
+        }
+    }
+
+    // Calculate profile completion BEFORE creation using request body
+    // const calculatedProfileCompletion = Math.round(
+    //     calculateProfileCompletion({
+    //         ...req.body,
+    //         socialMediaPlatforms: socialMediaPlatform,
+    //         subcategoriesId,
+    //     })
+    // );
+
+    // Calculate profile completion based on user type
+    let calculatedProfileCompletion = 0;
+    if (req.body.type === UserType.INFLUENCER) {
+        calculatedProfileCompletion = calculateProfileCompletion({
+            ...req.body,
+            subcategoriesId,
+            socialMediaPlatforms: socialMediaPlatform,
+        });
+    } else {
+        calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
+    }
+
+    const status = resolveStatus(userFields.status);
+    const gender = (userFields.gender ?? Gender.MALE) as any;
+
+
+    // Create user
+    const newUser = await prisma.user.create({
+        data: {
+            ...userFields,
+            password: hashedPassword ?? "null",
+            emailAddress,
+            status,
+            gender,
+            birthDate: formattedBirthDate,
+            loginType,
+            profileCompletion: calculatedProfileCompletion,
+            type: userFields.type ?? UserType.BUSINESS,
+            // CountryData: { connect: { id: countryId } },
+            ...(countryId && { CountryData: { connect: { id: countryId } } }),
+            ...(stateId && { StateData: { connect: { id: stateId } } }),
+            ...(cityId && { CityData: { connect: { id: cityId } } }),
+            ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
+            socialMediaPlatforms: {
+                create: socialMediaPlatform.map((platform: any) => ({
+                    platform: platform.platform,
+                    userName: platform.userName,
+                    image: platform.image,
+                    followerCount: platform.followerCount,
+                    engagementRate: platform.engagementRate,
+                    averageLikes: platform.averageLikes,
+                    averageComments: platform.averageComments,
+                    averageShares: platform.averageShares,
+                    price: platform.price,
+                    status: platform.status,
+                })),
+            },
+        },
+        include: {
+            CountryData: false,
+            socialMediaPlatforms: true,
+        },
+    });
+
+    // Validate and create UserSubCategory relations if any
+    if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
+        const validSubCategories = await prisma.subCategory.findMany({
+            where: { id: { in: subcategoriesId } },
+            select: { id: true },
+        });
+
+        const validIds = validSubCategories.map((sub) => sub.id);
+        const invalidIds = subcategoriesId.filter((id) => !validIds.includes(id));
+
+        if (invalidIds.length > 0) {
+            return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
+        }
+
+        await prisma.userSubCategory.createMany({
+            data: validIds.map((subCategoryId) => ({
+                userId: newUser.id,
+                subCategoryId,
+            })),
+            skipDuplicates: true,
+        });
+    }
+    // return response.success(res, 'Sign Up successfully!', newUser);
+
+    return response.success(res, 'Sign Up successfully!', {
+        ...newUser,
+        profileCompletion: `${newUser.profileCompletion}%`
+    });
+
+    // } catch (error: any) {
+    //     return response.serverError(res, error.message || 'Internal server error');
+    // }
 };
 
 
@@ -524,18 +523,49 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.body;
-        if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID formate')
+
+        if (!id || !isUuid(id)) {
+            response.error(res, 'Invalid or missing UUID format');
+            return;
         }
-        const deletedUser = await prisma.user.delete({
-            where: { id: id },
+
+        // Check if user exists
+        const existingUser = await prisma.user.findUnique({
+            where: { id },
+            select: { emailAddress: true },
         });
-        response.success(res, 'User Deleted successfully!', null);
+
+        if (!existingUser) {
+            response.error(res, 'User not found');
+            return;
+        }
+
+        // Perform transactional delete (force delete all dependencies first)
+        await prisma.$transaction([
+            prisma.userDetail.deleteMany({
+                where: { userId: id },
+            }),
+            prisma.socialMediaPlatform.deleteMany({
+                where: { userId: id },
+            }),
+            prisma.userSubCategory.deleteMany({
+                where: { userId: id },
+            }),
+            prisma.paswordReset.deleteMany({
+                where: { emailAddress: existingUser.emailAddress },
+            }),
+            prisma.user.delete({
+                where: { id },
+            }),
+        ]);
+
+        response.success(res, 'User and all related data deleted successfully', null);
 
     } catch (error: any) {
+        console.error('Delete user error:', error);
         response.error(res, error.message);
     }
-}
+};
 
 
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
@@ -650,7 +680,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
     try {
         // Prepare data for profile completion calculation
-         // Prepare data for profile completion calculation
+        // Prepare data for profile completion calculation
         const profileCompletionData = {
             ...existingUser,
             ...userData,
