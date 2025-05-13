@@ -215,7 +215,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
 export const login = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { emailAddress, password, loginType, fcmToken } = req.body;
+        const { emailAddress, password, loginType, socialId, fcmToken } = req.body;
 
         if (!emailAddress) {
             return response.error(res, 'Email is required.');
@@ -229,25 +229,37 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, 'Invalid email address.');
         }
 
-        // Check login type compatibility
+        // Social login flow (GOOGLE or APPLE)
         if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
-            // Trying social login
-            if (user.loginType === LoginType.NONE) {
+            if (!socialId) {
+                return response.error(res, 'socialId is required for social login.');
+            }
+
+            if (user.loginType === LoginType.NONE || !user.loginType) {
                 return response.error(res, 'Please login with Email & Password.');
             }
 
             if (user.loginType !== loginType) {
-                return response.error(res, `Please login using ${user.loginType} with this email.`);
+                return response.error(res, `Please login using ${user.loginType}.`);
+            }
+
+            // Check if socialId matches the one stored in DB
+            if (!user.socialId) {
+                return response.error(res, 'No socialId registered for this user. Please contact support.');
+            }
+
+            if (user.socialId !== socialId) {
+                return response.error(res, 'Invalid socialId provided.');
             }
 
         } else {
-            // Trying Email/Password login
+            // Email/password login flow
             if (user.loginType === LoginType.GOOGLE || user.loginType === LoginType.APPLE) {
                 return response.error(res, `Please login using ${user.loginType}.`);
             }
 
             if (!password) {
-                return response.error(res, 'Password is required.');
+                return response.error(res, 'Password is required for email/password login.');
             }
 
             const validPassword = await bcrypt.compare(password, user.password);
@@ -256,6 +268,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             }
         }
 
+        // Update FCM token if provided
         if (fcmToken) {
             user = await prisma.user.update({
                 where: { id: user.id },
@@ -263,6 +276,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             });
         }
 
+        // Generate JWT token
         const token = jwt.sign(
             { userId: user.id, email: user.emailAddress },
             JWT_SECRET,
@@ -280,6 +294,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         return response.serverError(res, error.message || 'Login failed.');
     }
 };
+
+
 
 
 
