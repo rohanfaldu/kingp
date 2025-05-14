@@ -97,17 +97,17 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
   <p>Your OTP is: <strong>${otp}</strong></p>
 `;
 
-  const result = await sendEmail({
-      to: emailAddress,
-      subject: 'Reset your password',
-      html: htmlContent,
-    });
-    
-    if (!result) {
+    // const result = await sendEmail({
+    //   to: emailAddress,
+    //   subject: 'Reset your password',
+    //   html: htmlContent,
+    // });
+
+    // if (!result) {
       return response.error(res, 'Failed to send OTP. Please try again.');
-    }else {
-      return response.success(res, 'OTP sent to your email.', otp);
-    }
+    // } else {
+    //   return response.success(res, 'OTP sent to your email.', otp);
+    // }
 
   } catch (error: any) {
     return response.serverError(res, error.message);
