@@ -104,9 +104,9 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     // });
 
     // if (!result) {
-      return response.error(res, 'Failed to send OTP. Please try again.');
+      // return response.error(res, 'Failed to send OTP. Please try again.');
     // } else {
-    //   return response.success(res, 'OTP sent to your email.', otp);
+      return response.success(res, 'OTP sent to your email.', otp);
     // }
 
   } catch (error: any) {
