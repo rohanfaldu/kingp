@@ -1,5 +1,5 @@
 import express from 'express';
-import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, editProfile, getUsersWithType, incrementInfluencerClick } from '../controllers/auth.controller';
+import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, editProfile, getUsersWithType, incrementInfluencerClick, socialLogin } from '../controllers/auth.controller';
 import { authenticateToken } from '../services/authorization';
 
 
@@ -15,6 +15,7 @@ router.post('/user/edit/:id', authenticateToken, editProfile)
 
 router.post('/user/get-user-type', authenticateToken, getUsersWithType)
 router.post('/influencer/click', incrementInfluencerClick)
+router.post('/social-id', socialLogin)
 
 
 export default router;  

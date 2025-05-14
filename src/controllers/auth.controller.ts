@@ -810,3 +810,40 @@ export const incrementInfluencerClick = async (req: Request, res: Response): Pro
         return response.error(res, error.message);
     }
 };
+
+
+
+export const socialLogin = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { socialId } = req.body;
+
+        if (!socialId) {
+            return response.error(res, 'socialId is required.');
+        }
+
+        let user = await prisma.user.findFirst({
+            where: { socialId },
+        });
+
+        if (!user) {
+            return response.error(res, 'User not found with provided socialId, Please Signup or Login First.');
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user.id, email: user.emailAddress },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        const { password: _, ...userWithoutPassword } = user;
+
+        return response.success(res, 'Login successful!', {
+            user: userWithoutPassword,
+            token,
+        });
+
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Social login failed.');
+    }
+};
