@@ -22,3 +22,8 @@ export enum LoginType {
     APPLE = 'APPLE',
     NONE = 'NONE',
 }
+
+export enum AvailabilityType {
+    ONLINE = 'ONLINE',
+    OFFLINE = 'OFFLINE',
+}

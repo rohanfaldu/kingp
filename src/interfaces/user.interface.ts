@@ -1,4 +1,4 @@
-import { UserType, Gender, LoginType } from '../enums/userType.enum'; 
+import { UserType, Gender, LoginType, AvailabilityType } from '../enums/userType.enum'; 
 import { ISocialMediaPlatform } from '../interfaces/socialMedia.interface'
 
 export interface IUser {
@@ -29,6 +29,7 @@ export interface IUser {
   bio?: string;
   socialId?: String;
   LoginType?: LoginType,
+  availability? : AvailabilityType,
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;

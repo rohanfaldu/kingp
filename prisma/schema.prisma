@@ -36,6 +36,7 @@ model User {
   ratings                  Int? 
   influencerType           InfluencerType?
   loginType                LoginType?
+  availability             AvailabilityType?
   viewCount                Int?         @default(0)
   profileCompletion        Int          @default(0)
   createsAt                DateTime?    @default(now()) @db.Timestamp(6)
@@ -201,4 +202,9 @@ enum LoginType {
   GOOGLE 
   APPLE
   NONE
+}
+
+enum AvailabilityType {
+  ONLINE
+  OFFLINE
 }

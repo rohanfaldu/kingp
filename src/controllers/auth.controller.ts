@@ -4,7 +4,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
 import { validateUser } from '../utils/userValidation';
 import * as bcrypt from 'bcryptjs';
-import { UserType, Gender, LoginType } from '../enums/userType.enum';
+import { UserType, Gender, LoginType, AvailabilityType } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
 import { isEmail } from 'class-validator/types';
@@ -41,7 +41,7 @@ const formatBirthDate = (birthDate: string): Date | null => {
 };
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
-    try {
+    // try {
     const {
         socialMediaPlatform = [],
         password,
@@ -52,6 +52,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         stateId,
         birthDate,
         loginType = LoginType.NONE, // Default to NONE if not provided
+        availability = AvailabilityType,
         subcategoriesId = [],
         ...userFields
     } = req.body;
@@ -70,10 +71,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     if (loginType === LoginType.NONE && !password) {
         return response.error(res, 'Password is required for email-password signup.');
     }
-
-    // if (!countryId) {
-    //     return response.error(res, 'countryId is required.');
-    // }
 
     // Check existing user
     const existingUser = await prisma.user.findUnique({
@@ -113,15 +110,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         }
     }
 
-    // Calculate profile completion BEFORE creation using request body
-    // const calculatedProfileCompletion = Math.round(
-    //     calculateProfileCompletion({
-    //         ...req.body,
-    //         socialMediaPlatforms: socialMediaPlatform,
-    //         subcategoriesId,
-    //     })
-    // );
-
     // Calculate profile completion based on user type
     let calculatedProfileCompletion = 0;
     if (req.body.type === UserType.INFLUENCER) {
@@ -148,6 +136,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             gender,
             birthDate: formattedBirthDate,
             loginType,
+            availability,
             profileCompletion: calculatedProfileCompletion,
             type: userFields.type ?? UserType.BUSINESS,
             // CountryData: { connect: { id: countryId } },
@@ -205,9 +194,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         profileCompletion: `${newUser.profileCompletion}%`
     });
 
-    } catch (error: any) {
-        return response.serverError(res, error.message || 'Internal server error');
-    }
+    // } catch (error: any) {
+    //     return response.serverError(res, error.message || 'Internal server error');
+    // }
 };
 
 
@@ -337,13 +326,23 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { platform } = req.body;
-        const { type } = req.body;
-        const { countryId, influencerType, status } = req.body;
-        const { subCategoryId, ratings } = req.body;
-
+        const {
+            platform,
+            type,
+            countryId,
+            stateId,
+            cityId,
+            influencerType,
+            status,
+            subCategoryId,
+            ratings,
+            gender,
+            minAge,
+            maxAge,
+        } = req.body;
 
         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
+        const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
         const allowedInfluencerTypes = ['PRO', 'NORMAL'];
         const andFilters: any[] = [];
         const filter: any = {};
@@ -357,8 +356,48 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
             filter.socialMediaPlatforms = {
                 some: {
-                    platform: platformValue, // must match enum value
+                    platform: platformValue,
                 },
+            };
+        }
+
+        // Validate and apply Gender filter
+        if (gender) {
+            const genderValue = gender.toString().toUpperCase();
+            if (!allowedGender.includes(genderValue)) {
+                return response.error(res, 'Invalid Gender value. Allowed: MALE, FEMALE, OTHER');
+            }
+
+            filter.gender = genderValue;
+        }
+
+        // Age filter (based on birthDate)
+        if (minAge) {
+            const minAge = parseInt(req.body.minAge.toString());
+            if (isNaN(minAge) || minAge <= 0) {
+                return response.error(res, 'Invalid minAge. It must be a positive number.');
+            }
+
+            const today = new Date();
+            const birthDateThreshold = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+
+            filter.birthDate = {
+                lte: birthDateThreshold,
+            };
+        }
+
+        if (maxAge) {
+            const maxAge = parseInt(req.body.maxAge.toString());
+            if (isNaN(maxAge) || maxAge <= 0) {
+                return response.error(res, 'Invalid maxAge. It must be a positive number.');
+            }
+
+            const today = new Date();
+            const birthDateThreshold = new Date(today.getFullYear() - maxAge, today.getMonth(), today.getDate());
+
+            filter.birthDate = {
+                ...(filter.birthDate || {}),
+                gte: birthDateThreshold,
             };
         }
 
@@ -375,6 +414,16 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         // Country filter
         if (countryId) {
             filter.countryId = countryId.toString();
+        }
+
+        // State Filter
+        if (stateId) {
+            filter.stateId = stateId.toString();
+        }
+
+        // City Filter
+        if (cityId) {
+            filter.cityId = cityId.toString();
         }
 
         // Ratings filter (optional)
@@ -536,6 +585,7 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 };
 
 
+
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.body;
@@ -582,6 +632,8 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         response.error(res, error.message);
     }
 };
+
+
 
 
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
@@ -748,7 +800,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message || 'Failed to update user profile');
     }
 };
-
 
 
 
