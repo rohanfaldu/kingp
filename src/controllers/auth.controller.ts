@@ -866,35 +866,59 @@ export const incrementInfluencerClick = async (req: Request, res: Response): Pro
 
 export const socialLogin = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { socialId } = req.body;
+        const { socialId, name, emailAddress, userImage } = req.body;
 
         if (!socialId) {
             return response.error(res, 'socialId is required.');
         }
 
+        // Find by socialId
         let user = await prisma.user.findFirst({
             where: { socialId },
         });
 
+        // If user not exists → create user
         if (!user) {
-            return response.error(res, 'User not found with provided socialId, Please Signup or Login First.');
+            // Optional check: If email provided, make sure no existing user with email exists
+            if (emailAddress) {
+                const existingEmailUser = await prisma.user.findUnique({
+                    where: { emailAddress },
+                });
+                if (existingEmailUser) {
+                    return response.error(res, 'Email already registered with another account.');
+                }
+            }
+
+            user = await prisma.user.create({
+                data: {
+                    socialId,
+                    name: name || 'Social User',
+                    emailAddress: emailAddress || null,
+                    userImage: userImage || null,
+                    // loginType: 'SOCIAL',
+                    type: 'INFLUENCER', // Or 'BUSINESS' as per your need
+                    status: true,
+                    profileCompletion: 0,
+                },
+            });
         }
 
-        // Generate JWT token
+        // Generate JWT
         const token = jwt.sign(
             { userId: user.id, email: user.emailAddress },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
 
-        const { password: _, ...userWithoutPassword } = user;
+        const { password, ...userWithoutPassword } = user;
 
-        return response.success(res, 'Login successful!', {
+        return response.success(res, 'Social Login successful!', {
             user: userWithoutPassword,
             token,
         });
 
     } catch (error: any) {
-        return response.serverError(res, error.message || 'Social login failed.');
+        console.error("Social login failed:", error);
+        return response.serverError(res, 'Social login failed, User not found with this socialId.');
     }
 };
