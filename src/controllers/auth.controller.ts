@@ -188,11 +188,16 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         });
     }
     // return response.success(res, 'Sign Up successfully!', newUser);
-
-    return response.success(res, 'Sign Up successfully!', {
-        ...newUser,
-        // profileCompletion: `${newUser.profileCompletion}`
-    });
+     const token = jwt.sign(
+            { userId: newUser.id, email: newUser.emailAddress },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+    return response.success(res, 'Login successful!', {
+            user: newUser,
+            token,
+        });
 
     // } catch (error: any) {
     //     return response.serverError(res, error.message || 'Internal server error');
