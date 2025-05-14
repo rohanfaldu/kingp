@@ -918,6 +918,10 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         });
 
     } catch {
-        return response.success(res, 'Social login failed, User not found with this socialId.', null);
+         return res.status(200).json({
+            status: false,
+            message :'Social login failed, User not found with this socialId.',
+            data: null
+        });
     }
 };
