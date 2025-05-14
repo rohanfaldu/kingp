@@ -39,7 +39,7 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
         const {id} = req.params;
         const categoryData: ICategory  = req.body;
 
-        const status = resolveStatus(categoryData.status);
+        // const status = resolveStatus(categoryData.status);
         const { ...categoryFields } = categoryData;
 
         if (!isUuid(id)) {

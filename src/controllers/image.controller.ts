@@ -23,32 +23,33 @@ const upload = multer({ storage }).array('images', 10);
 
 export const uploadMultipleImages = (req: Request, res: Response) => {
     upload(req, res, async function (error) {
-        if (error) {
-            // return res.status(400).json({ message: 'File upload failed', error: err.message });
-            response.error(res, 'File upload failed');
-        }
-
-        const files = req.files as Express.Multer.File[];
-
-        if (!files || files.length === 0) {
-            response.error(res, 'No files uploaded');
-        }
-
-        try {
-            const imagesData = files.map((file) => {
-                const imagePath = `uploads/images/${file.originalname}`;
-                return {
-                    name: file.originalname,
-                    path: imagePath,
-                    url: `${req.protocol}://${req.get('host')}/${imagePath}`,
-                    size:  `${(file.size / 1024).toFixed(2)} KB`
-                    
-                };
-            });
-
-            response.success(res, 'Image Uploaded successfully!', imagesData);
-        } catch (serverError: any) {
-            response.serverError(res, 'Server Error')
-        }
-    });
+    if (error) {
+        console.error("Upload Error:", error);  // <--- ADD THIS
+        return response.error(res, 'File upload failed');
+    }
+ 
+    const files = req.files as Express.Multer.File[];
+ 
+    if (!files || files.length === 0) {
+        return response.error(res, 'No files uploaded');
+    }
+ 
+    try {
+        const imagesData = files.map((file) => {
+            const imagePath = `uploads/images/${file.originalname}`;
+            return {
+                name: file.originalname,
+                path: imagePath,
+                url: `${req.protocol}://${req.get('host')}/${imagePath}`,
+                size: `${(file.size / 1024).toFixed(2)} KB`
+            };
+        });
+ 
+        response.success(res, 'Image Uploaded successfully!', imagesData);
+    } catch (serverError: any) {
+        console.error("Server Error:", serverError);  // <--- ADD THIS
+        response.serverError(res, 'Server Error');
+    }
+});
+ 
 }

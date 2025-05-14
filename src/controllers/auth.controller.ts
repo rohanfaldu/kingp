@@ -41,7 +41,7 @@ const formatBirthDate = (birthDate: string): Date | null => {
 };
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
-    // try {
+    try {
     const {
         socialMediaPlatform = [],
         password,
@@ -205,9 +205,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         profileCompletion: `${newUser.profileCompletion}%`
     });
 
-    // } catch (error: any) {
-    //     return response.serverError(res, error.message || 'Internal server error');
-    // }
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Internal server error');
+    }
 };
 
 
