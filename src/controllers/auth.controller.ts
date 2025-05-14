@@ -191,7 +191,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     return response.success(res, 'Sign Up successfully!', {
         ...newUser,
-        profileCompletion: `${newUser.profileCompletion}%`
+        // profileCompletion: `${newUser.profileCompletion}`
     });
 
     // } catch (error: any) {
@@ -793,7 +793,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
         return response.success(res, 'User profile updated successfully!', {
             ...editedUser,
-            profileCompletionDisplay: `${editedUser.profileCompletion ?? 0}%`
+            // profileCompletionDisplay: `${editedUser.profileCompletion ?? 0}%`
         });
 
     } catch (error: any) {
