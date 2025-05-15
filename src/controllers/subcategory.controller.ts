@@ -128,8 +128,20 @@ export const deleteSubCategory = async (req: Request, res: Response): Promise<an
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID formate')
         }
-        const deletedSubCategory = await prisma.subCategory.delete({
-            where: { id: id },
+        // const deletedSubCategory = await prisma.subCategory.delete({
+        //     where: { id: id },
+        // });
+         const relatedInUserSubCategory = await prisma.userSubCategory.count({
+            where: { subCategoryId: id },
+        });
+
+        if (relatedInUserSubCategory > 0) {
+            return response.error(res, 'Cannot delete sub-category because it is used in user-subcategory relations.');
+        }
+
+        // Delete the category
+        await prisma.subCategory.delete({
+            where: { id },
         });
         response.success(res, 'Sub-Category Deleted successfully!', null);
 

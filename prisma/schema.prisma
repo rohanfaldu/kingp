@@ -65,6 +65,7 @@ model Category {
   createdBy                String?       @db.Uuid
   updatedBy                String?       @db.Uuid
   categoryInformation      SubCategory[]
+  categoryInfo              UserSubCategory[]
 }
 
 model Country {
@@ -166,11 +167,14 @@ model SocialMediaPlatform {
 }
 
 model UserSubCategory {
-  id            String         @default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  id            String          @default(dbgenerated("gen_random_uuid()"))@db.Uuid
   userId        String          @db.Uuid
   subCategoryId String          @db.Uuid
-  user          User         @relation(fields: [userId], references: [id])
-  subCategory   SubCategory  @relation(fields: [subCategoryId], references: [id])
+  categoryId    String?         @db.Uuid
+  user          User            @relation(fields: [userId], references: [id])
+  subCategory   SubCategory     @relation(fields: [subCategoryId], references: [id])
+  categoryInfo  Category?        @relation(fields: [categoryId], references: [id])
+
   @@id([userId, subCategoryId]) 
 }
 

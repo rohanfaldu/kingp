@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { ICategory } from '../interfaces/category.interface';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
@@ -15,7 +15,7 @@ const prisma = new PrismaClient();
 
 export const createCategory = async (req: Request, res: Response): Promise<any> => {
     try {
-        const categoryData: ICategory  = req.body;
+        const categoryData: ICategory = req.body;
 
         const status = resolveStatus(categoryData.status);
 
@@ -36,8 +36,8 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
 
 export const editCategory = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
-        const categoryData: ICategory  = req.body;
+        const { id } = req.params;
+        const categoryData: ICategory = req.body;
 
         // const status = resolveStatus(categoryData.status);
         const { ...categoryFields } = categoryData;
@@ -47,14 +47,14 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
         }
 
         const updateCategory = await prisma.category.update({
-            where: { id: id }, 
+            where: { id: id },
             data: {
                 ...categoryFields,
                 // status: status,
             },
         });
         response.success(res, 'Category Updated successfully!', updateCategory);
-    } catch (error: any){
+    } catch (error: any) {
         response.error(res, error.message);
     }
 }
@@ -62,11 +62,11 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
 
 export const getByIdCategory = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID format');
         }
-        
+
         const category = await prisma.category.findUnique({
             where: { id: id },
         });
@@ -80,10 +80,10 @@ export const getByIdCategory = async (req: Request, res: Response): Promise<any>
 export const getAllCategory = async (req: Request, res: Response): Promise<any> => {
     try {
         const categories = await paginate(req, prisma.category, {}, "categories");
-    
-        if(!categories || categories.length === 0){
+
+        if (!categories || categories.length === 0) {
             throw new Error("Country not Found");
-            
+
         }
         response.success(res, 'Get All categories successfully!', categories);
 
@@ -95,19 +95,43 @@ export const getAllCategory = async (req: Request, res: Response): Promise<any> 
 
 export const deleteCategory = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
+
+        // Validate UUID format
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID formate')
+            return response.error(res, 'Invalid UUID format');
         }
-        const deletedCategory = await prisma.category.delete({
-            where: {id: id},
+
+        // Check if category exists
+        const category = await prisma.category.findUnique({
+            where: { id },
         });
-        response.success(res, 'Category Deleted successfully!',null);
+
+        if (!category) {
+            return response.error(res, 'No category found with the provided UUID.');
+        }
+
+        // Check if category is used in UserSubCategory
+        const relatedInUserSubCategory = await prisma.userSubCategory.count({
+            where: { categoryId: id },
+        });
+
+        if (relatedInUserSubCategory > 0) {
+            return response.error(res, 'Cannot delete category because it is used in user-subcategory relations.');
+        }
+
+        // Delete the category
+        await prisma.category.delete({
+            where: { id },
+        });
+
+        response.success(res, 'Category deleted successfully!', null);
 
     } catch (error: any) {
         response.error(res, error.message);
     }
-}
+};
+
 
 
 // get influencer by category Id

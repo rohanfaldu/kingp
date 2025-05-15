@@ -94,7 +94,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         if (city.stateId !== stateId) return response.error(res, 'City does not belong to provided State');
     }
 
-    
+
     let calculatedProfileCompletion = 0;
     if (req.body.type === UserType.INFLUENCER) {
         calculatedProfileCompletion = calculateProfileCompletion({
@@ -147,9 +147,10 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     // Create UserSubCategory relations if any
     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
+        // Fetch subcategories along with their categoryId
         const validSubCategories = await prisma.subCategory.findMany({
             where: { id: { in: subcategoriesId } },
-            select: { id: true },
+            select: { id: true, categoryId: true },
         });
 
         const validIds = validSubCategories.map((sub) => sub.id);
@@ -159,14 +160,17 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
         }
 
+        // Create user-subcategory with categoryId
         await prisma.userSubCategory.createMany({
-            data: validIds.map((subCategoryId) => ({
+            data: validSubCategories.map((sub) => ({
                 userId: newUser.id,
-                subCategoryId,
+                subCategoryId: sub.id,
+                categoryId: sub.categoryId,
             })),
             skipDuplicates: true,
         });
     }
+
 
     // Fetch names
     const country = countryId ? await prisma.country.findUnique({ where: { id: countryId }, select: { name: true } }) : null;
@@ -290,7 +294,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         // Final response
         return response.success(res, 'Login successful!', {
-            user: userResponse,  
+            user: userResponse,
             // categories: userCategoriesWithSubcategories,
             token,
         });
@@ -649,21 +653,32 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     }
 };
 
-// export const deleteUser = async (req: Request, res: Response): Promise<any> => {
+// export const deleteUser = async (req: Request, res: Response): Promise<void> => {
 //     try {
-//         const { id } = req.params;
+//         const { id } = req.body;
 //         if (!isUuid(id)) {
 //             response.error(res, 'Invalid UUID formate')
 //         }
-//         const deletedSubCategory = await prisma.user.delete({
+//         await prisma.user.delete({
 //             where: { id: id },
 //         });
-//         response.success(res, 'User Deleted successfully!', null);
+
+//         response.success(res, 'User deleted successfully!', null);
 
 //     } catch (error: any) {
+//         if (error instanceof Prisma.PrismaClientKnownRequestError) {
+//             // Error code for foreign key constraint failure in Prisma
+//             if (error.code === 'P2003') {
+//                 response.error(res, 'Cannot delete user because it is related to other records.');
+//             }
+//             if (error.code === 'P2025') {
+//                 response.error(res, 'No user found with the provided UUID.');
+//             }
+//         }
 //         response.error(res, error.message);
 //     }
 // }
+
 
 
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
