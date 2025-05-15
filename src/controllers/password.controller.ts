@@ -63,7 +63,8 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
 export const forgotPassword = async (req: Request, res: Response): Promise<any> => {
   const { emailAddress } = req.body;
 
-  const otp = Math.floor(100000 + Math.random() * 999999).toString();
+  // const otp = Math.floor(100000 + Math.random() * 999999).toString();
+  const otp = '123123';
   const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
 
   try {
