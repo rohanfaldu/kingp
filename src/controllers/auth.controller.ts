@@ -13,6 +13,9 @@ import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
 import { connect } from "http2";
 import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '../utils/calculateProfileCompletion';
+import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
+import { mapUserWithLocationAndCategories } from '../utils/userResponseMapper';
+
 
 
 
@@ -40,8 +43,8 @@ const formatBirthDate = (birthDate: string): Date | null => {
     return null;  // Return null if format is invalid
 };
 
+
 export const signup = async (req: Request, res: Response): Promise<any> => {
-    // try {
     const {
         socialMediaPlatform = [],
         password,
@@ -51,66 +54,47 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         cityId,
         stateId,
         birthDate,
-        loginType = LoginType.NONE, // Default to NONE if not provided
+        loginType = LoginType.NONE,
         availability = AvailabilityType,
         subcategoriesId = [],
         ...userFields
     } = req.body;
 
-    // Normalize loginType (handle null, 'NULL', undefined as NONE)
     const normalizedLoginType =
         loginType === null || loginType === 'NULL' || loginType === undefined
             ? LoginType.NONE
             : loginType;
 
-    // Validate email and login type
-    if (!emailAddress) {
-        return response.error(res, 'Email is required.');
-    }
-
-    if (loginType === LoginType.NONE && !password) {
+    if (!emailAddress) return response.error(res, 'Email is required.');
+    if (normalizedLoginType === LoginType.NONE && !password) {
         return response.error(res, 'Password is required for email-password signup.');
     }
 
-    // Check existing user
-    const existingUser = await prisma.user.findUnique({
-        where: { emailAddress },
-    });
-
+    const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
     if (existingUser) {
         return response.error(res, `Email already registered via ${existingUser.loginType}.`);
     }
 
-    // Hash password only if loginType is NONE
-    let hashedPassword: string | undefined = undefined;
-    if (normalizedLoginType === LoginType.NONE) {
-        hashedPassword = await bcrypt.hash(password, 10);
-    }
+    const hashedPassword = normalizedLoginType === LoginType.NONE ? await bcrypt.hash(password, 10) : undefined;
 
-    // Validate birthDate if present
     const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
     if (birthDate && !formattedBirthDate) {
         return response.error(res, 'Invalid birthDate format. Allowed formats: DD/MM/YYYY or YYYY/MM/DD');
     }
 
-    // Validate state and city if present
     if (stateId) {
         const state = await prisma.state.findUnique({ where: { id: stateId } });
         if (!state) return response.error(res, 'Invalid stateId');
-        if (state.countryId !== countryId) {
-            return response.error(res, 'State does not belong to provided country');
-        }
+        if (state.countryId !== countryId) return response.error(res, 'State does not belong to provided country');
     }
 
     if (cityId) {
         const city = await prisma.city.findUnique({ where: { id: cityId } });
         if (!city) return response.error(res, 'Invalid cityId');
-        if (city.stateId !== stateId) {
-            return response.error(res, 'City does not belong to provided State');
-        }
+        if (city.stateId !== stateId) return response.error(res, 'City does not belong to provided State');
     }
 
-    // Calculate profile completion based on user type
+    
     let calculatedProfileCompletion = 0;
     if (req.body.type === UserType.INFLUENCER) {
         calculatedProfileCompletion = calculateProfileCompletion({
@@ -125,21 +109,18 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     const status = resolveStatus(userFields.status);
     const gender = (userFields.gender ?? Gender.MALE) as any;
 
-
-    // Create user
     const newUser = await prisma.user.create({
         data: {
             ...userFields,
-            password: hashedPassword ?? "null",
+            password: hashedPassword ?? 'null',
             emailAddress,
             status,
             gender,
             birthDate: formattedBirthDate,
-            loginType,
+            loginType: normalizedLoginType,
             availability,
             profileCompletion: calculatedProfileCompletion,
             type: userFields.type ?? UserType.BUSINESS,
-            // CountryData: { connect: { id: countryId } },
             ...(countryId && { CountryData: { connect: { id: countryId } } }),
             ...(stateId && { StateData: { connect: { id: stateId } } }),
             ...(cityId && { CityData: { connect: { id: cityId } } }),
@@ -160,12 +141,11 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             },
         },
         include: {
-            CountryData: false,
             socialMediaPlatforms: true,
         },
     });
 
-    // Validate and create UserSubCategory relations if any
+    // Create UserSubCategory relations if any
     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
         const validSubCategories = await prisma.subCategory.findMany({
             where: { id: { in: subcategoriesId } },
@@ -187,22 +167,36 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             skipDuplicates: true,
         });
     }
-    // return response.success(res, 'Sign Up successfully!', newUser);
-     const token = jwt.sign(
-            { userId: newUser.id, email: newUser.emailAddress },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-        
-    return response.success(res, 'Login successful!', {
-            user: newUser,
-            token,
-        });
 
-    // } catch (error: any) {
-    //     return response.serverError(res, error.message || 'Internal server error');
-    // }
+    // Fetch names
+    const country = countryId ? await prisma.country.findUnique({ where: { id: countryId }, select: { name: true } }) : null;
+    const state = stateId ? await prisma.state.findUnique({ where: { id: stateId }, select: { name: true } }) : null;
+    const city = cityId ? await prisma.city.findUnique({ where: { id: cityId }, select: { name: true } }) : null;
+
+    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(newUser.id);
+    // Build user response
+    const userResponse = {
+        ...newUser,
+        countryId: country?.name ?? null,
+        stateId: state?.name ?? null,
+        cityId: city?.name ?? null,
+    };
+
+    // delete userResponse.password;
+
+    const token = jwt.sign(
+        { userId: newUser.id, email: newUser.emailAddress },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+
+    return response.success(res, 'Sign Up successful!', {
+        user: userResponse,
+        categories: userCategoriesWithSubcategories,
+        token,
+    });
 };
+
 
 
 
@@ -237,7 +231,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 return response.error(res, `Please login using ${user.loginType}.`);
             }
 
-            // Check if socialId matches the one stored in DB
             if (!user.socialId) {
                 return response.error(res, 'No socialId registered for this user. Please contact support.');
             }
@@ -247,7 +240,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             }
 
         } else {
-            // Email/password login flow
             if (user.loginType === LoginType.GOOGLE || user.loginType === LoginType.APPLE) {
                 return response.error(res, `Please login using ${user.loginType}.`);
             }
@@ -264,11 +256,13 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         // Update FCM token if provided
         if (fcmToken) {
-            user = await prisma.user.update({
+            await prisma.user.update({
                 where: { id: user.id },
                 data: { fcmToken },
             });
         }
+
+        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
         // Generate JWT token
         const token = jwt.sign(
@@ -277,17 +271,22 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             { expiresIn: '7d' }
         );
 
+        // Remove password from user object
         const { password: _, ...userWithoutPassword } = user;
 
+        // Final response
         return response.success(res, 'Login successful!', {
             user: userWithoutPassword,
+            categories: userCategoriesWithSubcategories,
             token,
+
         });
 
     } catch (error: any) {
         return response.serverError(res, error.message || 'Login failed.');
     }
 };
+
 
 
 
@@ -923,9 +922,9 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         });
 
     } catch {
-         return res.status(200).json({
+        return res.status(200).json({
             status: false,
-            message :'Social login failed, User not found with this socialId.',
+            message: 'Social login failed, User not found with this socialId.',
             data: null
         });
     }
