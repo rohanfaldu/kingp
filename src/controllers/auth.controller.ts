@@ -262,6 +262,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             });
         }
 
+        // Fetch country, state, city names
+        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+
+        // Get user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
         // Generate JWT token
@@ -271,21 +277,28 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             { expiresIn: '7d' }
         );
 
-        // Remove password from user object
-        const { password: _, ...userWithoutPassword } = user;
+        // Build user response and replace IDs with names
+        const { password: _, ...userWithoutPassword } = user as any;
+
+        const userResponse = {
+            ...userWithoutPassword,
+            countryId: country?.name ?? null,
+            stateId: state?.name ?? null,
+            cityId: city?.name ?? null,
+        };
 
         // Final response
         return response.success(res, 'Login successful!', {
-            user: userWithoutPassword,
+            user: userResponse,
             categories: userCategoriesWithSubcategories,
             token,
-
         });
 
     } catch (error: any) {
         return response.serverError(res, error.message || 'Login failed.');
     }
 };
+
 
 
 
