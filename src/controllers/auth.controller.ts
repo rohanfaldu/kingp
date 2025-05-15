@@ -912,13 +912,20 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                     name: name || 'Social User',
                     emailAddress: emailAddress || null,
                     userImage: userImage || null,
-                    // loginType: 'SOCIAL',
                     type: 'INFLUENCER', // Or 'BUSINESS' as per your need
                     status: true,
                     profileCompletion: 0,
                 },
             });
         }
+
+        // Fetch country, state, city names
+        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+
+        // Get user categories
+        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
         // Generate JWT
         const token = jwt.sign(
@@ -927,18 +934,28 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
             { expiresIn: '7d' }
         );
 
-        const { password, ...userWithoutPassword } = user;
+        // Remove password if exists & override countryId etc. with names
+        const { password, ...userWithoutPassword } = user as any;
+
+        const userResponse = {
+            ...userWithoutPassword,
+            countryId: country?.name ?? null,
+            stateId: state?.name ?? null,
+            cityId: city?.name ?? null,
+        };
 
         return response.success(res, 'Social Login successful!', {
-            user: userWithoutPassword,
+            user: userResponse,
+            categories: userCategoriesWithSubcategories,
             token,
         });
 
-    } catch {
+    } catch (error: any) {
         return res.status(200).json({
             status: false,
-            message: 'Social login failed, User not found with this socialId.',
+            message: error.message || 'Social login failed, User not found with this socialId.',
             data: null
         });
     }
 };
+
