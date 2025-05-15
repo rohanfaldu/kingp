@@ -177,9 +177,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     // Build user response
     const userResponse = {
         ...newUser,
-        countryId: country?.name ?? null,
-        stateId: state?.name ?? null,
-        cityId: city?.name ?? null,
+        countryName: country?.name ?? null,
+        stateName: state?.name ?? null,
+        cityName: city?.name ?? null,
     };
 
     // delete userResponse.password;
@@ -282,9 +282,9 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         const userResponse = {
             ...userWithoutPassword,
-            countryId: country?.name ?? null,
-            stateId: state?.name ?? null,
-            cityId: city?.name ?? null,
+            countryName: country?.name ?? null,
+            stateName: state?.name ?? null,
+            cityName: city?.name ?? null,
         };
 
         // Final response
@@ -298,8 +298,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         return response.serverError(res, error.message || 'Login failed.');
     }
 };
-
-
 
 
 
@@ -939,9 +937,9 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
 
         const userResponse = {
             ...userWithoutPassword,
-            countryId: country?.name ?? null,
-            stateId: state?.name ?? null,
-            cityId: city?.name ?? null,
+            countryName: country?.name ?? null,
+            stateName: state?.name ?? null,
+            cityName: city?.name ?? null,
         };
 
         return response.success(res, 'Social Login successful!', {
