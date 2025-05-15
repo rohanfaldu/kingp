@@ -484,7 +484,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                 });
             }
         }
-
+        
         // Status filter (optional)
         if (status !== undefined) {
             if (status === 'true' || status === 'false') {
@@ -494,12 +494,16 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             }
         }
 
+        const whereFilter: any = { ...filter };
+        if (andFilters.length > 0) {
+            whereFilter.AND = andFilters;
+        }
+
         const users = await paginate(
             req,
             prisma.user,
             {
-
-                where: filter,
+                where: whereFilter,
                 include: {
                     socialMediaPlatforms: true,
                     brandData: true,
@@ -652,32 +656,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         response.error(res, error.message);
     }
 };
-
-// export const deleteUser = async (req: Request, res: Response): Promise<void> => {
-//     try {
-//         const { id } = req.body;
-//         if (!isUuid(id)) {
-//             response.error(res, 'Invalid UUID formate')
-//         }
-//         await prisma.user.delete({
-//             where: { id: id },
-//         });
-
-//         response.success(res, 'User deleted successfully!', null);
-
-//     } catch (error: any) {
-//         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-//             // Error code for foreign key constraint failure in Prisma
-//             if (error.code === 'P2003') {
-//                 response.error(res, 'Cannot delete user because it is related to other records.');
-//             }
-//             if (error.code === 'P2025') {
-//                 response.error(res, 'No user found with the provided UUID.');
-//             }
-//         }
-//         response.error(res, error.message);
-//     }
-// }
 
 
 
