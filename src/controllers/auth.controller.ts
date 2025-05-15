@@ -180,6 +180,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         countryName: country?.name ?? null,
         stateName: state?.name ?? null,
         cityName: city?.name ?? null,
+        categories: userCategoriesWithSubcategories,
     };
 
     // delete userResponse.password;
@@ -192,7 +193,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     return response.success(res, 'Sign Up successful!', {
         user: userResponse,
-        categories: userCategoriesWithSubcategories,
         token,
     });
 };
@@ -285,12 +285,13 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
+            categories: userCategoriesWithSubcategories,
         };
 
         // Final response
         return response.success(res, 'Login successful!', {
-            user: userResponse,
-            categories: userCategoriesWithSubcategories,
+            user: userResponse,  
+            // categories: userCategoriesWithSubcategories,
             token,
         });
 
@@ -648,7 +649,21 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     }
 };
 
+// export const deleteUser = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { id } = req.params;
+//         if (!isUuid(id)) {
+//             response.error(res, 'Invalid UUID formate')
+//         }
+//         const deletedSubCategory = await prisma.user.delete({
+//             where: { id: id },
+//         });
+//         response.success(res, 'User Deleted successfully!', null);
 
+//     } catch (error: any) {
+//         response.error(res, error.message);
+//     }
+// }
 
 
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
@@ -940,11 +955,11 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
+            categories: userCategoriesWithSubcategories,
         };
 
         return response.success(res, 'Social Login successful!', {
             user: userResponse,
-            categories: userCategoriesWithSubcategories,
             token,
         });
 
