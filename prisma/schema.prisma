@@ -45,14 +45,14 @@ model User {
   updatedBy                String?      @db.Uuid
   fcmToken                 String?
   socialId                 String?
-  CountryData              Country?     @relation(fields: [countryId], references: [id])
+  countryData              Country?     @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 PaswordReset[]
   brandData                BrandType?     @relation(fields: [brandTypeId], references: [id])
   socialMediaPlatforms     SocialMediaPlatform[]
   subCategories            UserSubCategory[]
-  CityData                 City?        @relation(fields: [cityId], references: [id])
-  StateData                State?       @relation(fields: [stateId], references: [id])
+  cityData                 City?        @relation(fields: [cityId], references: [id])
+  stateData                State?       @relation(fields: [stateId], references: [id])
   groupUserData            GroupUsers[]
 }
 
@@ -76,7 +76,7 @@ model Country {
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6)
-  CountryData              User[]
+  countryData              User[]
   countryKey               State[]
 }
 
@@ -89,7 +89,7 @@ model State {
   countryId                String?       @db.Uuid
   countryKey               Country?      @relation(fields: [countryId], references: [id])
   stateKey                 City[]
-  StateData                User[]
+  stateData                User[]
 }
 
 model City {
@@ -100,7 +100,7 @@ model City {
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6)
   stateId                  String?        @db.Uuid
   stateKey                 State?         @relation(fields: [stateId], references: [id])
-  CityData                 User[]
+  cityData                 User[]
 }
 
 

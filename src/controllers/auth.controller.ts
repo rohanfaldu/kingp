@@ -14,6 +14,7 @@ import { connect } from "http2";
 import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '../utils/calculateProfileCompletion';
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
 import { mapUserWithLocationAndCategories } from '../utils/userResponseMapper';
+import { omit } from 'lodash';
 
 
 
@@ -118,9 +119,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             availability,
             profileCompletion: calculatedProfileCompletion,
             type: userFields.type ?? UserType.BUSINESS,
-            ...(countryId && { CountryData: { connect: { id: countryId } } }),
-            ...(stateId && { StateData: { connect: { id: stateId } } }),
-            ...(cityId && { CityData: { connect: { id: cityId } } }),
+            ...(countryId && { countryData: { connect: { id: countryId } } }),
+            ...(stateId && { stateData: { connect: { id: stateId } } }),
+            ...(cityId && { cityData: { connect: { id: cityId } } }),
             ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
             socialMediaPlatforms: {
                 create: socialMediaPlatform.map((platform: any) => ({
@@ -140,9 +141,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         include: {
             socialMediaPlatforms: true,
             brandData: true,
-            CountryData: true,
-            StateData: true,
-            CityData: true,
+            countryData: true,
+            stateData: true,
+            cityData: true,
 
         },
     });
@@ -170,22 +171,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         });
     }
 
-    const userSubCategories = await prisma.userSubCategory.findMany({
-        where: { userId: newUser.id },
-        include: {
-            subCategory: {
-                include: {
-                    categoryInformation: true, // ✅ this is correct
-                },
-            },
-        },
-    });
 
-    // ✅ Safely map userSubCategories to build subCategories response
-    const subCategoriesResponse = userSubCategories.map((usc) => ({
-    ...usc.subCategory,
-    category: usc.subCategory.categoryInformation ?? null,
-}));
 
     const token = jwt.sign(
         { userId: newUser.id, email: newUser.emailAddress },
@@ -193,15 +179,19 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         { expiresIn: '7d' }
     );
 
-    const userResponse = {
-        ...newUser,
-        subCategories: subCategoriesResponse,
-        countryName: newUser.CountryData?.name ?? null,
-        stateName: newUser.StateData?.name ?? null,
-        cityName: newUser.CityData?.name ?? null,
-        
-    };
+    //  const { password: _, socialMediaPlatform: __, ...newUsers } = newUser as any;
+    const newUsers = omit(newUser, ['password', 'socialMediaPlatform']);
 
+    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(newUser.id);
+    const userResponse = {
+        ...newUsers,
+        categories: userCategoriesWithSubcategories,
+        countryName: newUser.countryData?.name ?? null,
+        stateName: newUser.stateData?.name ?? null,
+        cityName: newUser.cityData?.name ?? null,
+
+    };
+  
     return response.success(res, 'Sign Up successful!', {
         user: userResponse,
         token,
@@ -227,18 +217,9 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
-                CountryData: true,
-                StateData: true,
-                CityData: true,
-                subCategories: {
-                    include: {
-                        subCategory: {
-                            include: {
-                                categoryInformation: true
-                            }
-                        }
-                    }
-                }
+                countryData: true,
+                stateData: true,
+                cityData: true,
             },
         });
 
@@ -313,11 +294,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         const userResponse = {
             ...userWithoutPassword,
+            categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
-            // categories: userCategoriesWithSubcategories,
-            socialMediaPlatforms: user.socialMediaPlatforms ?? [],
+            
+            // socialMediaPlatforms: user.socialMediaPlatforms ?? [],
         };
 
         // Final response
@@ -358,9 +340,9 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                         },
                     },
                 },
-                CountryData: true,
-                StateData: true,
-                CityData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
             },
         });
         response.success(res, 'User Fetch successfully!', user);
@@ -544,9 +526,9 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                             },
                         },
                     },
-                    CountryData: true,
-                    StateData: true,
-                    CityData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
                 },
             },
             "Users"
@@ -617,9 +599,9 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
                             },
                         },
                     },
-                    CountryData: true,
-                    StateData: true,
-                    CityData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
                 },
             },
             "Users"
@@ -736,7 +718,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         if (countryId && state.countryId !== countryId) {
             return response.error(res, 'State does not belong to provided country');
         }
-        finalUpdateData.StateData = { connect: { id: stateId } };
+        finalUpdateData.stateData = { connect: { id: stateId } };
     }
 
     if (cityId) {
@@ -745,11 +727,11 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         if (stateId && city.stateId !== stateId) {
             return response.error(res, 'City does not belong to provided State');
         }
-        finalUpdateData.CityData = { connect: { id: cityId } };
+        finalUpdateData.cityData = { connect: { id: cityId } };
     }
 
     if (countryId) {
-        finalUpdateData.CountryData = { connect: { id: countryId } };
+        finalUpdateData.countryData = { connect: { id: countryId } };
     }
 
     if (brandTypeId) {
@@ -820,7 +802,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         finalUpdateData.profileCompletion = calculatedProfileCompletion;
 
         const token = req.headers.authorization?.split(' ')[1] || req.token;
-
+        
         // Perform update
         const editedUser = await prisma.user.update({
             where: { id },
@@ -828,18 +810,9 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
-                CountryData: true,
-                StateData: true,
-                CityData: true,
-                subCategories: {
-                    include: {
-                        subCategory: {
-                            include: {
-                                categoryInformation: true
-                            }
-                        }
-                    }
-                }
+                countryData: true,
+                stateData: true,
+                cityData: true,
             }
         });
 
@@ -849,12 +822,18 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         const state = editedUser.stateId ? await prisma.state.findUnique({ where: { id: editedUser.stateId }, select: { name: true } }) : null;
         const city = editedUser.cityId ? await prisma.city.findUnique({ where: { id: editedUser.cityId }, select: { name: true } }) : null;
 
+        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(editedUser.id);
+
+         const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
         const userResponse = {
-            ...editedUser,
+            ...newUsers,
+            categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
         };
+       
+
 
         return response.success(res, 'User profile updated successfully!', {
             user: userResponse,
