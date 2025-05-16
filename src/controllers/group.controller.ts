@@ -263,6 +263,42 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
 };
 
 
+export const deleteGroup = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id: groupId } = req.params;
+        const groupData: Partial<IGroup> = req.body;
 
+        if (!isUuid(groupId)) {
+            response.error(res, 'Invalid UUID formate')
+        }
+
+        if (!groupId) {
+            return response.error(res, 'GroupId is required.');
+        }
+
+        // Check if group exists
+        const existingGroup = await prisma.group.findUnique({
+            where: { id: groupId },
+            include: { groupData: true },
+        });
+
+        if (!existingGroup) {
+            return response.error(res, 'Group not found with this Group ID.');
+        }
+
+        await prisma.groupUsers.deleteMany({
+            where: { groupId },
+        });
+
+        const deletedGroup = await prisma.group.delete({
+            where: { id: groupId },
+        });
+        response.success(res, 'Group Deleted successfully!', null);
+
+    } catch(error: any) {
+        console.error(error);
+        return response.error(res, error.message || 'Failed to delete group');
+    }
+}
 
 
