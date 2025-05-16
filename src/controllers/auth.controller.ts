@@ -284,7 +284,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         );
 
         // Build user response and replace IDs with names
-        const { password: _, ...userWithoutPassword } = user as any;
+        const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
 
         const userResponse = {
             ...userWithoutPassword,
@@ -292,7 +292,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
             categories: userCategoriesWithSubcategories,
-            socialMediaPlatforms: user.socialMediaPlatforms ?? [], // ✅ Add social platforms to response
+            socialMediaPlatforms: user.socialMediaPlatforms ?? [], 
         };
 
         // Final response
