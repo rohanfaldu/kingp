@@ -63,18 +63,12 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
 export const forgotPassword = async (req: Request, res: Response): Promise<any> => {
   const { emailAddress } = req.body;
 
-  // const otp = Math.floor(100000 + Math.random() * 999999).toString();
-  const otp = '123123';
+  const otp = Math.floor(100000 + Math.random() * 999999).toString();
+  // const otp = '123123';
   const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
   const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
 
-  // const existing = await resend.emails.send({
-  //   from: 'KringP <info@kringp.com>',
-  //   to: 'mansibaldaniya.initiotechmedia@gmail.com',
-  //   subject: 'Hello from KringP',
-  //   html: '<p>Kringp test email.</p>',
-  // });
-  // console.log(existing, ">>>>>>>>>>>>>>> existing users");
+
 
   try {
     const existing = await prisma.paswordReset.findFirst({
