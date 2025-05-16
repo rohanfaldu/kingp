@@ -520,7 +520,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             whereFilter.AND = andFilters;
         }
 
-        const users = await paginate(
+        const user = await paginate(
             req,
             prisma.user,
             {
@@ -528,15 +528,15 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                 include: {
                     socialMediaPlatforms: true,
                     brandData: true,
-                    subCategories: {
-                        include: {
-                            subCategory: {
-                                include: {
-                                    categoryInformation: true,
-                                },
-                            },
-                        },
-                    },
+                    // subCategories: {
+                    //     include: {
+                    //         subCategory: {
+                    //             include: {
+                    //                 categoryInformation: true,
+                    //             },
+                    //         },
+                    //     },
+                    // },
                     countryData: true,
                     stateData: true,
                     cityData: true,
@@ -545,11 +545,33 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             "Users"
         );
 
-        if (!users || users.length === 0) {
+        if (!user || user.length === 0) {
             throw new Error("No users found matching the criteria.");
         }
+         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        response.success(res, 'Get All Users successfully!', users);
+        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+
+        const { password: _, socialMediaPlatform: __, ...users } = user as any;
+        const responseUser = {
+            ...users,
+            categories: userCategoriesWithSubcategories,
+            countryName: country?.name ?? null,
+            stateName: state?.name ?? null,
+            cityName: city?.name ?? null,
+        };
+        const token = jwt.sign(
+            { userId: user.id, email: user.emailAddress },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        return response.success(res, 'User fetched successfully!', {
+            user: responseUser,
+            token,
+        });
+        // response.success(res, 'Get All Users successfully!', users);
     } catch (error: any) {
         console.error("Error in getAllUsers:", error);
         response.error(res, error.message);
