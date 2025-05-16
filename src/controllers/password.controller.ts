@@ -4,7 +4,7 @@ import * as bcrypt from 'bcryptjs';
 import response from '../utils/response';
 import jwt from 'jsonwebtoken';
 import { sendEmail } from '../utils/sendMail';
-
+import { Resend } from 'resend';
 import { resolveStatus } from '../utils/commonFunction'
 
 const prisma = new PrismaClient();
@@ -66,6 +66,15 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
   // const otp = Math.floor(100000 + Math.random() * 999999).toString();
   const otp = '123123';
   const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
+  const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
+
+  // const existing = await resend.emails.send({
+  //   from: 'KringP <info@kringp.com>',
+  //   to: 'mansibaldaniya.initiotechmedia@gmail.com',
+  //   subject: 'Hello from KringP',
+  //   html: '<p>Kringp test email.</p>',
+  // });
+  // console.log(existing, ">>>>>>>>>>>>>>> existing users");
 
   try {
     const existing = await prisma.paswordReset.findFirst({
@@ -92,23 +101,28 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
         },
       });
     }
+    const user = await prisma.user.findUnique({
+      where: { emailAddress },
+      select: { name: true },
+    });
 
     const htmlContent = `
-  <p>Hello ${emailAddress},</p>
-  <p>Your OTP is: <strong>${otp}</strong></p>
-`;
+    <p>Hello ${user?.name || emailAddress},</p>
+    <p>This is your KringP Reset Password email.</p>
+    <p>We received a request to reset your password for your Email address ${emailAddress}. To complete the password reset process use OTP given below:
+    <p>Your OTP is: <strong>${otp}</strong></p>
+    <p>If you did not request a password reset, please ignore this email or contact our support team if you have concerns about your account security.</p>
+    
+  `;
 
-    // const result = await sendEmail({
-    //   to: emailAddress,
-    //   subject: 'Reset your password',
-    //   html: htmlContent,
-    // });
+    const sendEmail = await resend.emails.send({
+      from: 'KringP <info@kringp.com>',
+      to: emailAddress,
+      subject: 'Hello from KringP',
+      html: htmlContent,
+    });
+    return response.success(res, 'OTP sent to your email.', otp);
 
-    // if (!result) {
-      // return response.error(res, 'Failed to send OTP. Please try again.');
-    // } else {
-      return response.success(res, 'OTP sent to your email.', otp);
-    // }
 
   } catch (error: any) {
     return response.serverError(res, error.message);

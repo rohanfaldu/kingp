@@ -791,10 +791,10 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         } else {
             calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
         }
-
+        
         // Add profile completion to update data
         finalUpdateData.profileCompletion = calculatedProfileCompletion;
-
+        const token = req.headers.authorization?.split(' ')[1] || req.token;
         // Perform update
         const editedUser = await prisma.user.update({
             where: { id },
@@ -817,9 +817,13 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             }
         });
 
-        return response.success(res, 'User profile updated successfully!', {
+        const userResponse = {
             ...editedUser,
-            // profileCompletionDisplay: `${editedUser.profileCompletion ?? 0}%`
+        }
+        
+        return response.success(res, 'User profile updated successfully!', {
+            user: userResponse,
+            token,
         });
 
     } catch (error: any) {

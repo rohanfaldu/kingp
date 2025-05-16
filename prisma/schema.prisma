@@ -185,12 +185,12 @@ model Group {
   groupName                String?        @db.VarChar
   groupBio                 String?        @db.VarChar
   subCategoryId            String[]
-  socialMediaPlatform      Platform?   
+  socialMediaPlatform      Platform[]   
   Visibility               VisibilityType?
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
-  groupDate                GroupUsers[]
+  groupData                GroupUsers[]
 }
 
 model GroupUsers {
@@ -201,7 +201,7 @@ model GroupUsers {
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
-  groupDate                Group?         @relation(fields: [groupId], references: [id])
+  groupData                Group?         @relation(fields: [groupId], references: [id])
   groupUserData            User?          @relation(fields: [userId], references: [id])
 }
 
