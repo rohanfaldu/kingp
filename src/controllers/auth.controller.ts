@@ -171,8 +171,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         });
     }
 
-
-
     const token = jwt.sign(
         { userId: newUser.id, email: newUser.emailAddress },
         JWT_SECRET,
@@ -191,7 +189,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         cityName: newUser.cityData?.name ?? null,
 
     };
-  
+
     return response.success(res, 'Sign Up successful!', {
         user: userResponse,
         token,
@@ -290,15 +288,13 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         // Build user response and replace IDs with names
         const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
 
-
-
         const userResponse = {
             ...userWithoutPassword,
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
-            
+
             // socialMediaPlatforms: user.socialMediaPlatforms ?? [],
         };
 
@@ -314,42 +310,57 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 };
 
 
-
-
-
-
-
 export const getByIdUser = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
+
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
 
         const user = await prisma.user.findUnique({
-            where: { id: id },
+            where: { id },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
-                subCategories: {
-                    include: {
-                        subCategory: {
-                            include: {
-                                categoryInformation: true,
-                            },
-                        },
-                    },
-                },
                 countryData: true,
                 stateData: true,
                 cityData: true,
             },
         });
-        response.success(res, 'User Fetch successfully!', user);
+
+        if (!user) {
+            return response.error(res, 'User not found');
+        }
+
+        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+
+        const { password: _, socialMediaPlatform: __, ...users } = user as any;
+        const responseUser = {
+            ...users,
+            categories: userCategoriesWithSubcategories,
+            countryName: country?.name ?? null,
+            stateName: state?.name ?? null,
+            cityName: city?.name ?? null,
+        };
+        const token = jwt.sign(
+            { userId: user.id, email: user.emailAddress },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        return response.success(res, 'User fetched successfully!', {
+            user: responseUser,
+            token,
+        });
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
-}
+};
+
 
 
 
@@ -668,7 +679,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 
-
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params;
     const userData: IUser = req.body;
@@ -802,7 +812,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         finalUpdateData.profileCompletion = calculatedProfileCompletion;
 
         const token = req.headers.authorization?.split(' ')[1] || req.token;
-        
+
         // Perform update
         const editedUser = await prisma.user.update({
             where: { id },
@@ -824,7 +834,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(editedUser.id);
 
-         const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
+        const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
         const userResponse = {
             ...newUsers,
             categories: userCategoriesWithSubcategories,
@@ -832,7 +842,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
         };
-       
+
 
 
         return response.success(res, 'User profile updated successfully!', {
@@ -844,11 +854,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message || 'Failed to update user profile');
     }
 };
-
-
-
-
-
 
 export const getUsersWithType = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -906,8 +911,6 @@ export const incrementInfluencerClick = async (req: Request, res: Response): Pro
         return response.error(res, error.message);
     }
 };
-
-
 
 export const socialLogin = async (req: Request, res: Response): Promise<any> => {
     try {
