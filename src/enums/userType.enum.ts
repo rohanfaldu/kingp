@@ -27,3 +27,8 @@ export enum AvailabilityType {
     ONLINE = 'ONLINE',
     OFFLINE = 'OFFLINE',
 }
+
+export enum VisibilityType {
+    PUBLIC = 'PUBLIC',
+    PRIVATE = 'PRIVATE',
+}

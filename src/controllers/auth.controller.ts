@@ -1,4 +1,3 @@
-import { Category } from './../../node_modules/.prisma/client/index.d';
 import { Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
@@ -215,6 +214,9 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         let user = await prisma.user.findUnique({
             where: { emailAddress },
+            include: {
+                socialMediaPlatforms: true, 
+            },
         });
 
         if (!user) {
@@ -290,12 +292,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
             categories: userCategoriesWithSubcategories,
+            socialMediaPlatforms: user.socialMediaPlatforms ?? [], // ✅ Add social platforms to response
         };
 
         // Final response
         return response.success(res, 'Login successful!', {
             user: userResponse,
-            // categories: userCategoriesWithSubcategories,
             token,
         });
 
@@ -303,6 +305,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         return response.serverError(res, error.message || 'Login failed.');
     }
 };
+
 
 
 

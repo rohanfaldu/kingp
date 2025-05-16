@@ -53,6 +53,7 @@ model User {
   subCategories            UserSubCategory[]
   CityData                 City?        @relation(fields: [cityId], references: [id])
   StateData                State?       @relation(fields: [stateId], references: [id])
+  groupUserData            GroupUsers[]
 }
 
 model Category {
@@ -65,7 +66,7 @@ model Category {
   createdBy                String?       @db.Uuid
   updatedBy                String?       @db.Uuid
   categoryInformation      SubCategory[]
-  categoryInfo              UserSubCategory[]
+  categoryInfo             UserSubCategory[]
 }
 
 model Country {
@@ -178,6 +179,32 @@ model UserSubCategory {
   @@id([userId, subCategoryId]) 
 }
 
+model Group {
+  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  groupImage               String?        @db.VarChar
+  groupName                String?        @db.VarChar
+  groupBio                 String?        @db.VarChar
+  subCategoryId            String[]
+  socialMediaPlatform      Platform?   
+  Visibility               VisibilityType?
+  status                   Boolean        @default(true)
+  createsAt                DateTime?      @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
+  groupDate                GroupUsers[]
+}
+
+model GroupUsers {
+  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  userId                   String         @db.Uuid
+  groupId                  String         @db.Uuid
+  invitedUserId            String[]
+  status                   Boolean        @default(true)
+  createsAt                DateTime?      @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
+  groupDate                Group?         @relation(fields: [groupId], references: [id])
+  groupUserData            User?          @relation(fields: [userId], references: [id])
+}
+
 enum Role {
   BUSINESS
   INFLUENCER
@@ -211,4 +238,9 @@ enum LoginType {
 enum AvailabilityType {
   ONLINE
   OFFLINE
+}
+
+enum VisibilityType {
+  PUBLIC
+  PRIVATE
 }

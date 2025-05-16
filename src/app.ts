@@ -11,6 +11,7 @@ import stateRoutes from './routes/state.routes';
 import cityRoutes from './routes/city.routes';
 import brandTypeRoutes from './routes/brandType.routes';
 import socialMediaRoutes from './routes/socialMedia.routes';
+import groupRoutes from './routes/group.routes';
 import path from 'path';
 import cors from 'cors';
 
@@ -50,6 +51,7 @@ app.use('/api/state', stateRoutes);
 app.use('/api/city', cityRoutes);
 app.use('/api/brand-type', brandTypeRoutes);
 app.use('/api/social-media', socialMediaRoutes);
+app.use('/api/group', groupRoutes);
 
 const PORT = process.env.PORT || 3000;
 
