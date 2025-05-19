@@ -37,6 +37,7 @@ export const getUserCategoriesWithSubcategories = async (userId: string) => {
             subCategoryId: item.subCategory.id,
             subCategoryName: item.subCategory.name,
         });
+        console.log(categoryMap, '>>>>>>>>>>>>>>>>> categoryMap')
     });
 
     return Object.values(categoryMap);

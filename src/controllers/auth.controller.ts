@@ -366,7 +366,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
 
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
-    try {
+    // try {
         const {
             platform,
             type,
@@ -542,19 +542,24 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                     cityData: true,
                 },
             },
-            "Users"
+            "User"
         );
 
         if (!user || user.length === 0) {
             throw new Error("No users found matching the criteria.");
         }
          const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
+        console.log(userCategoriesWithSubcategories, '>>>>>>>>>>>>>>>> userCategoriesWithSubcategories')
         const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
         const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
         const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
 
         const { password: _, socialMediaPlatform: __, ...users } = user as any;
+        const token = jwt.sign(
+            { userId: user.id, email: user.emailAddress },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
         const responseUser = {
             ...users,
             categories: userCategoriesWithSubcategories,
@@ -562,20 +567,16 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
         };
-        const token = jwt.sign(
-            { userId: user.id, email: user.emailAddress },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        
         return response.success(res, 'User fetched successfully!', {
             user: responseUser,
             token,
         });
         // response.success(res, 'Get All Users successfully!', users);
-    } catch (error: any) {
-        console.error("Error in getAllUsers:", error);
-        response.error(res, error.message);
-    }
+    // } catch (error: any) {
+    //     console.error("Error in getAllUsers:", error);
+    //     response.error(res, error.message);
+    // }
 };
 
 

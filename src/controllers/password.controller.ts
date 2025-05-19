@@ -75,6 +75,10 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
       where: { emailAddress: emailAddress },
     });
 
+    if(!existing) {
+      return response.error(res, 'Current Email Address is incorrect, please give valid Email Address.');
+    }
+
     if (existing) {
       await prisma.paswordReset.update({
         where: { id: existing.id },
