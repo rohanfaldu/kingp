@@ -81,26 +81,36 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expireAt = new Date(Date.now() + 10 * 60 * 1000); // OTP valid for 10 minutes
+  const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes validity
   const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
 
   try {
     const existingOtp = await prisma.otpVerify.findFirst({
-      where: {
-        emailAddress,
-      },
+      where: { emailAddress, otpType: 'RESETPASS' },
     });
 
+    const now = new Date();
+
     if (existingOtp) {
+      const timeSinceLastUpdate = now.getTime() - new Date(existingOtp.updatedAt).getTime();
+      const thirtyMinutes = 30 * 60 * 1000;
+
+      if (existingOtp.countMail >= 3 && timeSinceLastUpdate < thirtyMinutes) {
+        return response.error(res, 'Too many attempts. Please try again after 30 minutes.');
+      }
+
+      // Reset count if 30 minutes have passed
+      const newCount = timeSinceLastUpdate >= thirtyMinutes ? 1 : (existingOtp.countMail || 0) + 1;
+
       await prisma.otpVerify.update({
         where: { id: existingOtp.id },
         data: {
           otp,
           expireAt,
           verified: false,
-          otpType: 'RESETPASS',
-          countMail: (existingOtp.countMail || 0) + 1,
-          updatedAt: new Date(),
+          // otpType: 'RESETPASS',
+          countMail: newCount,
+          updatedAt: now,
         },
       });
     } else {
@@ -112,7 +122,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
           verified: false,
           otpType: 'RESETPASS',
           countMail: 1,
-          updatedAt: new Date(),
+          updatedAt: now,
         },
       });
     }
@@ -143,103 +153,144 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
 
 
 
+
+// export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
+//   const { emailAddress, otp } = req.body;
+
+//   if (!emailAddress || !otp) {
+//     return response.error(res, 'Email, and OTP are required.');
+//   }
+
+//   try {
+//     const record = await prisma.otpVerify.findFirst({
+//       where: {
+//         emailAddress,
+//       },
+//     });
+
+//     if (!record) {
+//       return response.error(res, 'Invalid OTP or not found this OTP for given Email.');
+//     }
+
+//     const now = new Date();
+//     const fifteenMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+
+//     const isBlocked = record.countMail >= 4 && record.updatedAt > fifteenMinutesAgo;
+
+//     if (isBlocked) {
+//       return response.error(res, 'Too many OTP attempts. Please try again after 30 minutes.');
+//     }
+
+//     const shouldResetCount = record.updatedAt <= fifteenMinutesAgo;
+
+//     if (record.otp !== otp) {
+//       const newCount = shouldResetCount ? 1 : (record.countMail ?? 0) + 1;
+
+//       await prisma.otpVerify.update({
+//         where: { id: record.id },
+//         data: {
+//           countMail: newCount,
+//           updatedAt: now,
+//         },
+//       });
+
+//       if (newCount >= 4) {
+//         return response.error(res, 'Too many OTP attempts. Please try again after 15 minutes.');
+//       }
+
+//       return response.error(res, 'Invalid OTP.');
+//     }
+
+//     await prisma.otpVerify.update({
+//       where: { id: record.id },
+//       data: {
+//         verified: true,
+//         updatedAt: now,
+//       },
+//     });
+
+//     const user = await prisma.user.findUnique({
+//       where: { emailAddress },
+//       include: {
+//         socialMediaPlatforms: true,
+//         brandData: true,
+//         countryData: true,
+//         stateData: true,
+//         cityData: true,
+//       },
+//     });
+
+//     if (!user) {
+//       return response.error(res, 'User not found.');
+//     }
+
+//     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+//     const token = jwt.sign(
+//       { userId: user.id, email: user.emailAddress },
+//       JWT_SECRET,
+//       { expiresIn: '7d' }
+//     );
+
+//     const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
+
+//     const userResponse = {
+//       ...userWithoutPassword,
+//       categories: userCategoriesWithSubcategories,
+//       countryName: user.countryData?.name ?? null,
+//       stateName: user.stateData?.name ?? null,
+//       cityName: user.cityData?.name ?? null,
+//     };
+
+//     return response.success(res, 'OTP verified successfully.', {
+//       user: userResponse,
+//       token,
+//     });
+//   } catch (error: any) {
+//     return response.serverError(res, error.message);
+//   }
+// };
+
+
+
+
 export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
   const { emailAddress, otp } = req.body;
 
   if (!emailAddress || !otp) {
-    return response.error(res, 'Email, and OTP are required.');
+    return response.error(res, 'Email, OTP, and OTP type are required.');
   }
 
   try {
     const record = await prisma.otpVerify.findFirst({
       where: {
         emailAddress,
+        otp,
+        verified: false,
       },
     });
 
     if (!record) {
-      return response.error(res, 'Invalid OTP or not found this OTP for given Email.');
+      return response.error(res, 'Invalid OTP or not found.');
     }
 
-    const now = new Date();
-    const fifteenMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
-
-    const isBlocked = record.countMail >= 4 && record.updatedAt > fifteenMinutesAgo;
-
-    if (isBlocked) {
-      return response.error(res, 'Too many OTP attempts. Please try again after 30 minutes.');
-    }
-
-    const shouldResetCount = record.updatedAt <= fifteenMinutesAgo;
-
-    if (record.otp !== otp) {
-      const newCount = shouldResetCount ? 1 : (record.countMail ?? 0) + 1;
-
-      await prisma.otpVerify.update({
-        where: { id: record.id },
-        data: {
-          countMail: newCount,
-          updatedAt: now,
-        },
-      });
-
-      if (newCount >= 4) {
-        return response.error(res, 'Too many OTP attempts. Please try again after 15 minutes.');
-      }
-
-      return response.error(res, 'Invalid OTP.');
+    if (record.expireAt && new Date() > record.expireAt) {
+      return response.error(res, 'OTP expired.');
     }
 
     await prisma.otpVerify.update({
       where: { id: record.id },
       data: {
         verified: true,
-        updatedAt: now,
+        updatedAt: new Date(),
       },
     });
 
-    const user = await prisma.user.findUnique({
-      where: { emailAddress },
-      include: {
-        socialMediaPlatforms: true,
-        brandData: true,
-        countryData: true,
-        stateData: true,
-        cityData: true,
-      },
-    });
-
-    if (!user) {
-      return response.error(res, 'User not found.');
-    }
-
-    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
-    const token = jwt.sign(
-      { userId: user.id, email: user.emailAddress },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
-
-    const userResponse = {
-      ...userWithoutPassword,
-      categories: userCategoriesWithSubcategories,
-      countryName: user.countryData?.name ?? null,
-      stateName: user.stateData?.name ?? null,
-      cityName: user.cityData?.name ?? null,
-    };
-
-    return response.success(res, 'OTP verified successfully.', {
-      user: userResponse,
-      token,
-    });
+    return response.success(res, 'OTP verified successfully.', null);
   } catch (error: any) {
     return response.serverError(res, error.message);
   }
 };
-
 
 
 
