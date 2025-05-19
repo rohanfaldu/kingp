@@ -144,39 +144,60 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
 
 
 export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
-  const { emailAddress, otp, otpType } = req.body;
+  const { emailAddress, otp } = req.body;
 
   if (!emailAddress || !otp) {
-    return response.error(res, 'Email, OTP, and OTP type are required.');
+    return response.error(res, 'Email, and OTP are required.');
   }
 
   try {
     const record = await prisma.otpVerify.findFirst({
       where: {
         emailAddress,
-        otp,
-        // otpType,
-        verified: false,
       },
     });
 
     if (!record) {
-      return response.error(res, 'Invalid OTP or not found this OTP for given type.');
+      return response.error(res, 'Invalid OTP or not found this OTP for given Email.');
     }
 
-    // if (record.expireAt && new Date() > record.expireAt) {
-    //   return response.error(res, 'OTP expired.');
-    // }
+    const now = new Date();
+    const fifteenMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+
+    const isBlocked = record.countMail >= 4 && record.updatedAt > fifteenMinutesAgo;
+
+    if (isBlocked) {
+      return response.error(res, 'Too many OTP attempts. Please try again after 30 minutes.');
+    }
+
+    const shouldResetCount = record.updatedAt <= fifteenMinutesAgo;
+
+    if (record.otp !== otp) {
+      const newCount = shouldResetCount ? 1 : (record.countMail ?? 0) + 1;
+
+      await prisma.otpVerify.update({
+        where: { id: record.id },
+        data: {
+          countMail: newCount,
+          updatedAt: now,
+        },
+      });
+
+      if (newCount >= 4) {
+        return response.error(res, 'Too many OTP attempts. Please try again after 15 minutes.');
+      }
+
+      return response.error(res, 'Invalid OTP.');
+    }
 
     await prisma.otpVerify.update({
       where: { id: record.id },
       data: {
         verified: true,
-        updatedAt: new Date(),
+        updatedAt: now,
       },
     });
-    
-    // Fetch user
+
     const user = await prisma.user.findUnique({
       where: { emailAddress },
       include: {
@@ -192,20 +213,16 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       return response.error(res, 'User not found.');
     }
 
-    // Fetch user categories with subcategories (same helper you used in signup)
     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-    // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.emailAddress },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Remove sensitive data from user object
     const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
 
-    // Build user response with locations and categories
     const userResponse = {
       ...userWithoutPassword,
       categories: userCategoriesWithSubcategories,
@@ -218,12 +235,10 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       user: userResponse,
       token,
     });
-    // return response.success(res, 'OTP verified successfully.', userResponse);
   } catch (error: any) {
     return response.serverError(res, error.message);
   }
 };
-
 
 
 
