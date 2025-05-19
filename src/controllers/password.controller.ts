@@ -151,7 +151,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       where: {
         emailAddress,
         otp,
-        otpType,
+        // otpType,
         verified: false,
       },
     });

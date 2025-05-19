@@ -82,7 +82,7 @@ export const getAllCategory = async (req: Request, res: Response): Promise<any> 
         const categories = await paginate(req, prisma.category, {}, "categories");
 
         if (!categories || categories.length === 0) {
-            throw new Error("Country not Found");
+            throw new Error("Categories not Found");
 
         }
         response.success(res, 'Get All categories successfully!', categories);
