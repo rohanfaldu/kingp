@@ -229,10 +229,11 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     const htmlContent = `
     <p>Hello ${user?.name || emailAddress},</p>
-    <p>This is your KringP Reset Password email.</p>
-    <p>We received a request to reset your password for your Email address ${emailAddress}. To complete the password reset process use OTP given below:
+    <p>Welcome to <strong>KringP</strong>! Thank you for signing up.</p>
+    <p>To verify your email address and complete your registration, please use the following One-Time Password (OTP):</p>
     <p>Your OTP is: <strong>${otp}</strong></p>
-    <p>If you did not request a password reset, please ignore this email or contact our support team if you have concerns about your account security.</p>
+    <p>This OTP is valid for a limited time. Please do not share it with anyone for security reasons.</p>
+    <p>If you did not initiate this registration, please ignore this email.</p>
     
   `;
 
