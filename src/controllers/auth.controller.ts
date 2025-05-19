@@ -334,6 +334,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         }
 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+        console.log(userCategoriesWithSubcategories, '>>>>>> userCategoriesWithSubcategories');
 
         const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
         const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
@@ -366,7 +367,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
 
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
-    // try {
+    try {
         const {
             platform,
             type,
@@ -520,7 +521,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             whereFilter.AND = andFilters;
         }
 
-        const user = await paginate(
+        const paginatedResult = await paginate(
             req,
             prisma.user,
             {
@@ -528,56 +529,44 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                 include: {
                     socialMediaPlatforms: true,
                     brandData: true,
-                    // subCategories: {
-                    //     include: {
-                    //         subCategory: {
-                    //             include: {
-                    //                 categoryInformation: true,
-                    //             },
-                    //         },
-                    //     },
-                    // },
                     countryData: true,
                     stateData: true,
                     cityData: true,
+                },
+                orderBy: {
+                    createsAt: 'desc', // assuming "createsAt" is the correct field
                 },
             },
             "User"
         );
 
-        if (!user || user.length === 0) {
+        if (!paginatedResult.User || paginatedResult.User.length === 0) {
             throw new Error("No users found matching the criteria.");
         }
-         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-        console.log(userCategoriesWithSubcategories, '>>>>>>>>>>>>>>>> userCategoriesWithSubcategories')
-        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
-        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
-        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
 
-        const { password: _, socialMediaPlatform: __, ...users } = user as any;
-        const token = jwt.sign(
-            { userId: user.id, email: user.emailAddress },
-            JWT_SECRET,
-            { expiresIn: '7d' }
+        // Format all users
+        const formattedUsers = await Promise.all(
+            paginatedResult.User.map(async (userData: any) => {
+                const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(userData.id);
+
+                return {
+                    ...userData,
+                    categories: userCategoriesWithSubcategories,
+                    countryName: userData.countryData?.name ?? null,
+                    stateName: userData.stateData?.name ?? null,
+                    cityName: userData.cityData?.name ?? null,
+                };
+            })
         );
-        const responseUser = {
-            ...users,
-            categories: userCategoriesWithSubcategories,
-            countryName: country?.name ?? null,
-            stateName: state?.name ?? null,
-            cityName: city?.name ?? null,
-        };
-        
-        return response.success(res, 'User fetched successfully!', {
-            user: responseUser,
-            token,
+        return response.success(res, 'Users fetched successfully!', {
+            pagination: paginatedResult.pagination,
+            users: formattedUsers,
         });
-        // response.success(res, 'Get All Users successfully!', users);
-    // } catch (error: any) {
-    //     console.error("Error in getAllUsers:", error);
-    //     response.error(res, error.message);
-    // }
-};
+    } catch (error: any) {
+        console.error("Error in getAllUsers:", error);
+        response.error(res, error.message);
+    }
+}
 
 
 
