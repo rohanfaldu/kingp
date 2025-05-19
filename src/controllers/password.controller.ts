@@ -160,9 +160,9 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       return response.error(res, 'Invalid OTP or not found this OTP for given type.');
     }
 
-    if (record.expireAt && new Date() > record.expireAt) {
-      return response.error(res, 'OTP expired.');
-    }
+    // if (record.expireAt && new Date() > record.expireAt) {
+    //   return response.error(res, 'OTP expired.');
+    // }
 
     await prisma.otpVerify.update({
       where: { id: record.id },
