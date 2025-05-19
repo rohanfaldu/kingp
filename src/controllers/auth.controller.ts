@@ -364,8 +364,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
 
 
-
-
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
     try {
         const {
@@ -534,7 +532,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                     cityData: true,
                 },
                 orderBy: {
-                    createsAt: 'desc', // assuming "createsAt" is the correct field
+                    createsAt: 'desc', 
                 },
             },
             "User"
