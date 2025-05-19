@@ -47,7 +47,7 @@ model User {
   socialId                 String?
   countryData              Country?     @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
-  userData                 PaswordReset[]
+  userData                 OtpVerify[]
   brandData                BrandType?     @relation(fields: [brandTypeId], references: [id])
   socialMediaPlatforms     SocialMediaPlatform[]
   subCategories            UserSubCategory[]
@@ -128,7 +128,7 @@ model UserDetail {
   User                   User?          @relation(fields: [userId], references: [id])
 }
 
-model PaswordReset {
+model OtpVerify {
   id                     String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
   emailAddress           String         @db.VarChar
   otp                    String         @db.VarChar
@@ -136,6 +136,8 @@ model PaswordReset {
   verified               Boolean        @default(false)
   createdAt              DateTime       @default(now())@db.Timestamp(6)
   updatedAt              DateTime       
+  otpType                OtpType?
+  countMail              Int?           @default(0)
   userData               User?          @relation( fields: [emailAddress], references: [emailAddress], onDelete: Cascade ) 
 }
 
@@ -243,4 +245,9 @@ enum AvailabilityType {
 enum VisibilityType {
   PUBLIC
   PRIVATE
+}
+
+enum OtpType {
+  SIGNUP
+  RESETPASS
 }

@@ -63,96 +63,74 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
 export const forgotPassword = async (req: Request, res: Response): Promise<any> => {
   const { emailAddress } = req.body;
 
-  const otp = Math.floor(100000 + Math.random() * 999999).toString();
-  // const otp = '123123';
-  const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
+  if (!emailAddress) {
+    return response.error(res, 'Email address is required.');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { emailAddress },
+    select: { name: true },
+  });
+
+  if (!user) {
+    return response.error(res, 'Email not found. Please provide a valid email address.');
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expireAt = new Date(Date.now() + 10 * 60 * 1000); // OTP valid for 10 minutes
   const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
 
-
-
   try {
-    const existing = await prisma.paswordReset.findFirst({
-      where: { emailAddress: emailAddress },
+    const existingOtp = await prisma.otpVerify.findFirst({
+      where: {
+        emailAddress,
+      },
     });
 
-    if(!existing) {
-      return response.error(res, 'Current Email Address is incorrect, please give valid Email Address.');
-    }
-
-    if (existing) {
-      await prisma.paswordReset.update({
-        where: { id: existing.id },
+    if (existingOtp) {
+      await prisma.otpVerify.update({
+        where: { id: existingOtp.id },
         data: {
           otp,
           expireAt,
           verified: false,
+          otpType: 'RESETPASS',
+          countMail: (existingOtp.countMail || 0) + 1,
           updatedAt: new Date(),
         },
       });
     } else {
-      await prisma.paswordReset.create({
+      await prisma.otpVerify.create({
         data: {
-          emailAddress: emailAddress,
+          emailAddress,
           otp,
           expireAt,
+          verified: false,
+          otpType: 'RESETPASS',
+          countMail: 1,
           updatedAt: new Date(),
         },
       });
     }
-    const user = await prisma.user.findUnique({
-      where: { emailAddress },
-      select: { name: true },
-    });
 
     const htmlContent = `
-    <p>Hello ${user?.name || emailAddress},</p>
-    <p>This is your KringP Reset Password email.</p>
-    <p>We received a request to reset your password for your Email address ${emailAddress}. To complete the password reset process use OTP given below:
-    <p>Your OTP is: <strong>${otp}</strong></p>
-    <p>If you did not request a password reset, please ignore this email or contact our support team if you have concerns about your account security.</p>
-    
-  `;
+      <p>Hello ${user?.name || emailAddress},</p>
+      <p>This is your KringP Reset Password email.</p>
+      <p>We received a request to reset your password for your email address: ${emailAddress}.</p>
+      <p>Your OTP is: <strong>${otp}</strong></p>
+      <p>This OTP is valid for 10 minutes.</p>
+      <p>If you did not request a password reset, please ignore this email or contact our support team.</p>
+    `;
 
-    const sendEmail = await resend.emails.send({
+    await resend.emails.send({
       from: 'KringP <info@kringp.com>',
       to: emailAddress,
-      subject: 'Hello from KringP',
+      subject: 'Reset Password OTP - KringP',
       html: htmlContent,
     });
+
     return response.success(res, 'OTP sent to your email.', otp);
 
-
-  } catch (error: any) {
-    return response.serverError(res, error.message);
-  }
-}
-
-
-export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
-  const { emailAddress, otp } = req.body;
-
-  try {
-    const record = await prisma.paswordReset.findFirst({
-      where: { emailAddress },
-    });
-
-    if (!record || record.otp !== otp) {
-      return response.error(res, 'Invalid OTP.');
-    }
-
-    if (record.expireAt && new Date() > record.expireAt) {
-      return response.error(res, 'OTP expired.');
-
-    }
-
-    await prisma.paswordReset.update({
-      where: { id: record.id },
-      data: {
-        verified: true,
-        updatedAt: new Date(),
-      },
-    });
-    return response.success(res, 'OTP verified Succesfully.', null);
   } catch (error: any) {
     return response.serverError(res, error.message);
   }
@@ -160,35 +138,90 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
 
 
 
+
+export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
+  const { emailAddress, otp, otpType } = req.body;
+
+  if (!emailAddress || !otp ) {
+    return response.error(res, 'Email, OTP, and OTP type are required.');
+  }
+
+  try {
+    const record = await prisma.otpVerify.findFirst({
+      where: {
+        emailAddress,
+        otp,
+        otpType,
+        verified: false,
+      },
+    });
+
+    if (!record) {
+      return response.error(res, 'Invalid OTP or not found this OTP for given type.');
+    }
+
+    if (record.expireAt && new Date() > record.expireAt) {
+      return response.error(res, 'OTP expired.');
+    }
+
+    await prisma.otpVerify.update({
+      where: { id: record.id },
+      data: {
+        verified: true,
+        updatedAt: new Date(),
+      },
+    });
+
+    return response.success(res, 'OTP verified successfully.', null);
+  } catch (error: any) {
+    return response.serverError(res, error.message);
+  }
+};
+
+
+
+
+
 export const resetPassword = async (req: Request, res: Response): Promise<any> => {
   const { emailAddress, newPassword, confirmPassword } = req.body;
+
+  if (!emailAddress || !newPassword || !confirmPassword) {
+    return response.error(res, 'Email, new password, and confirm password are required.');
+  }
 
   try {
     if (newPassword !== confirmPassword) {
       return response.error(res, 'Password and confirm password do not match.');
     }
 
-    const reset = await prisma.paswordReset.findFirst({
-      where: { emailAddress: emailAddress },
+    const otpRecord = await prisma.otpVerify.findFirst({
+      where: {
+        emailAddress,
+        otpType: 'RESETPASS',
+        verified: true,
+      },
     });
 
-    if (!reset || !reset.verified) {
-      return response.error(res, 'Email Address is incoreect or OTP not verified.');
+    if (!otpRecord) {
+      return response.error(res, 'OTP not verified or email address is incorrect.');
     }
 
     await prisma.user.update({
-      where: { emailAddress: emailAddress },
+      where: { emailAddress },
       data: {
         password: await bcrypt.hash(newPassword, 10),
       },
     });
 
-    await prisma.paswordReset.delete({
-      where: { id: reset.id },
-    });
+    // // Delete OTP entry to prevent reuse
+    // await prisma.otpVerify.delete({
+    //   where: { id: otpRecord.id },
+    // });
+
     return response.success(res, 'Password reset successfully.', null);
   } catch (error: any) {
     return response.serverError(res, error.message);
   }
-}
+};
+
 

@@ -15,8 +15,7 @@ import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
 import { mapUserWithLocationAndCategories } from '../utils/userResponseMapper';
 import { omit } from 'lodash';
-
-
+import { Resend } from 'resend';
 
 
 const prisma = new PrismaClient();
@@ -190,6 +189,60 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     };
 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
+
+    const existingOtp = await prisma.otpVerify.findFirst({
+        where: { emailAddress, otpType: 'SIGNUP' },
+    });
+
+    if (existingOtp) {
+        await prisma.otpVerify.update({
+            where: { id: existingOtp.id },
+            data: {
+                otp,
+                expireAt,
+                verified: false,
+                countMail: (existingOtp.countMail || 0) + 1,
+                updatedAt: new Date(),
+            },
+        });
+    } else {
+        await prisma.otpVerify.create({
+            data: {
+                emailAddress,
+                otp,
+                expireAt,
+                verified: false,
+                otpType: 'SIGNUP',
+                countMail: 1,
+                updatedAt: new Date(),
+            },
+        });
+    }
+    const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
+
+    const user = await prisma.user.findUnique({
+        where: { emailAddress },
+        select: { name: true },
+    });
+
+    const htmlContent = `
+    <p>Hello ${user?.name || emailAddress},</p>
+    <p>This is your KringP Reset Password email.</p>
+    <p>We received a request to reset your password for your Email address ${emailAddress}. To complete the password reset process use OTP given below:
+    <p>Your OTP is: <strong>${otp}</strong></p>
+    <p>If you did not request a password reset, please ignore this email or contact our support team if you have concerns about your account security.</p>
+    
+  `;
+
+    const sendEmail = await resend.emails.send({
+        from: 'KringP <info@kringp.com>',
+        to: emailAddress,
+        subject: 'Hello from KringP',
+        html: htmlContent,
+    });
+
     return response.success(res, 'Sign Up successful!', {
         user: userResponse,
         token,
@@ -225,6 +278,18 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, 'Invalid email address.');
         }
 
+        // Check if email is verified via OTP (SIGNUP)
+        const verifiedOtp = await prisma.otpVerify.findFirst({
+            where: {
+                emailAddress,
+                // otpType: 'SIGNUP',
+                verified: true,
+            },
+        });
+
+        if (!verifiedOtp) {
+            return response.error(res, 'Email is not verified. Please verify your email with the OTP sent during signup.');
+        }
         // Social login flow (GOOGLE or APPLE)
         if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
             if (!socialId) {
@@ -308,6 +373,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         return response.serverError(res, error.message || 'Login failed.');
     }
 };
+
+
 
 
 export const getByIdUser = async (req: Request, res: Response): Promise<any> => {
@@ -532,7 +599,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                     cityData: true,
                 },
                 orderBy: {
-                    createsAt: 'desc', 
+                    createsAt: 'desc',
                 },
             },
             "User"
@@ -672,7 +739,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             prisma.userSubCategory.deleteMany({
                 where: { userId: id },
             }),
-            prisma.paswordReset.deleteMany({
+            prisma.otpVerify.deleteMany({
                 where: { emailAddress: existingUser.emailAddress },
             }),
             prisma.user.delete({
