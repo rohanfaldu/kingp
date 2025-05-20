@@ -143,19 +143,3 @@ export const deleteBrand = async (req: Request, res: Response): Promise<any> => 
         response.error(res, error.message);
     }
 }
-
-// export const deleteBrand = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const {id} = req.params;
-//         if (!isUuid(id)) {
-//             response.error(res, 'Invalid UUID formate')
-//         }
-//         const deletedBrands = await prisma.brandType.delete({
-//             where: {id: id},
-//         });
-//         response.success(res, 'Brand Type Deleted successfully!',null);
-
-//     } catch (error: any) {
-//         response.error(res, error.message);
-//     }
-// }
