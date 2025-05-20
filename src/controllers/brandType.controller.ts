@@ -108,54 +108,54 @@ export const getAllBrand = async (req: Request, res: Response): Promise<any> => 
 }
 
 
-// export const deleteBrand = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const {id} = req.params;
-//         if (!isUuid(id)) {
-//             response.error(res, 'Invalid UUID formate')
-//         }
-
-//          // Check if category exists
-//         const brand = await prisma.brandType.findUnique({
-//             where: { id },
-//         });
-
-//         if (!brand) {
-//             return response.error(res, 'No brand found with the provided UUID.');
-//         }
-
-//         // Check if category is used in UserSubCategory
-//         const relatedInUser = await prisma.user.count({
-//             where: { brandTypeId: id },
-//         });
-
-//         if (relatedInUser > 0) {
-//             return response.error(res, 'Cannot delete brand because it is used in User relations.');
-//         }
-
-//         await prisma.brandType.delete({
-//             where: { id },
-//         });
-
-//         response.success(res, 'Brand Type Deleted successfully!',null);
-
-//     } catch (error: any) {
-//         response.error(res, error.message);
-//     }
-// }
-
 export const deleteBrand = async (req: Request, res: Response): Promise<any> => {
     try {
         const {id} = req.params;
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID formate')
         }
-        const deletedBrands = await prisma.brandType.delete({
-            where: {id: id},
+
+         // Check if category exists
+        const brand = await prisma.brandType.findUnique({
+            where: { id },
         });
+
+        if (!brand) {
+            return response.error(res, 'No brand found with the provided UUID.');
+        }
+
+        // Check if category is used in UserSubCategory
+        const relatedInUser = await prisma.user.count({
+            where: { brandTypeId: id },
+        });
+
+        if (relatedInUser > 0) {
+            return response.error(res, 'Cannot delete brand because it is used in User relations.');
+        }
+
+        await prisma.brandType.delete({
+            where: { id },
+        });
+
         response.success(res, 'Brand Type Deleted successfully!',null);
 
     } catch (error: any) {
         response.error(res, error.message);
     }
 }
+
+// export const deleteBrand = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const {id} = req.params;
+//         if (!isUuid(id)) {
+//             response.error(res, 'Invalid UUID formate')
+//         }
+//         const deletedBrands = await prisma.brandType.delete({
+//             where: {id: id},
+//         });
+//         response.success(res, 'Brand Type Deleted successfully!',null);
+
+//     } catch (error: any) {
+//         response.error(res, error.message);
+//     }
+// }
