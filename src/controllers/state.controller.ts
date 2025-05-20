@@ -41,7 +41,7 @@ export const createState = async (req: Request, res: Response): Promise<any> => 
             data: {
                 ...stateFields
             },
-           
+
         });
         response.success(res, 'State Created successfully!', newState);
     } catch (error: any) {
@@ -51,11 +51,11 @@ export const createState = async (req: Request, res: Response): Promise<any> => 
 
 
 export const editState = async (req: Request, res: Response): Promise<any> => {
-    try{
-        const {id} = req.params;
-        const stateData: IState  = req.body;
+    try {
+        const { id } = req.params;
+        const stateData: IState = req.body;
         const status = resolveStatus(stateData.status);
-        
+
         const { ...stateFields } = stateData;
 
         if (!isUuid(id)) {
@@ -63,7 +63,7 @@ export const editState = async (req: Request, res: Response): Promise<any> => {
         }
 
         const updateState = await prisma.state.update({
-            where: { id: id }, 
+            where: { id: id },
             data: {
                 ...stateFields,
             },
@@ -87,7 +87,7 @@ export const getByIdState = async (req: Request, res: Response): Promise<any> =>
         }
         const state = await prisma.state.findUnique({
             where: { id: id },
-            include: { 
+            include: {
                 countryKey: true,
             },
         });
@@ -109,7 +109,12 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
         const country = await prisma.country.findUnique({
             where: { id },
             include: {
-                countryKey: { }
+                countryKey: {
+                    orderBy: [
+                        { updatedAt: 'desc' },
+                        { createsAt: 'desc' },
+                    ],
+                }
             }
         });
 
