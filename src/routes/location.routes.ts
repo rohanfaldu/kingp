@@ -6,8 +6,6 @@ import { Prisma, PrismaClient } from '@prisma/client';
 const router = express.Router();
 const prisma = new PrismaClient();
 
-
-
 // router.post('/allLocations', async (req: Request, res: Response) => {
 //     try {
 //         const allLocationData = await readJsonFile();
@@ -24,41 +22,6 @@ const prisma = new PrismaClient();
 //         res.status(500).json({ success: false, message: 'Failed to load location data', data: null });
 //     }
 // });
-
-
-
-// router.post('/allLocations', async (req: Request, res: Response) => {
-//     try {
-//         const allLocationData = await readJsonFile();
-
-//         const statesWithCities = allLocationData.states.map((stateData: any) => {
-//             return {
-//                 stateName: stateData.name,
-//                 countryId: allLocationData.id,
-//                 status: allLocationData.status,
-//                 cities: stateData.cities.map((cityData: any) => ({
-//                     cityName: cityData.name,
-//                     stateId: stateData.id,
-//                     status: allLocationData.status,
-
-//                 })),
-//             };
-//         });
-
-//         res.json({
-//             success: true,
-//             message: 'All Location data get Successfully',
-//             data: {
-//                 countryName: allLocationData.name,
-//                 states: statesWithCities,
-//             },
-//         });
-//     } catch (error) {
-//         res.status(500).json({ success: false, message: 'Failed to load location data', data: null });
-//     }
-// });
-
-
 
 router.post('/allLocations', async (_req: Request, res: Response) => {
   try {
