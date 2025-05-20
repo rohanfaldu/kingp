@@ -143,6 +143,9 @@ export const getAllCity = async (req: Request, res: Response): Promise<any> => {
                     },
                 },
             },
+            orderBy: {
+                createsAt: 'desc', 
+            },
         });
 
         return response.success(res, 'Fetched all Cities successfully.', cities);
