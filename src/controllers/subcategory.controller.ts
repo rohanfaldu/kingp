@@ -113,6 +113,9 @@ export const getAllSubCategories = async (req: Request, res: Response): Promise<
             include: {
                 categoryInformation: true,
             },
+            orderBy: {
+                createdAt: 'desc', 
+            },
         });
 
         return response.success(res, 'Fetched all sub-categories successfully.', subCategories);

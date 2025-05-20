@@ -39,7 +39,6 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
         const { id } = req.params;
         const categoryData: ICategory = req.body;
 
-        // const status = resolveStatus(categoryData.status);
         const { ...categoryFields } = categoryData;
 
         if (!isUuid(id)) {
@@ -50,7 +49,6 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
             where: { id: id },
             data: {
                 ...categoryFields,
-                // status: status,
             },
         });
         response.success(res, 'Category Updated successfully!', updateCategory);
