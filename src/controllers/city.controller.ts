@@ -144,7 +144,7 @@ export const getAllCity = async (req: Request, res: Response): Promise<any> => {
                 },
             },
             orderBy: {
-                createdAt: 'desc', 
+                createsAt: 'desc', 
             },
         });
 
