@@ -24,22 +24,22 @@ const transporter = nodemailer.createTransport({
 export const sendMail = async (req: Request, res: Response): Promise<any> => {
     const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
     try {
-        const { name, emailAddress, phone, inquiry_type, message } = req.body;
+        const { name, email, phone, inquiry_type, message } = req.body;
 
-        if (!emailAddress) {
+        if (!email) {
             return res.status(400).json({ success: false, message: 'Missing required fields.' });
         }
 
         const htmlContent = `
-            <p>Hello ${name || emailAddress},</p>
-            <p><strong>Email:</strong> ${emailAddress}</p>
+            <p>Hello ${name || email},</p>
+            <p><strong>Email:</strong> ${email}</p>
             <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
             <p><strong>Inquiry Type:</strong> ${inquiry_type}</p>
             <p><strong>Message:</strong><br/>${message.replace(/\n/g, '<br/>')}</p>
             `;
 
         const sendEmail = await resend.emails.send({
-            from: 'KringP <info@kringp.com>',
+            from: email,
             to: 'mansibaldaniya.initiotechmedia@gmail.com',
             subject: 'Hello from KringP',
             html: htmlContent,
