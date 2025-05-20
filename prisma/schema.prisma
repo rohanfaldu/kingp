@@ -146,7 +146,7 @@ model BrandType {
   name                     String?        @db.VarChar
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
-  updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
+  updatedAt                DateTime?      @updatedAt @db.Timestamp(6)
   brandData                User[]        
 }
 
