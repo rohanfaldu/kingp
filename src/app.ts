@@ -58,6 +58,8 @@ app.use('/api/social-media', socialMediaRoutes);
 app.use('/api/group', groupRoutes);
 app.use('/api/location', locationRoutes);
 
+app.use('/api/mail', authRoutes);
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

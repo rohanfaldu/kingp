@@ -1,5 +1,6 @@
 import express from 'express';
 import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, editProfile, getUsersWithType, incrementInfluencerClick, socialLogin } from '../controllers/auth.controller';
+import { sendMail } from '../controllers/mail.controller';
 import { authenticateToken } from '../services/authorization';
 
 
@@ -17,5 +18,6 @@ router.post('/user/get-user-type', authenticateToken, getUsersWithType)
 router.post('/influencer/click', incrementInfluencerClick)
 router.post('/social-id', socialLogin)
 
+router.post('/send', sendMail)
 
 export default router;  
