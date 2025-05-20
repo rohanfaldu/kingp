@@ -256,123 +256,135 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
 
 export const login = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const { emailAddress, password, loginType, socialId, fcmToken } = req.body;
+    // try {
+    const { emailAddress, password, loginType, socialId, fcmToken } = req.body;
 
 
-        if (!emailAddress) {
-            return response.error(res, 'Email is required.');
-        }
+    if (!emailAddress) {
+        return response.error(res, 'Email is required.');
+    }
 
-        let user = await prisma.user.findUnique({
-            where: { emailAddress },
-            include: {
-                socialMediaPlatforms: true,
-                brandData: true,
-                countryData: true,
-                stateData: true,
-                cityData: true,
-            },
-        });
+    let user = await prisma.user.findUnique({
+        where: { emailAddress },
+        include: {
+            socialMediaPlatforms: true,
+            brandData: true,
+            countryData: true,
+            stateData: true,
+            cityData: true,
+        },
+    });
 
-        if (!user) {
-            return response.error(res, 'Invalid email address.');
-        }
+    if (!user) {
+        return response.error(res, 'Invalid email address.');
+    }
 
-        // Check if email is verified via OTP (SIGNUP)
+    const isAdmin = user.type === 'ADMIN';
+
+    if (!isAdmin) {
         const verifiedOtp = await prisma.otpVerify.findFirst({
             where: {
                 emailAddress,
-                // otpType: 'SIGNUP',
                 verified: true,
             },
         });
 
         if (!verifiedOtp) {
-            return response.error(res, 'Email is not verified. Please verify your email with the OTP sent during signup.');
+            return response.error(
+                res,
+                'Email is not verified. Please verify your email with the OTP sent during signup.'
+            );
         }
-        // Social login flow (GOOGLE or APPLE)
-        if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
-            if (!socialId) {
-                return response.error(res, 'socialId is required for social login.');
-            }
-
-            if (user.loginType === LoginType.NONE || !user.loginType) {
-                return response.error(res, 'Please login with Email & Password.');
-            }
-
-            if (user.loginType !== loginType) {
-                return response.error(res, `Please login using ${user.loginType}.`);
-            }
-
-            if (!user.socialId) {
-                return response.error(res, 'No socialId registered for this user. Please contact support.');
-            }
-
-            if (user.socialId !== socialId) {
-                return response.error(res, 'Invalid socialId provided.');
-            }
-
-        } else {
-            if (user.loginType === LoginType.GOOGLE || user.loginType === LoginType.APPLE) {
-                return response.error(res, `Please login using ${user.loginType}.`);
-            }
-
-            if (!password) {
-                return response.error(res, 'Password is required for email/password login.');
-            }
-
-            const validPassword = await bcrypt.compare(password, user.password);
-            if (!validPassword) {
-                return response.error(res, 'Invalid password.');
-            }
-        }
-
-        // Update FCM token if provided
-        if (fcmToken) {
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { fcmToken },
-            });
-        }
-
-        // Fetch country, state, city names
-        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
-        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
-        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
-
-        // Get user categories
-        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: user.id, email: user.emailAddress },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        // Build user response and replace IDs with names
-        const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
-
-        const userResponse = {
-            ...userWithoutPassword,
-            categories: userCategoriesWithSubcategories,
-            countryName: country?.name ?? null,
-            stateName: state?.name ?? null,
-            cityName: city?.name ?? null,
-
-            // socialMediaPlatforms: user.socialMediaPlatforms ?? [],
-        };
-
-        // Final response
-        return response.success(res, 'Login successful!', {
-            user: userResponse,
-            token,
-        });
-
-    } catch (error: any) {
-        return response.serverError(res, error.message || 'Login failed.');
     }
+
+
+    // if (!verifiedOtp) {
+    //     return response.error(res, 'Email is not verified. Please verify your email with the OTP sent during signup.');
+    // }
+
+
+    // Social login flow (GOOGLE or APPLE)
+    if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
+        if (!socialId) {
+            return response.error(res, 'socialId is required for social login.');
+        }
+
+        if (user.loginType === LoginType.NONE || !user.loginType) {
+            return response.error(res, 'Please login with Email & Password.');
+        }
+
+        if (user.loginType !== loginType) {
+            return response.error(res, `Please login using ${user.loginType}.`);
+        }
+
+        if (!user.socialId) {
+            return response.error(res, 'No socialId registered for this user. Please contact support.');
+        }
+
+        if (user.socialId !== socialId) {
+            return response.error(res, 'Invalid socialId provided.');
+        }
+
+    } else {
+        if (user.loginType === LoginType.GOOGLE || user.loginType === LoginType.APPLE) {
+            return response.error(res, `Please login using ${user.loginType}.`);
+        }
+
+        if (!password) {
+            return response.error(res, 'Password is required for email/password login.');
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return response.error(res, 'Invalid password.');
+        }
+    }
+
+    // Update FCM token if provided
+    if (fcmToken) {
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { fcmToken },
+        });
+    }
+
+    // Fetch country, state, city names
+    const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+    const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+    const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+
+    // Get user categories
+    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+    // Generate JWT token
+    const token = jwt.sign(
+        { userId: user.id, email: user.emailAddress },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+
+    // Build user response and replace IDs with names
+    const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
+
+    const userResponse = {
+        ...userWithoutPassword,
+        categories: userCategoriesWithSubcategories,
+        countryName: country?.name ?? null,
+        stateName: state?.name ?? null,
+        cityName: city?.name ?? null,
+
+        // socialMediaPlatforms: user.socialMediaPlatforms ?? [],
+    };
+
+    // Final response
+    return response.success(res, 'Login successful!', {
+        user: userResponse,
+        token,
+    });
+
+    // } catch (error: any) {
+    //     return response.serverError(res, error.message || 'Login failed.');
+    // }
 };
 
 
