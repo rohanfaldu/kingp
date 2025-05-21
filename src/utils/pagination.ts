@@ -6,21 +6,26 @@ export const paginate = async (
   findArgs: any = {},
   resultKey: string = "items"
 ) => {
-  const page = parseInt((req.body.page || req.query.page as string) || "1", 10);
-  const limit = parseInt((req.body.limit || req.query.limit as string) || "10", 10);
-  const skip = (page - 1) * limit;
-  // const orderBy = findArgs.orderBy || { createdAt: 'desc' };
 
-  const orderBy = findArgs.orderBy || [
-  { updatedAt: 'desc' },
-  { createdAt: 'desc' },
-  { updatesAt: 'desc' },
-];
+const page = parseInt((req.body.page || req.query.page as string) || "1", 10);
+const limit = parseInt((req.body.limit || req.query.limit as string) || "10", 10);
+const skip = (page - 1) * limit;
 
-  const [data, total] = await Promise.all([
-    model.findMany({ skip, take: limit, ...findArgs }),
-    model.count({ where: findArgs.where }),
-  ]);
+const { take = 10, where, include, orderBy: customOrderBy } = findArgs;
+
+const queryArgs = {
+  skip,
+  take: limit,
+  where,
+  include
+};
+
+console.log(queryArgs);
+
+const [data, total] = await Promise.all([
+  model.findMany(queryArgs),
+  model.count({ where }),
+]);
 
   return {
     pagination: {

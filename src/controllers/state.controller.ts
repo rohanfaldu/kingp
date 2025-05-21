@@ -129,12 +129,24 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
 
 
 export const getAllStates = async (req: Request, res: Response): Promise<any> => {
+    const { contains } = req.body;
     try {
-        const states = await paginate(req, prisma.state, {
-            include: {
-                countryKey: true,
+        const filter = {
+            where: {
+                name: {
+                    contains: contains,
+                    mode: "insensitive",
+                },
             },
-        });
+            include: {
+               countryKey: true,
+            },
+            orderBy:[
+                { updatedAt: 'desc' },
+                { createsAt: 'desc' },
+            ]
+        };
+        const states = await paginate(req, prisma.state, filter);
 
         return response.success(res, 'Fetched all States successfully.', states);
     } catch (error: any) {

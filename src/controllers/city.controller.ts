@@ -41,7 +41,7 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
             data: {
                 ...cityFields
             },
-           
+
         });
         response.success(res, 'City Created successfully!', newCity);
     } catch (error: any) {
@@ -51,11 +51,11 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
 
 
 export const editCity = async (req: Request, res: Response): Promise<any> => {
-    try{
-        const {id} = req.params;
-        const cityData: ICity  = req.body;
+    try {
+        const { id } = req.params;
+        const cityData: ICity = req.body;
         const status = resolveStatus(cityData.status);
-        
+
         const { ...cityFields } = cityData;
 
         if (!isUuid(id)) {
@@ -63,14 +63,14 @@ export const editCity = async (req: Request, res: Response): Promise<any> => {
         }
 
         const updateCity = await prisma.city.update({
-            where: { id: id }, 
+            where: { id: id },
             data: {
                 ...cityFields,
             },
             include: {
                 stateKey: {
                     include: {
-                        countryKey: true, 
+                        countryKey: true,
                     },
                 },
             },
@@ -94,7 +94,7 @@ export const getByIdCity = async (req: Request, res: Response): Promise<any> => 
             include: {
                 stateKey: {
                     include: {
-                        countryKey: true, 
+                        countryKey: true,
                     },
                 },
             },
@@ -134,20 +134,28 @@ export const getCityByStateId = async (req: Request, res: Response): Promise<any
 
 
 export const getAllCity = async (req: Request, res: Response): Promise<any> => {
+     const { contains } = req.body;
     try {
-        const cities = await paginate(req, prisma.city, {
+        const filter = {
+            where: {
+                name: {
+                    contains: contains,
+                    mode: "insensitive",
+                },
+            },
             include: {
                 stateKey: {
                     include: {
-                        countryKey: true, 
+                        countryKey: true,
                     },
                 },
             },
-            orderBy: [
-                { updatedAt: 'desc' },
-                { createsAt: 'desc' },
-            ],
-        });
+            orderBy:[
+                { updatedAt: 'desc' }
+            ]
+        };
+        // console.log(1);
+        const cities = await paginate(req, prisma.city, filter);
 
         return response.success(res, 'Fetched all Cities successfully.', cities);
     } catch (error: any) {
