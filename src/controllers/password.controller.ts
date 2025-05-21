@@ -286,7 +286,45 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    return response.success(res, 'OTP verified successfully.', null);
+    const user = await prisma.user.findUnique({
+      where: { emailAddress },
+      include: {
+        socialMediaPlatforms: true,
+        brandData: true,
+        countryData: true,
+        stateData: true,
+        cityData: true,
+      },
+    });
+
+    if (!user) {
+      return response.error(res, 'User not found.');
+    }
+
+    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.emailAddress },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
+
+    const userResponse = {
+      ...userWithoutPassword,
+      categories: userCategoriesWithSubcategories,
+      countryName: user.countryData?.name ?? null,
+      stateName: user.stateData?.name ?? null,
+      cityName: user.cityData?.name ?? null,
+    };
+
+    return response.success(res, 'OTP verified successfully.', {
+      user: userResponse,
+      token,
+    });
+
+    // return response.success(res, 'OTP verified successfully.', null);
   } catch (error: any) {
     return response.serverError(res, error.message);
   }
