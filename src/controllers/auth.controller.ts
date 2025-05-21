@@ -281,7 +281,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     const isAdmin = user.type === 'ADMIN';
 
-    if (!isAdmin) {
+    if ((!isAdmin) && (user.loginType === 'NONE') ) {
         const verifiedOtp = await prisma.otpVerify.findFirst({
             where: {
                 emailAddress,
