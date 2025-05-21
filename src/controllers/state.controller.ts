@@ -129,12 +129,12 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
 
 
 export const getAllStates = async (req: Request, res: Response): Promise<any> => {
-    const { contains } = req.body;
+    const { search } = req.body;
     try {
         const filter = {
             where: {
                 name: {
-                    contains: contains,
+                    contains: search,
                     mode: "insensitive",
                 },
             },
