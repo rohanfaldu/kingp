@@ -36,11 +36,12 @@ export const sendMail = async (req: Request, res: Response): Promise<any> => {
             <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
             <p><strong>Inquiry Type:</strong> ${inquiry_type}</p>
             <p><strong>Message:</strong><br/>${message.replace(/\n/g, '<br/>')}</p>
+            <p><strong>Thank You !!!!!!!!!!!!!</strong></p>
             `;
 
         const sendEmail = await resend.emails.send({
             from: 'KringP <info@kringp.com>',
-            to: 'mansibaldaniya.initiotechmedia@gmail.com',
+            to: 'info@kringp.com',
             subject: 'Hello from KringP',
             html: htmlContent,
         });
