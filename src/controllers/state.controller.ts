@@ -110,10 +110,8 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
             where: { id },
             include: {
                 countryKey: {
-                    orderBy: [
-                        { updatedAt: 'desc' },
+                    orderBy: 
                         { createsAt: 'desc' },
-                    ],
                 }
             }
         });
