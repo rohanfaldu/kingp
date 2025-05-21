@@ -46,14 +46,14 @@ export const editBrand = async (req: Request, res: Response): Promise<any> => {
         const {id} = req.params;
         const brandData: IBrandType  = req.body;
 
-        const existingBrand = await prisma.brandType.findFirst({
-            where: {
-                name: brandData.name,
-            },
-        });
-        if (existingBrand) {
-            return response.error(res, 'Brand Type with this name already exists.');
-        }
+        // const existingBrand = await prisma.brandType.findFirst({
+        //     where: {
+        //         name: brandData.name,
+        //     },
+        // });
+        // if (existingBrand) {
+        //     return response.error(res, 'Brand Type with this name already exists.');
+        // }
 
         const status = resolveStatus(brandData.status);
         const { ...brandFields } = brandData;
