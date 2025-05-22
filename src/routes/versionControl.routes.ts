@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post('/create', createAppSetting);
 router.post('/edit/:id', editAppSetting);
-router.post('/get/:id', getByIdAppVersionData);
+router.get('/get/:id', getByIdAppVersionData);
 router.post('/getAll', getAllAppVersionData);
 router.delete('/delete/:id', deleteAppVersionData);
 
