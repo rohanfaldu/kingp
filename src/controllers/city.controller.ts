@@ -150,9 +150,9 @@ export const getAllCity = async (req: Request, res: Response): Promise<any> => {
                     },
                 },
             },
-            orderBy: [
-                { name: 'asc' }
-            ]
+            orderBy: {
+                name: 'asc'
+            }
         };
         // console.log(1);
         const cities = await paginate(req, prisma.city, filter);

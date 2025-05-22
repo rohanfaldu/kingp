@@ -141,9 +141,9 @@ export const getAllStates = async (req: Request, res: Response): Promise<any> =>
             include: {
                 countryKey: true,
             },
-            orderBy: [
-                { name: 'asc' }
-            ]
+           orderBy: {
+                name: 'asc'
+            }
         };
         const states = await paginate(req, prisma.state, filter);
 
