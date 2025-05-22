@@ -110,7 +110,7 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
             where: { id },
             include: {
                 countryKey: {
-                    orderBy: 
+                    orderBy:
                         { createsAt: 'desc' },
                 }
             }
@@ -139,11 +139,10 @@ export const getAllStates = async (req: Request, res: Response): Promise<any> =>
                 },
             },
             include: {
-               countryKey: true,
+                countryKey: true,
             },
-            orderBy:[
-                { updatedAt: 'desc' },
-                { createsAt: 'desc' },
+            orderBy: [
+                { name: 'asc' }
             ]
         };
         const states = await paginate(req, prisma.state, filter);

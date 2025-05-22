@@ -134,7 +134,7 @@ export const getCityByStateId = async (req: Request, res: Response): Promise<any
 
 
 export const getAllCity = async (req: Request, res: Response): Promise<any> => {
-     const { search } = req.body;
+    const { search } = req.body;
     try {
         const filter = {
             where: {
@@ -150,8 +150,8 @@ export const getAllCity = async (req: Request, res: Response): Promise<any> => {
                     },
                 },
             },
-            orderBy:[
-                { updatedAt: 'desc' }
+            orderBy: [
+                { name: 'asc' }
             ]
         };
         // console.log(1);
