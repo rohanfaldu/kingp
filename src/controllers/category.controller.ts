@@ -3,7 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { ICategory } from '../interfaces/category.interface';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
-import { resolveStatus } from '../utils/commonFunction'
+import { resolveStatus } from '../utils/commonFunction';
 import { paginate } from '../utils/pagination';
 import { validate as isUuidValid } from 'uuid';
 
