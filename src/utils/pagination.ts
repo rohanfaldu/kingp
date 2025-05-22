@@ -7,17 +7,19 @@ export const paginate = async (
   resultKey: string = "items"
 ) => {
 
+// console.log(paginate, '>>>>>>>> pagination');
 const page = parseInt((req.body.page || req.query.page as string) || "1", 10);
 const limit = parseInt((req.body.limit || req.query.limit as string) || "10", 10);
 const skip = (page - 1) * limit;
 
-const { take = 10, where, include} = findArgs;
+const { take = 10, where, include, orderBy} = findArgs;
 
 const queryArgs = {
   skip,
   take: limit,
   where,
-  include
+  include,
+  orderBy
 };
 
 console.log(queryArgs);
