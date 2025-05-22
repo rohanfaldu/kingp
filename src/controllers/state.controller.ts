@@ -141,7 +141,7 @@ export const getAllStates = async (req: Request, res: Response): Promise<any> =>
             include: {
                 countryKey: true,
             },
-           orderBy: {
+            orderBy: {
                 name: 'asc'
             }
         };
