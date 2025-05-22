@@ -131,13 +131,17 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
 export const getAllStates = async (req: Request, res: Response): Promise<any> => {
     const { search } = req.body;
     try {
+        const whereClause: any = {};
+        
+        if (search && search.trim()) {
+            whereClause.name = {
+                contains: search,
+                mode: "insensitive",
+            };
+        }
+        
         const filter = {
-            where: search ? {
-                name: {
-                    contains: search,
-                    mode: "insensitive",
-                },
-            } : {}, // Handle case when search is empty/undefined
+            where: whereClause,
             include: {
                 countryKey: true,
             },
