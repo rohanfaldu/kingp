@@ -62,7 +62,21 @@ export const editAppSetting = async (req: Request, res: Response): Promise<any> 
     }
 }
 
+export const getByIdAppVersionData = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            response.error(res, 'Invalid UUID format');
+        }
 
+        const appVersionData = await prisma.appSetting.findUnique({
+            where: { id: id },
+        });
+        response.success(res, 'App Setting Data Get successfully!', appVersionData);
+    } catch (error: any) {
+        response.error(res, error.message);
+    }
+}
 
 export const getAllAppVersionData = async (req: Request, res: Response): Promise<any> => {
     try {
