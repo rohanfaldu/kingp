@@ -13,6 +13,8 @@ import brandTypeRoutes from './routes/brandType.routes';
 import socialMediaRoutes from './routes/socialMedia.routes';
 import groupRoutes from './routes/group.routes';
 import locationRoutes from './routes/location.routes';
+import VersionControleRoutes from './routes/versionControl.routes';
+
 import path from 'path';
 import cors from 'cors';
 
@@ -57,6 +59,8 @@ app.use('/api/brand-type', brandTypeRoutes);
 app.use('/api/social-media', socialMediaRoutes);
 app.use('/api/group', groupRoutes);
 app.use('/api/location', locationRoutes);
+app.use('/api/app-data', VersionControleRoutes);
+
 
 app.use('/api/mail', authRoutes);
 

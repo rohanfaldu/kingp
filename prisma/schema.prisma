@@ -207,6 +207,15 @@ model GroupUsers {
   groupUserData            User?          @relation(fields: [userId], references: [id])
 }
 
+model AppSetting {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                   String          @db.VarChar
+  slug                    String          @unique @db.VarChar
+  value                   String          @db.VarChar
+  createdAt               DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime        @default(now()) @db.Timestamp(6)
+}
+
 enum Role {
   BUSINESS
   INFLUENCER
