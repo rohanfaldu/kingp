@@ -11,7 +11,7 @@ const page = parseInt((req.body.page || req.query.page as string) || "1", 10);
 const limit = parseInt((req.body.limit || req.query.limit as string) || "10", 10);
 const skip = (page - 1) * limit;
 
-const { take = 10, where, include, orderBy: customOrderBy } = findArgs;
+const { take = 10, where, include} = findArgs;
 
 const queryArgs = {
   skip,
