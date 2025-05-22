@@ -131,17 +131,13 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
 export const getAllStates = async (req: Request, res: Response): Promise<any> => {
     const { search } = req.body;
     try {
-        const whereClause: any = {};
-        
-        if (search && search.trim()) {
-            whereClause.name = {
-                contains: search,
-                mode: "insensitive",
-            };
-        }
-        
         const filter = {
-            where: whereClause,
+            where: {
+                name: {
+                    contains: search,
+                    mode: "insensitive",
+                },
+            },
             include: {
                 countryKey: true,
             },
@@ -149,14 +145,13 @@ export const getAllStates = async (req: Request, res: Response): Promise<any> =>
                 name: 'asc'
             }
         };
-        
-        console.log('Filter being passed:', JSON.stringify(filter, null, 2));
-        
+
+        // console.log('Filter being passed:', JSON.stringify(filter, null, 2));
+
         const states = await paginate(req, prisma.state, filter);
 
         return response.success(res, 'Fetched all States successfully.', states);
     } catch (error: any) {
-        console.error('Error in getAllStates:', error);
         return response.serverError(res, error.message || 'Failed to fetch States.');
     }
 };
