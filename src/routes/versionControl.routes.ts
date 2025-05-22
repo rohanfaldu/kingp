@@ -8,7 +8,7 @@ router.post('/create', createAppSetting);
 router.post('/edit/:id', editAppSetting);
 router.post('/get/:id', getByIdAppVersionData);
 router.post('/getAll', getAllAppVersionData);
-router.post('/delete/:id', deleteAppVersionData);
+router.delete('/delete/:id', deleteAppVersionData);
 
 
 
