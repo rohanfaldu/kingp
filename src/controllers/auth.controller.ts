@@ -281,7 +281,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     const isAdmin = user.type === 'ADMIN';
 
-    if ((!isAdmin) && (user.loginType === 'NONE') ) {
+    if ((!isAdmin) && (user.loginType === 'NONE')) {
         const verifiedOtp = await prisma.otpVerify.findFirst({
             where: {
                 emailAddress,
@@ -414,7 +414,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         }
 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-        console.log(userCategoriesWithSubcategories, '>>>>>> userCategoriesWithSubcategories');
 
         const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
         const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
@@ -469,27 +468,32 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
         // Validate and apply platform filter
         if (platform) {
-            const platformValue = platform.toString().toUpperCase();
-            if (!allowedPlatforms.includes(platformValue)) {
-                return response.error(res, 'Invalid platform value. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK');
+            const platforms = Array.isArray(platform) ? platform.map(p => p.toUpperCase()) : [platform.toString().toUpperCase()];
+            const invalidPlatforms = platforms.filter(p => !allowedPlatforms.includes(p));
+            if (invalidPlatforms.length > 0) {
+                return response.error(res, `Invalid platform(s): ${invalidPlatforms.join(', ')}. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK`);
             }
 
-            filter.socialMediaPlatforms = {
-                some: {
-                    platform: platformValue,
-                },
-            };
+            andFilters.push({
+                OR: platforms.map(p => ({
+                    socialMediaPlatforms: {
+                        some: { platform: p },
+                    },
+                })),
+            });
         }
 
         // Validate and apply Gender filter
         if (gender) {
-            const genderValue = gender.toString().toUpperCase();
-            if (!allowedGender.includes(genderValue)) {
-                return response.error(res, 'Invalid Gender value. Allowed: MALE, FEMALE, OTHER');
+            const genders = Array.isArray(gender) ? gender.map(g => g.toUpperCase()) : [gender.toString().toUpperCase()];
+            const invalidGenders = genders.filter(g => !allowedGender.includes(g));
+            if (invalidGenders.length > 0) {
+                return response.error(res, `Invalid gender(s): ${invalidGenders.join(', ')}. Allowed: MALE, FEMALE, OTHER`);
             }
 
-            filter.gender = genderValue;
+            filter.gender = { in: genders };
         }
+
 
         // Age filter (based on birthDate)
         if (minAge) {
@@ -531,35 +535,54 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             }
         }
 
-        // Country filter
+        // COUNTRY filter with multiple values (simple equality on countryId array)
         if (countryId) {
-            filter.countryId = countryId.toString();
+            const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
+            filter.countryId = { in: countries };
         }
 
-        // State Filter
+        // STATE filter with multiple values
         if (stateId) {
-            filter.stateId = stateId.toString();
+            const states = Array.isArray(stateId) ? stateId.map((id: any) => id.toString()) : [stateId.toString()];
+            filter.stateId = { in: states };
         }
 
-        // City Filter
+        // CITY filter with multiple values
         if (cityId) {
-            filter.cityId = cityId.toString();
+            const cities = Array.isArray(cityId) ? cityId.map((id: any) => id.toString()) : [cityId.toString()];
+            filter.cityId = { in: cities };
         }
 
         // Ratings filter (optional)
         if (ratings) {
-            const minRating = parseInt(ratings.toString());
-            if (isNaN(minRating) || minRating < 0) {
-                return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
+            if (Array.isArray(ratings)) {
+                // Convert all ratings to numbers and validate
+                const ratingValues = ratings.map(r => parseInt(r.toString())).filter(r => !isNaN(r) && r >= 0);
+                if (ratingValues.length === 0) {
+                    return response.error(res, 'Invalid ratings array. All values must be non-negative numbers.');
+                }
+                // Filter users whose ratings field matches any of the given ratings
+                filter.ratings = { in: ratingValues };
+            } else {
+                const minRating = parseInt(ratings.toString());
+                if (isNaN(minRating) || minRating < 0) {
+                    return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
+                }
+                filter.ratings = { gte: minRating };
             }
-            filter.ratings = { gte: minRating };
         }
+
 
         // SubCategory filter (optional)
         if (subCategoryId) {
-            filter.subCategories = {
-                some: { subCategoryId: subCategoryId.toString() },
-            };
+            const subCategoryIds = Array.isArray(subCategoryId) ? subCategoryId : [subCategoryId];
+            andFilters.push({
+                OR: subCategoryIds.map((id: string) => ({
+                    subCategories: {
+                        some: { subCategoryId: id.toString() },
+                    },
+                })),
+            });
         }
 
         // Influencer Type filter with strict logic
@@ -641,7 +664,6 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             users: formattedUsers,
         });
     } catch (error: any) {
-        console.error("Error in getAllUsers:", error);
         response.error(res, error.message);
     }
 }
@@ -714,7 +736,6 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 
         response.success(res, 'Get All Users successfully!', users);
     } catch (error: any) {
-        console.error("Error in getAllUsers:", error);
         response.error(res, error.message);
     }
 };
@@ -763,7 +784,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         response.success(res, 'User and all related data deleted successfully', null);
 
     } catch (error: any) {
-        console.error('Delete user error:', error);
         response.error(res, error.message);
     }
 };
