@@ -458,6 +458,8 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             gender,
             minAge,
             maxAge,
+            minPrice,
+            maxPrice,
         } = req.body;
 
         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
@@ -480,6 +482,35 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                         some: { platform: p },
                     },
                 })),
+            });
+        }
+
+        // Price filter (based on SocialMediaPlatform.price)
+        if (minPrice || maxPrice) {
+            const priceConditions: any = {};
+
+            if (minPrice) {
+                const parsedMinPrice = parseFloat(minPrice.toString());
+                if (isNaN(parsedMinPrice) || parsedMinPrice < 0) {
+                    return response.error(res, 'Invalid minPrice. Must be a non-negative number.');
+                }
+                priceConditions.gte = parsedMinPrice;
+            }
+
+            if (maxPrice) {
+                const parsedMaxPrice = parseFloat(maxPrice.toString());
+                if (isNaN(parsedMaxPrice) || parsedMaxPrice < 0) {
+                    return response.error(res, 'Invalid maxPrice. Must be a non-negative number.');
+                }
+                priceConditions.lte = parsedMaxPrice;
+            }
+
+            andFilters.push({
+                socialMediaPlatforms: {
+                    some: {
+                        price: priceConditions,
+                    },
+                },
             });
         }
 
