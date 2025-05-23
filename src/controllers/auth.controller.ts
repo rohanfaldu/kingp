@@ -587,26 +587,29 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
         // Influencer Type filter with strict logic
         if (influencerType) {
-            const inflType = influencerType.toString().toUpperCase();
-            if (!['PRO', 'NORMAL'].includes(inflType)) {
-                return response.error(res, 'Invalid influencer type. Allowed: PRO, NORMAL');
+            const types = Array.isArray(influencerType)
+                ? influencerType.map((t: string) => t.toUpperCase())
+                : [influencerType.toString().toUpperCase()];
+
+            const invalidTypes = types.filter(t => !['PRO', 'NORMAL'].includes(t));
+            if (invalidTypes.length > 0) {
+                return response.error(res, `Invalid influencer type(s): ${invalidTypes.join(', ')}. Allowed: PRO, NORMAL`);
             }
 
-            if (inflType === 'PRO') {
-                andFilters.push({
-                    influencerType: 'PRO',
-                });
-            }
-
-            if (inflType === 'NORMAL') {
-                andFilters.push({
-                    OR: [
-                        { influencerType: 'NORMAL' },
-                        { influencerType: null },
-                    ],
-                });
-            }
+            // Build OR logic for both PRO and NORMAL (NORMAL includes null)
+            andFilters.push({
+                OR: types.map(t => {
+                    if (t === 'PRO') return { influencerType: 'PRO' };
+                    if (t === 'NORMAL') return {
+                        OR: [
+                            { influencerType: 'NORMAL' },
+                            { influencerType: null },
+                        ],
+                    };
+                }),
+            });
         }
+
 
         // Status filter (optional)
         if (status !== undefined) {
