@@ -1,5 +1,5 @@
 import express from 'express';
-import { createBadge } from '../controllers/badges.controller';
+import { createBadge, getAllBadges } from '../controllers/badges.controller';
 
 
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/create', createBadge);
 // router.post('/edit/:id', editCategory);
 // router.get('/get/:id', getByIdCategory);
-// router.post('/getAll', getAllCategory);
+router.post('/getAll', getAllBadges);
 // router.delete('/delete/:id', deleteCategory);
 
 
