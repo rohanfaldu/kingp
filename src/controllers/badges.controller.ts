@@ -31,16 +31,32 @@ export const createBadge = async (req: Request, res: Response): Promise<any> => 
 }
 
 
+// export const getAllBadges = async (req: Request, res: Response): Promise<any> => {
+//     // try {
+//         const badge = await paginate(req, prisma.badges, {}, "Badges");
+//         // const countries = await prisma.country.findMany ();
+
+//         if(!badge || badge.badges.length === 0){
+//             throw new Error("Badges not Found");    
+//         }
+    
+//         response.success(res, 'Get All Badges successfully!', badge);
+
+// //     } catch (error: any) {
+// //         response.error(res, error.message);
+// //     }
+// }
+
+
 export const getAllBadges = async (req: Request, res: Response): Promise<any> => {
     try {
-        const badges = await paginate(req, prisma.badges, {}, "Badges");
-        // const countries = await prisma.country.findMany ();
+        const categories = await paginate(req, prisma.badges, {}, "categories");
 
-        if(!badges || badges.badges.length === 0){
-            throw new Error("Badges not Found");    
+        if (!categories || categories.length === 0) {
+            throw new Error("badges not Found");
+
         }
-    
-        response.success(res, 'Get All Badges successfully!', badges);
+        response.success(res, 'Get All badges successfully!', categories);
 
     } catch (error: any) {
         response.error(res, error.message);

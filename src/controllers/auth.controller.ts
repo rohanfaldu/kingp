@@ -444,7 +444,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
 
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
-    // try {
+    try {
     const {
         platform,
         type,
@@ -754,9 +754,9 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         pagination: paginatedResult.pagination,
         users: formattedUsers,
     });
-    // } catch (error: any) {
-    //     response.error(res, error.message);
-    // }
+    } catch (error: any) {
+        response.error(res, error.message);
+    }
 }
 
 
