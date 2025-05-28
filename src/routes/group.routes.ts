@@ -1,18 +1,16 @@
 import express from 'express';
-import { groupCreate, editGroup, getAllGroups, deleteGroup } from '../controllers/group.controller';
+import { groupCreate, editGroup, getGroupById, getAllGroups, deleteGroup } from '../controllers/group.controller';
 import { authenticateToken } from '../services/authorization';
 
 
 
 const router = express.Router();
 
-router.post('/create', groupCreate);
-router.post('/getAll', getAllGroups);
-router.post('/edit/:id', authenticateToken, editGroup);
+router.post('/create', authenticateToken, groupCreate);
+router.post('/getAll', authenticateToken, getAllGroups);
+router.post('/edit/:id', authenticateToken,  editGroup);
+router.post('/get/:id', authenticateToken, getGroupById);
 router.delete('/delete/:id', authenticateToken, deleteGroup);
-
-
-
 
 
 export default router;  
