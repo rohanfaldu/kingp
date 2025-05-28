@@ -216,6 +216,17 @@ model AppSetting {
   updatedAt               DateTime        @default(now()) @db.Timestamp(6)
 }
 
+model Badges {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                    String?         @unique @db.VarChar
+  title                   String?         @db.VarChar
+  image                   String?         @db.VarChar
+  status                  Boolean         @default(true)
+  createdAt               DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime        @default(now()) @db.Timestamp(6)
+}
+
+
 enum Role {
   BUSINESS
   INFLUENCER

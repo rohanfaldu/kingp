@@ -444,262 +444,319 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
 
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const {
-            platform,
-            type,
-            countryId,
-            stateId,
-            cityId,
-            influencerType,
-            status,
-            subCategoryId,
-            ratings,
-            gender,
-            minAge,
-            maxAge,
-            minPrice,
-            maxPrice,
-        } = req.body;
+    // try {
+    const {
+        platform,
+        type,
+        countryId,
+        stateId,
+        cityId,
+        influencerType,
+        status,
+        subCategoryId,
+        ratings,
+        gender,
+        minAge,
+        maxAge,
+        minPrice,
+        maxPrice,
+        badgeType,
+    } = req.body;
 
-        const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
-        const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
-        const allowedInfluencerTypes = ['PRO', 'NORMAL'];
-        const andFilters: any[] = [];
-        const filter: any = {};
+    const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
+    const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
+    const allowedInfluencerTypes = ['PRO', 'NORMAL'];
+    const allowedBadgeTypes = ['1', '2', '3', '4', '5', '6', '7', '8'];
+    const andFilters: any[] = [];
+    const filter: any = {};
 
-        // Validate and apply platform filter
-        if (platform) {
-            const platforms = Array.isArray(platform) ? platform.map(p => p.toUpperCase()) : [platform.toString().toUpperCase()];
-            const invalidPlatforms = platforms.filter(p => !allowedPlatforms.includes(p));
-            if (invalidPlatforms.length > 0) {
-                return response.error(res, `Invalid platform(s): ${invalidPlatforms.join(', ')}. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK`);
-            }
-
-            andFilters.push({
-                OR: platforms.map(p => ({
-                    socialMediaPlatforms: {
-                        some: { platform: p },
-                    },
-                })),
-            });
+    // Validate and apply platform filter
+    if (platform) {
+        const platforms = Array.isArray(platform) ? platform.map(p => p.toUpperCase()) : [platform.toString().toUpperCase()];
+        const invalidPlatforms = platforms.filter(p => !allowedPlatforms.includes(p));
+        if (invalidPlatforms.length > 0) {
+            return response.error(res, `Invalid platform(s): ${invalidPlatforms.join(', ')}. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK`);
         }
 
-        // Price filter (based on SocialMediaPlatform.price)
-        if (minPrice || maxPrice) {
-            const priceConditions: any = {};
-
-            if (minPrice) {
-                const parsedMinPrice = parseFloat(minPrice.toString());
-                if (isNaN(parsedMinPrice) || parsedMinPrice < 0) {
-                    return response.error(res, 'Invalid minPrice. Must be a non-negative number.');
-                }
-                priceConditions.gte = parsedMinPrice;
-            }
-
-            if (maxPrice) {
-                const parsedMaxPrice = parseFloat(maxPrice.toString());
-                if (isNaN(parsedMaxPrice) || parsedMaxPrice < 0) {
-                    return response.error(res, 'Invalid maxPrice. Must be a non-negative number.');
-                }
-                priceConditions.lte = parsedMaxPrice;
-            }
-
-            andFilters.push({
+        andFilters.push({
+            OR: platforms.map(p => ({
                 socialMediaPlatforms: {
-                    some: {
-                        price: priceConditions,
-                    },
+                    some: { platform: p },
                 },
-            });
-        }
+            })),
+        });
+    }
 
-        // Validate and apply Gender filter
-        if (gender) {
-            const genders = Array.isArray(gender) ? gender.map(g => g.toUpperCase()) : [gender.toString().toUpperCase()];
-            const invalidGenders = genders.filter(g => !allowedGender.includes(g));
-            if (invalidGenders.length > 0) {
-                return response.error(res, `Invalid gender(s): ${invalidGenders.join(', ')}. Allowed: MALE, FEMALE, OTHER`);
+    // Price filter (based on SocialMediaPlatform.price)
+    if (minPrice || maxPrice) {
+        const priceConditions: any = {};
+
+        if (minPrice) {
+            const parsedMinPrice = parseFloat(minPrice.toString());
+            if (isNaN(parsedMinPrice) || parsedMinPrice < 0) {
+                return response.error(res, 'Invalid minPrice. Must be a non-negative number.');
             }
-
-            filter.gender = { in: genders };
+            priceConditions.gte = parsedMinPrice;
         }
 
-
-        // Age filter (based on birthDate)
-        if (minAge) {
-            const minAge = parseInt(req.body.minAge.toString());
-            if (isNaN(minAge) || minAge <= 0) {
-                return response.error(res, 'Invalid minAge. It must be a positive number.');
+        if (maxPrice) {
+            const parsedMaxPrice = parseFloat(maxPrice.toString());
+            if (isNaN(parsedMaxPrice) || parsedMaxPrice < 0) {
+                return response.error(res, 'Invalid maxPrice. Must be a non-negative number.');
             }
-
-            const today = new Date();
-            const birthDateThreshold = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
-
-            filter.birthDate = {
-                lte: birthDateThreshold,
-            };
+            priceConditions.lte = parsedMaxPrice;
         }
 
-        if (maxAge) {
-            const maxAge = parseInt(req.body.maxAge.toString());
-            if (isNaN(maxAge) || maxAge <= 0) {
-                return response.error(res, 'Invalid maxAge. It must be a positive number.');
-            }
-
-            const today = new Date();
-            const birthDateThreshold = new Date(today.getFullYear() - maxAge, today.getMonth(), today.getDate());
-
-            filter.birthDate = {
-                ...(filter.birthDate || {}),
-                gte: birthDateThreshold,
-            };
-        }
-
-        // type of user business or influencer
-        if (type && typeof type === 'string') {
-            const normalizedType = type.toUpperCase();
-            if (['BUSINESS', 'INFLUENCER'].includes(normalizedType)) {
-                filter.type = normalizedType;
-            } else {
-                return response.error(res, 'Invalid user type, Allowed: BUSINESS, INFLUENCER');
-            }
-        }
-
-        // COUNTRY filter with multiple values (simple equality on countryId array)
-        if (countryId) {
-            const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
-            filter.countryId = { in: countries };
-        }
-
-        // STATE filter with multiple values
-        if (stateId) {
-            const states = Array.isArray(stateId) ? stateId.map((id: any) => id.toString()) : [stateId.toString()];
-            filter.stateId = { in: states };
-        }
-
-        // CITY filter with multiple values
-        if (cityId) {
-            const cities = Array.isArray(cityId) ? cityId.map((id: any) => id.toString()) : [cityId.toString()];
-            filter.cityId = { in: cities };
-        }
-
-        // Ratings filter (optional)
-        if (ratings) {
-            if (Array.isArray(ratings)) {
-                // Convert all ratings to numbers and validate
-                const ratingValues = ratings.map(r => parseInt(r.toString())).filter(r => !isNaN(r) && r >= 0);
-                if (ratingValues.length === 0) {
-                    return response.error(res, 'Invalid ratings array. All values must be non-negative numbers.');
-                }
-                // Filter users whose ratings field matches any of the given ratings
-                filter.ratings = { in: ratingValues };
-            } else {
-                const minRating = parseInt(ratings.toString());
-                if (isNaN(minRating) || minRating < 0) {
-                    return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
-                }
-                filter.ratings = { gte: minRating };
-            }
-        }
-
-
-        // SubCategory filter (optional)
-        if (subCategoryId) {
-            const subCategoryIds = Array.isArray(subCategoryId) ? subCategoryId : [subCategoryId];
-            andFilters.push({
-                OR: subCategoryIds.map((id: string) => ({
-                    subCategories: {
-                        some: { subCategoryId: id.toString() },
-                    },
-                })),
-            });
-        }
-
-        // Influencer Type filter with strict logic
-        if (influencerType) {
-            const types = Array.isArray(influencerType)
-                ? influencerType.map((t: string) => t.toUpperCase())
-                : [influencerType.toString().toUpperCase()];
-
-            const invalidTypes = types.filter(t => !['PRO', 'NORMAL'].includes(t));
-            if (invalidTypes.length > 0) {
-                return response.error(res, `Invalid influencer type(s): ${invalidTypes.join(', ')}. Allowed: PRO, NORMAL`);
-            }
-
-            // Build OR logic for both PRO and NORMAL (NORMAL includes null)
-            andFilters.push({
-                OR: types.map(t => {
-                    if (t === 'PRO') return { influencerType: 'PRO' };
-                    if (t === 'NORMAL') return {
-                        OR: [
-                            { influencerType: 'NORMAL' },
-                            { influencerType: null },
-                        ],
-                    };
-                }),
-            });
-        }
-
-
-        // Status filter (optional)
-        if (status !== undefined) {
-            if (status === 'true' || status === 'false') {
-                filter.status = status === 'true';
-            } else {
-                return response.error(res, 'Invalid status value. Use true or false.');
-            }
-        }
-
-        const whereFilter: any = { ...filter };
-        if (andFilters.length > 0) {
-            whereFilter.AND = andFilters;
-        }
-
-        const paginatedResult = await paginate(
-            req,
-            prisma.user,
-            {
-                where: whereFilter,
-                include: {
-                    socialMediaPlatforms: true,
-                    brandData: true,
-                    countryData: true,
-                    stateData: true,
-                    cityData: true,
-                },
-                orderBy: {
-                    createsAt: 'desc',
+        andFilters.push({
+            socialMediaPlatforms: {
+                some: {
+                    price: priceConditions,
                 },
             },
-            "User"
-        );
+        });
+    }
 
-        if (!paginatedResult.User || paginatedResult.User.length === 0) {
-            throw new Error("No users found matching the criteria.");
+    // Validate and apply Gender filter
+    if (gender) {
+        const genders = Array.isArray(gender) ? gender.map(g => g.toUpperCase()) : [gender.toString().toUpperCase()];
+        const invalidGenders = genders.filter(g => !allowedGender.includes(g));
+        if (invalidGenders.length > 0) {
+            return response.error(res, `Invalid gender(s): ${invalidGenders.join(', ')}. Allowed: MALE, FEMALE, OTHER`);
         }
 
-        // Format all users
-        const formattedUsers = await Promise.all(
-            paginatedResult.User.map(async (userData: any) => {
-                const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(userData.id);
-
-                return {
-                    ...userData,
-                    categories: userCategoriesWithSubcategories,
-                    countryName: userData.countryData?.name ?? null,
-                    stateName: userData.stateData?.name ?? null,
-                    cityName: userData.cityData?.name ?? null,
-                };
-            })
-        );
-        return response.success(res, 'Users fetched successfully!', {
-            pagination: paginatedResult.pagination,
-            users: formattedUsers,
-        });
-    } catch (error: any) {
-        response.error(res, error.message);
+        filter.gender = { in: genders };
     }
+
+
+    // Age filter (based on birthDate)
+    if (minAge) {
+        const minAge = parseInt(req.body.minAge.toString());
+        if (isNaN(minAge) || minAge <= 0) {
+            return response.error(res, 'Invalid minAge. It must be a positive number.');
+        }
+
+        const today = new Date();
+        const birthDateThreshold = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+
+        filter.birthDate = {
+            lte: birthDateThreshold,
+        };
+    }
+
+    if (maxAge) {
+        const maxAge = parseInt(req.body.maxAge.toString());
+        if (isNaN(maxAge) || maxAge <= 0) {
+            return response.error(res, 'Invalid maxAge. It must be a positive number.');
+        }
+
+        const today = new Date();
+        const birthDateThreshold = new Date(today.getFullYear() - maxAge, today.getMonth(), today.getDate());
+
+        filter.birthDate = {
+            ...(filter.birthDate || {}),
+            gte: birthDateThreshold,
+        };
+    }
+
+    // type of user business or influencer
+    if (type && typeof type === 'string') {
+        const normalizedType = type.toUpperCase();
+        if (['BUSINESS', 'INFLUENCER'].includes(normalizedType)) {
+            filter.type = normalizedType;
+        } else {
+            return response.error(res, 'Invalid user type, Allowed: BUSINESS, INFLUENCER');
+        }
+    }
+
+    // COUNTRY filter with multiple values (simple equality on countryId array)
+    if (countryId) {
+        const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
+        filter.countryId = { in: countries };
+    }
+
+    // STATE filter with multiple values
+    if (stateId) {
+        const states = Array.isArray(stateId) ? stateId.map((id: any) => id.toString()) : [stateId.toString()];
+        filter.stateId = { in: states };
+    }
+
+    // CITY filter with multiple values
+    if (cityId) {
+        const cities = Array.isArray(cityId) ? cityId.map((id: any) => id.toString()) : [cityId.toString()];
+        filter.cityId = { in: cities };
+    }
+
+    // Ratings filter (optional)
+    if (ratings) {
+        if (Array.isArray(ratings)) {
+            // Convert all ratings to numbers and validate
+            const ratingValues = ratings.map(r => parseInt(r.toString())).filter(r => !isNaN(r) && r >= 0);
+            if (ratingValues.length === 0) {
+                return response.error(res, 'Invalid ratings array. All values must be non-negative numbers.');
+            }
+            // Filter users whose ratings field matches any of the given ratings
+            filter.ratings = { in: ratingValues };
+        } else {
+            const minRating = parseInt(ratings.toString());
+            if (isNaN(minRating) || minRating < 0) {
+                return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
+            }
+            filter.ratings = { gte: minRating };
+        }
+    }
+
+
+    // SubCategory filter (optional)
+    if (subCategoryId) {
+        const subCategoryIds = Array.isArray(subCategoryId) ? subCategoryId : [subCategoryId];
+        andFilters.push({
+            OR: subCategoryIds.map((id: string) => ({
+                subCategories: {
+                    some: { subCategoryId: id.toString() },
+                },
+            })),
+        });
+    }
+
+    // Influencer Type filter with strict logic
+    if (influencerType) {
+        const types = Array.isArray(influencerType)
+            ? influencerType.map((t: string) => t.toUpperCase())
+            : [influencerType.toString().toUpperCase()];
+
+        const invalidTypes = types.filter(t => !['PRO', 'NORMAL'].includes(t));
+        if (invalidTypes.length > 0) {
+            return response.error(res, `Invalid influencer type(s): ${invalidTypes.join(', ')}. Allowed: PRO, NORMAL`);
+        }
+
+        // Build OR logic for both PRO and NORMAL (NORMAL includes null)
+        andFilters.push({
+            OR: types.map(t => {
+                if (t === 'PRO') return { influencerType: 'PRO' };
+                if (t === 'NORMAL') return {
+                    OR: [
+                        { influencerType: 'NORMAL' },
+                        { influencerType: null },
+                    ],
+                };
+            }),
+        });
+    }
+
+
+    // Status filter (optional)
+    if (status !== undefined) {
+        if (status === 'true' || status === 'false') {
+            filter.status = status === 'true';
+        } else {
+            return response.error(res, 'Invalid status value. Use true or false.');
+        }
+    }
+
+    // Badges filter
+    // Badge Type filter (NEW)
+    if (badgeType) {
+        const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
+        const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
+
+        if (invalidBadges.length > 0) {
+            return response.error(res, `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`);
+        }
+
+        // Apply badge-specific filters based on criteria
+        const badgeFilters: any[] = [];
+
+        badges.forEach(badge => {
+            switch (badge) {
+                case '1':
+                    badgeFilters.push({
+                        socialMediaPlatforms: {
+                            some: {
+                                platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] },
+                            },
+                        },
+                    });
+                    break;
+
+                case '2':
+                    badgeFilters.push({
+                        ratings: { gte: 4.5 },
+                    });
+                    break;
+
+                case '3':
+                    badgeFilters.push({
+                        socialMediaPlatforms: {
+                            some: {
+                                AND: [
+                                    { price: { gte: 100000 } },
+                                ],
+                            },
+                        },
+                        ratings: { gte: 4.7 },
+                    
+                    });
+                    break;
+
+            }
+        });
+
+        if (badgeFilters.length > 0) {
+            andFilters.push({
+                OR: badgeFilters,
+            });
+        }
+    }
+
+    const whereFilter: any = { ...filter };
+    if (andFilters.length > 0) {
+        whereFilter.AND = andFilters;
+    }
+
+    const paginatedResult = await paginate(
+        req,
+        prisma.user,
+        {
+            where: whereFilter,
+            include: {
+                socialMediaPlatforms: true,
+                brandData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
+            },
+            orderBy: {
+                createsAt: 'desc',
+            },
+        },
+        "User"
+    );
+
+    if (!paginatedResult.User || paginatedResult.User.length === 0) {
+        throw new Error("No users found matching the criteria.");
+    }
+
+    // Format all users
+    const formattedUsers = await Promise.all(
+        paginatedResult.User.map(async (userData: any) => {
+            const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(userData.id);
+
+            return {
+                ...userData,
+                categories: userCategoriesWithSubcategories,
+                countryName: userData.countryData?.name ?? null,
+                stateName: userData.stateData?.name ?? null,
+                cityName: userData.cityData?.name ?? null,
+            };
+        })
+    );
+    return response.success(res, 'Users fetched successfully!', {
+        pagination: paginatedResult.pagination,
+        users: formattedUsers,
+    });
+    // } catch (error: any) {
+    //     response.error(res, error.message);
+    // }
 }
 
 
