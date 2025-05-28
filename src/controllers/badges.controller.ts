@@ -36,7 +36,7 @@ export const getAllBadges = async (req: Request, res: Response): Promise<any> =>
         const badges = await paginate(req, prisma.badges, {}, "Badges");
         // const countries = await prisma.country.findMany ();
 
-        if(!badges || badges.countries.length === 0){
+        if(!badges || badges.badges.length === 0){
             throw new Error("Badges not Found");    
         }
     
