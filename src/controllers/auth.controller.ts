@@ -862,7 +862,28 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         ]
                     }
                 })
-            ]) : [[], 0]
+            ]) : Promise.all([
+                prisma.group.findMany({
+                    include: { 
+                        groupData: {
+                            include: {
+                                groupUserData: {
+                                    include: {
+                                        socialMediaPlatforms: true,
+                                        brandData: true,
+                                        countryData: true,
+                                        stateData: true,
+                                        cityData: true,
+                                        UserDetail: true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { createsAt: 'desc' },
+                }),
+                prisma.group.count()
+            ]) 
         ]);
 
         const [users, usersCount] = usersResult;
