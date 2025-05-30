@@ -1,5 +1,5 @@
 import express from 'express';
-import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, editProfile, getUsersWithType, incrementInfluencerClick, socialLogin } from '../controllers/auth.controller';
+import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, getAllUsersAndGroup, editProfile, getUsersWithType, incrementInfluencerClick, socialLogin } from '../controllers/auth.controller';
 import { sendMail } from '../controllers/mail.controller';
 import { authenticateToken } from '../services/authorization';
 
@@ -10,6 +10,7 @@ router.post('/user/signup', signup);
 router.post('/user/login', login);
 router.post('/user/get', authenticateToken, getByIdUser)
 router.post('/user/getAll', authenticateToken, getAllUsers)
+router.post('/user/getUserGroupAll', authenticateToken, getAllUsersAndGroup)
 router.post('/user/getAllInfo', getAllInfo)
 router.delete('/user/delete', deleteUser)
 router.post('/user/edit/:id', authenticateToken, editProfile)

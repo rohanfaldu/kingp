@@ -563,7 +563,7 @@ export const getAllGroups = async (req: Request, res: Response): Promise<any> =>
             ? {
                 OR: [
                     { groupName: { contains: search as string, mode: 'insensitive' } },
-                    { groupDescription: { contains: search as string, mode: 'insensitive' } },
+                    { groupBio: { contains: search as string, mode: 'insensitive' } },
                 ]
             }
             : {};
