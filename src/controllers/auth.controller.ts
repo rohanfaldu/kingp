@@ -973,7 +973,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 return {
                     ...adminUserData,
                     groupInfo: {
-                        data: group,
+                        ...group,
                         subCategoryId: subCategoriesWithCategory,
                         groupData: formattedGroupData,
                     }
