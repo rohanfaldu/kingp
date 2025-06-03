@@ -762,56 +762,76 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<any> => {
     try {
         const {
-            platform,
-            type,
-            countryId,
-            stateId,
-            cityId,
-            influencerType,
-            status,
-            subCategoryId,
-            ratings,
-            gender,
-            minAge,
-            maxAge,
-            minPrice,
-            maxPrice,
-            badgeType,
-            search,
-            page = 1,
-            limit = 10,
+            platform, type, countryId, stateId, cityId, influencerType, status,
+            subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
+            badgeType, search, page = 1, limit = 10,
         } = req.body;
 
         const currentPage = parseInt(page.toString()) || 1;
         const itemsPerPage = parseInt(limit.toString()) || 10;
         const skip = (currentPage - 1) * itemsPerPage;
 
-        // Your existing filter logic remains the same...
         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
         const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
         const allowedInfluencerTypes = ['PRO', 'NORMAL'];
         const allowedBadgeTypes = ['1', '2', '3', '4', '5', '6', '7', '8'];
+
         const andFilters: any[] = [];
         const filter: any = {};
 
-        // [Keep all your existing filter logic here - platform, price, gender, age, etc.]
-        // ... (all the existing filter code remains unchanged)
+        if (platform && allowedPlatforms.includes(platform)) {
+            andFilters.push({ socialMediaPlatforms: { some: { platform: platform } } });
+        }
+
+        if (gender && allowedGender.includes(gender)) {
+            andFilters.push({ gender });
+        }
+
+        if (influencerType && allowedInfluencerTypes.includes(influencerType)) {
+            andFilters.push({ influencerType });
+        }
+
+        if (badgeType && allowedBadgeTypes.includes(badgeType)) {
+            andFilters.push({ badgeType });
+        }
+
+        if (countryId) andFilters.push({ countryId });
+        if (stateId) andFilters.push({ stateId });
+        if (cityId) andFilters.push({ cityId });
+
+        if (minPrice || maxPrice) {
+            andFilters.push({
+                price: {
+                    gte: minPrice || 0,
+                    lte: maxPrice || Number.MAX_SAFE_INTEGER
+                }
+            });
+        }
+
+        if (minAge || maxAge) {
+            andFilters.push({
+                age: {
+                    gte: minAge || 0,
+                    lte: maxAge || 100
+                }
+            });
+        }
+
+        if (subCategoryId) {
+            andFilters.push({
+                userSubCategories: {
+                    some: { subCategoryId }
+                }
+            });
+        }
 
         const whereFilter: any = { ...filter };
-        if (andFilters.length > 0) {
-            whereFilter.AND = andFilters;
-        }
-
+        if (andFilters.length > 0) whereFilter.AND = andFilters;
         if (search) {
-            whereFilter.name = {
-                contains: search,
-                mode: 'insensitive'
-            };
+            whereFilter.name = { contains: search, mode: 'insensitive' };
         }
 
-        // 1️⃣ Parallel execution for users and groups with counts
-        const [usersResult, groupsResult] = await Promise.all([
-            // Users query with count
+        const [usersResult, matchedGroupIds] = await Promise.all([
             Promise.all([
                 prisma.user.findMany({
                     where: whereFilter,
@@ -826,202 +846,164 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 }),
                 prisma.user.count({ where: whereFilter })
             ]),
-
-            // Groups query with count (only if search exists)
-            search ? Promise.all([
-                prisma.group.findMany({
-                    where: {
-                        OR: [
-                            { groupName: { contains: search as string, mode: 'insensitive' } },
-                            { groupBio: { contains: search as string, mode: 'insensitive' } },
-                        ]
-                    },
-                    include: {
-                        groupData: {
-                            include: {
-                                groupUserData: {
-                                    include: {
-                                        socialMediaPlatforms: true,
-                                        brandData: true,
-                                        countryData: true,
-                                        stateData: true,
-                                        cityData: true,
-                                        UserDetail: true
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    orderBy: { createsAt: 'desc' },
-                }),
-                prisma.group.count({
-                    where: {
-                        OR: [
-                            { groupName: { contains: search as string, mode: 'insensitive' } },
-                            { groupBio: { contains: search as string, mode: 'insensitive' } },
-                        ]
-                    }
-                })
-            ]) : Promise.all([
-                prisma.group.findMany({
-                    include: {
-                        groupData: {
-                            include: {
-                                groupUserData: {
-                                    include: {
-                                        socialMediaPlatforms: true,
-                                        brandData: true,
-                                        countryData: true,
-                                        stateData: true,
-                                        cityData: true,
-                                        UserDetail: true
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    orderBy: { createsAt: 'desc' },
-                }),
-                prisma.group.count()
-            ])
+            prisma.groupUsersList.findMany({
+                where: {
+                    OR: [
+                        { groupAdminListData: { name: { contains: search || '', mode: 'insensitive' } } },
+                        { groupInvitesListData: { name: { contains: search || '', mode: 'insensitive' } } },
+                    ]
+                },
+                select: { groupId: true }
+            })
         ]);
 
-        const [users, usersCount] = usersResult;
-        const [groups, groupsCount] = groupsResult;
+        const matchedGroupIdSet = [...new Set(matchedGroupIds.map(e => e.groupId))];
 
-        // 2️⃣ Format users efficiently
-        const formattedUsers = await Promise.all(
-            users.map(async (userData: any) => {
-                const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(userData.id);
-                return {
-                    ...userData,
-                    categories: userCategoriesWithSubcategories,
-                    countryName: userData.countryData?.name ?? null,
-                    stateName: userData.stateData?.name ?? null,
-                    cityName: userData.cityData?.name ?? null,
-                    groupInfo: null,
-                    isGroup: false
-                };
-            })
-        );
-
-        // 3️⃣ Format groups efficiently
-        const formattedGroups = await Promise.all(
-            groups.map(async (group: any) => {
-                let adminUserData: any = null;
-
-                // Get subcategories with categories
-                const subCategoriesWithCategory = group.subCategoryId?.length
-                    ? await prisma.subCategory.findMany({
-                        where: { id: { in: group.subCategoryId } },
-                        include: { categoryInformation: true },
-                    })
-                    : [];
-
-                // Format group data with admin and invited users
-                const formattedGroupData = await Promise.all(
-                    group.groupData.map(async (groupUser: any) => {
-                        const adminUser = groupUser.groupUserData;
-
-                        // Get invited users
-                        const invitedUsers = groupUser.invitedUserId?.length
-                            ? await prisma.user.findMany({
-                                where: { id: { in: groupUser.invitedUserId } },
+        const [groups, groupsCount] = await Promise.all([
+            prisma.group.findMany({
+                where: {
+                    OR: [
+                        { groupName: { contains: search || '', mode: 'insensitive' } },
+                        { groupBio: { contains: search || '', mode: 'insensitive' } },
+                        { id: { in: matchedGroupIdSet } }
+                    ]
+                },
+                include: {
+                    groupData: {
+                        include: {
+                            groupUserData: {
                                 include: {
-                                    UserDetail: true,
                                     socialMediaPlatforms: true,
                                     brandData: true,
                                     countryData: true,
                                     stateData: true,
                                     cityData: true,
-                                },
-                            })
-                            : [];
-
-                        // Format admin user
-                        const formattedAdminUser = adminUser ? {
-                            ...adminUser,
-                            categories: await getUserCategoriesWithSubcategories(adminUser.id),
-                            countryName: adminUser.countryData?.name ?? null,
-                            stateName: adminUser.stateData?.name ?? null,
-                            cityName: adminUser.cityData?.name ?? null,
-                        } : null;
-
-                        // Store admin user data for the group
-                        if (formattedAdminUser) {
-                            adminUserData = formattedAdminUser;
+                                    UserDetail: true
+                                }
+                            }
                         }
-
-                        // Format invited users
-                        const formattedInvitedUsers = await Promise.all(
-                            invitedUsers.map(async (user: any) => ({
-                                ...user,
-                                categories: await getUserCategoriesWithSubcategories(user.id),
-                                countryName: user.countryData?.name ?? null,
-                                stateName: user.stateData?.name ?? null,
-                                cityName: user.cityData?.name ?? null,
-                            }))
-                        );
-
-                        return {
-                            ...groupUser,
-                            adminUser: formattedAdminUser,
-                            invitedUsers: formattedInvitedUsers,
-                        };
-                    })
-                );
-
-                return {
-                    ...adminUserData,
-                    isGroup: true, // add this line
-                    groupInfo: {
-                        ...group,
-                        subCategoryId: subCategoriesWithCategory,
-                        groupData: formattedGroupData,
                     }
-                };
+                },
+                orderBy: { createsAt: 'desc' },
+            }),
+            prisma.group.count({
+                where: {
+                    OR: [
+                        { groupName: { contains: search || '', mode: 'insensitive' } },
+                        { groupBio: { contains: search || '', mode: 'insensitive' } },
+                        { id: { in: matchedGroupIdSet } }
+                    ]
+                }
             })
-        );
+        ]);
 
+        const [users, usersCount] = usersResult;
 
-        // 4️⃣ Merge and paginate results
+        const formattedUsers = await Promise.all(users.map(async (user: any) => {
+            const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+            return {
+                ...user,
+                categories: userCategoriesWithSubcategories,
+                countryName: user.countryData?.name ?? null,
+                stateName: user.stateData?.name ?? null,
+                cityName: user.cityData?.name ?? null,
+                groupInfo: null,
+                isGroup: false
+            };
+        }));
+
+        const formattedGroups = await Promise.all(groups.map(async (group: any) => {
+            const subCategoriesWithCategory = group.subCategoryId?.length
+                ? await prisma.subCategory.findMany({
+                    where: { id: { in: group.subCategoryId } },
+                    include: { categoryInformation: true }
+                })
+                : [];
+
+            const formattedGroupData = await Promise.all(
+                group.groupData.map(async (groupUser: any) => {
+                    const adminUser = groupUser.groupUserData;
+
+                    const invitedUsers = groupUser.invitedUserId?.length
+                        ? await prisma.user.findMany({
+                            where: { id: { in: groupUser.invitedUserId } },
+                            include: {
+                                UserDetail: true,
+                                socialMediaPlatforms: true,
+                                brandData: true,
+                                countryData: true,
+                                stateData: true,
+                                cityData: true,
+                            },
+                        })
+                        : [];
+
+                    const formattedAdminUser = adminUser ? {
+                        ...adminUser,
+                        categories: await getUserCategoriesWithSubcategories(adminUser.id),
+                        countryName: adminUser.countryData?.name ?? null,
+                        stateName: adminUser.stateData?.name ?? null,
+                        cityName: adminUser.cityData?.name ?? null,
+                    } : null;
+
+                    const formattedInvitedUsers = await Promise.all(invitedUsers.map(async (user: any) => ({
+                        ...user,
+                        categories: await getUserCategoriesWithSubcategories(user.id),
+                        countryName: user.countryData?.name ?? null,
+                        stateName: user.stateData?.name ?? null,
+                        cityName: user.cityData?.name ?? null,
+                    })));
+
+                    const { groupUserData, ...restGroupUser } = groupUser;
+                    return {
+                        ...restGroupUser,
+                        adminUser: formattedAdminUser,
+                        invitedUsers: formattedInvitedUsers,
+                    };
+
+                })
+            );
+
+            const adminUserData = formattedGroupData[0]?.adminUser || null;
+
+            return {
+                ...adminUserData,
+                isGroup: true,
+                groupInfo: {
+                    ...group,
+                    subCategoryId: subCategoriesWithCategory,
+                    groupData: formattedGroupData,
+                }
+            };
+        }));
+
         const allResults = [...formattedUsers, ...formattedGroups];
         const totalCount = usersCount + groupsCount;
 
-        // Apply pagination to merged results
         const paginatedResults = allResults.slice(skip, skip + itemsPerPage);
 
-        // 5️⃣ Calculate pagination metadata
-        const totalPages = Math.ceil(totalCount / itemsPerPage);
-        const pagination = {
-            page: currentPage,
-            totalPages: totalPages,
-            total: totalCount,
-            limit: itemsPerPage,
-            // hasNext: currentPage < totalPages,
-            // hasPrev: currentPage > 1,
-            // usersCount: usersCount,
-            // groupsCount: groupsCount,
-        };
         if (paginatedResults.length === 0) {
             throw new Error("No users or groups found matching the criteria.");
         }
 
         return response.success(res, 'Users and groups fetched successfully!', {
-            pagination: pagination,
-            users: paginatedResults,
-            // summary: {
-            //     totalItems: totalCount,
-            //     users: usersCount,
-            //     groups: groupsCount,
-            //     currentPageItems: paginatedResults.length,
-            // }
+            pagination: {
+                total: totalCount,
+                page: currentPage,
+                limit: itemsPerPage,
+                totalPages: Math.ceil(totalCount / itemsPerPage),
+            },
+            users: paginatedResults
         });
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
-}
+};
+
+
+
+
 
 // Helper function to format user data (if you want to extract it)
 const formatUserData = async (user: any) => {

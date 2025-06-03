@@ -11,345 +11,6 @@ import { paginate } from '../utils/pagination';
 const prisma = new PrismaClient();
 
 
-
-// export const groupCreate = async (req: Request, res: Response): Promise<any> => {
-//     // try {
-//         const groupData: IGroup = req.body;
-
-//         const existingGroup = await prisma.group.findFirst({
-//             where: { groupName: groupData.groupName },
-//         });
-//         if (existingGroup) {
-//             return response.error(res, 'Group with this name already exists.');
-//         }
-
-//         const status = resolveStatus(groupData.status);
-
-//         const {
-//             userId,
-//             invitedUserId = [],
-//             socialMediaPlatform = [],
-//             subCategoryId = [],
-//             ...groupFields
-//         } = groupData;
-
-//         // Fetch SubCategory data with Category info
-//         const subCategoriesWithCategory = await prisma.subCategory.findMany({
-//             where: {
-//                 id: { in: subCategoryId },
-//             },
-//             include: {
-//                 categoryInformation: true,
-//             },
-//         });
-
-//         // Helper function to format user data (same as getByIdUser)
-//         const formatUserData = async (user: any) => {
-//             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
-//             const country = user.countryId ? await prisma.country.findUnique({
-//                 where: { id: user.countryId },
-//                 select: { name: true }
-//             }) : null;
-
-//             const state = user.stateId ? await prisma.state.findUnique({
-//                 where: { id: user.stateId },
-//                 select: { name: true }
-//             }) : null;
-
-//             const city = user.cityId ? await prisma.city.findUnique({
-//                 where: { id: user.cityId },
-//                 select: { name: true }
-//             }) : null;
-
-//             const { password: _, socialMediaPlatform: __, ...userData } = user;
-
-//             return {
-//                 ...userData,
-//                 categories: userCategoriesWithSubcategories,
-//                 countryName: country?.name ?? null,
-//                 stateName: state?.name ?? null,
-//                 cityName: city?.name ?? null,
-//             };
-//         };
-
-//         // Fetch user info for userId (admin)
-//         const adminUser = await prisma.user.findUnique({
-//             where: { id: userId },
-//             include: {
-//                 UserDetail: true,
-//                 socialMediaPlatforms: true,
-//                 brandData: true,
-//                 countryData: true,
-//                 stateData: true,
-//                 cityData: true,
-//             },
-//         });
-
-//         // Fetch info for all invited users
-//         const invitedUsers = invitedUserId.length
-//             ? await prisma.user.findMany({
-//                 where: { id: { in: invitedUserId } },
-//                 include: {
-//                     UserDetail: true,
-//                     socialMediaPlatforms: true,
-//                     brandData: true,
-//                     countryData: true,
-//                     stateData: true,
-//                     cityData: true,
-//                 },
-//             })
-//             : [];
-
-//         // Create the group first
-//         const newGroup = await prisma.group.create({
-//             data: {
-//                 ...groupFields,
-//                 subCategoryId,
-//                 socialMediaPlatform,
-//                 status,
-//             },
-//         });
-
-//         // Get the GroupUsers record for admin user
-//         const adminGroupUser = await prisma.groupUsers.findFirst({
-//             where: { userId: userId },
-//         });
-
-//         if (!adminGroupUser) {
-//             throw new Error('Admin user not found in GroupUsers table');
-//         }
-
-//         // Create GroupUsersList entries for admin and invited users
-//         const groupUsersListData = [];
-
-//         // Add admin user to GroupUsersList
-//         const adminEntry = await prisma.groupUsersList.create({
-//             data: {
-//                 groupId: newGroup.id,
-//                 groupUserId: adminGroupUser.id,
-//                 adminUserId: userId,
-//                 invitedUserId: userId, // Admin is also considered as invited user initially
-//                 status: true,
-//             },
-//         });
-//         groupUsersListData.push(adminEntry);
-
-//         // Add invited users to GroupUsersList
-//         // Add invited users to GroupUsersList
-//         for (const invitedUser of invitedUsers) {
-//             const invitedGroupUser = await prisma.groupUsers.findFirst({
-//                 where: { userId: invitedUser.id },
-//             });
-
-//             if (invitedGroupUser) {
-//                 const invitedEntry = await prisma.groupUsersList.create({
-//                     data: {
-//                         groupId: newGroup.id,
-//                         groupUserId: invitedGroupUser.id,
-//                         adminUserId: userId,
-//                         invitedUserId: invitedUser.id,
-//                         status: true,
-//                     },
-//                 });
-//                 groupUsersListData.push(invitedEntry);
-//             }
-//         }
-
-
-//         // Fetch the complete group data with GroupUsersList
-//         const groupUsersList = await prisma.groupUsersList.findMany({
-//             where: { groupId: newGroup.id },
-//             include: {
-//                 groupAdminListData: {
-//                     include: {
-//                         UserDetail: true,
-//                         socialMediaPlatforms: true,
-//                         brandData: true,
-//                         countryData: true,
-//                         stateData: true,
-//                         cityData: true,
-//                     },
-//                 },
-//                 groupInvitesListData: {
-//                     include: {
-//                         UserDetail: true,
-//                         socialMediaPlatforms: true,
-//                         brandData: true,
-//                         countryData: true,
-//                         stateData: true,
-//                         cityData: true,
-//                     },
-//                 },
-//             },
-//         });
-
-//         // Format admin user data
-//         const formattedAdminUser = adminUser ? await formatUserData(adminUser) : null;
-
-//         // Format invited users data
-//         const formattedInvitedUsers = await Promise.all(
-//             invitedUsers.map(user => formatUserData(user))
-//         );
-
-//         // Build final response structure
-//         const formattedResponse = {
-//             ...newGroup,
-//             subCategoryId: subCategoriesWithCategory, // Replace IDs with full subcategory info
-//             groupUsersList: await Promise.all(
-//                 groupUsersList.map(async (groupUserEntry) => {
-//                     const formattedAdmin = groupUserEntry.groupAdminListData
-//                         ? await formatUserData(groupUserEntry.groupAdminListData)
-//                         : null;
-
-//                     const formattedInvited = groupUserEntry.groupInvitesListData
-//                         ? await formatUserData(groupUserEntry.groupInvitesListData)
-//                         : null;
-
-//                     return {
-//                         ...groupUserEntry,
-//                         adminUser: formattedAdmin,
-//                         invitedUser: formattedInvited,
-//                     };
-//                 })
-//             ),
-//         };
-
-//         return response.success(res, 'Group Created successfully!', {
-//             groupInformation: formattedResponse,
-//         });
-//     // } catch (error: any) {
-//     //     return response.error(res, error.message);
-//     // }
-// };
-
-
-// export const editGroup = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { id: groupId } = req.params;
-//         const groupData: Partial<IGroup> = req.body;
-
-//         if (!groupId) {
-//             return response.error(res, 'GroupId is required.');
-//         }
-
-//         // Check if group exists
-//         const existingGroup = await prisma.group.findUnique({
-//             where: { id: groupId },
-//             include: { groupData: true },
-//         });
-
-//         if (!existingGroup) {
-//             return response.error(res, 'Group not found.');
-//         }
-
-//         // Check groupName unique (except current group)
-//         if (groupData.groupName) {
-//             const duplicateGroup = await prisma.group.findFirst({
-//                 where: {
-//                     groupName: groupData.groupName,
-//                     NOT: { id: groupId },
-//                 },
-//             });
-
-//             if (duplicateGroup) {
-//                 return response.error(res, 'Group with this name already exists.');
-//             }
-//         }
-
-//         const loggedInUserId = req.user.id; // Get from token/session
-//         if (existingGroup.userId !== loggedInUserId) {
-//             return response.error(res, 'Unauthorized: You are not allowed to edit this group.');
-//         }
-
-//         const {
-//             subCategoryId = [],
-//             invitedUserId = [],
-//             socialMediaPlatform = [],
-//             status,
-//             ...groupFields
-//         } = groupData;
-
-//         // Update group data
-//         const updatedGroup = await prisma.group.update({
-//             where: { id: groupId },
-//             data: {
-//                 ...groupFields,
-//                 subCategoryId,
-//                 socialMediaPlatform,
-//                 status: status !== undefined ? resolveStatus(status) : existingGroup.status,
-//             },
-//             include: { groupData: true },
-//         });
-
-//         // Update groupData.invitedUserId if provided
-//         if (invitedUserId.length) {
-//             await prisma.groupUsers.updateMany({
-//                 where: { groupId },
-//                 data: { invitedUserId },
-//             });
-//         }
-
-//         // Fetch subCategory with Category info
-//         const subCategoriesWithCategory = await prisma.subCategory.findMany({
-//             where: { id: { in: updatedGroup.subCategoryId } },
-//             include: { categoryInformation: true },
-//         });
-
-//         // Build final response structure (Same as Create API)
-//         const formattedResponse = {
-//             ...updatedGroup,
-//             subCategoryId: subCategoriesWithCategory,
-//             groupData: await Promise.all(
-//                 updatedGroup.groupData.map(async (groupUser) => {
-//                     const adminUser = await prisma.user.findUnique({
-//                         where: { id: groupUser.userId },
-//                         include: {
-//                             UserDetail: true,
-//                             socialMediaPlatforms: true,
-//                             brandData: true,
-//                             CountryData: true,
-//                             CityData: true,
-//                             StateData: true,
-//                         },
-//                     });
-
-//                     const invitedUserInfo = groupUser.invitedUserId.length
-//                         ? await prisma.user.findMany({
-//                             where: { id: { in: groupUser.invitedUserId } },
-//                             include: {
-//                                 UserDetail: true,
-//                                 socialMediaPlatforms: true,
-//                                 brandData: true,
-//                                 CountryData: true,
-//                                 CityData: true,
-//                                 StateData: true,
-//                             },
-//                         })
-//                         : [];
-
-//                     return {
-//                         ...groupUser,
-//                         adminUser,
-//                         invitedUsers: invitedUserInfo,
-//                     };
-//                 })
-//             ),
-//         };
-
-//         return response.success(res, 'Group updated successfully!', {
-//             groupInformation: formattedResponse,
-//         });
-
-//     } catch (error: any) {
-//         console.error(error);
-//         return response.error(res, error.message);
-//     }
-// };
-
-
-
-
 export const groupCreate = async (req: Request, res: Response): Promise<any> => {
     try {
         const groupData: IGroup = req.body;
@@ -767,104 +428,104 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
 };
 
 
-export const getAllGroups = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const { page, limit, search = '' } = req.body;
-        const skip = (Number(page) - 1) * Number(limit);
+// export const getAllGroups = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { page, limit, search = '' } = req.body;
+//         const skip = (Number(page) - 1) * Number(limit);
 
-        const whereClause = search
-            ? {
-                OR: [
-                    { groupName: { contains: search as string, mode: 'insensitive' } },
-                    { groupBio: { contains: search as string, mode: 'insensitive' } },
-                ]
-            }
-            : {};
+//         const whereClause = search
+//             ? {
+//                 OR: [
+//                     { groupName: { contains: search as string, mode: 'insensitive' } },
+//                     { groupBio: { contains: search as string, mode: 'insensitive' } },
+//                 ]
+//             }
+//             : {};
 
-        // 1️⃣ Paginate groups FIRST
-        const [groups, totalCount] = await Promise.all([
-            prisma.group.findMany({
-                where: whereClause,
-                include: { groupData: true },
-                skip,
-                take: Number(limit),
-                orderBy: { createsAt: 'desc' },
-            }),
-            prisma.group.count({ where: whereClause }),
-        ]);
+//         // 1️⃣ Paginate groups FIRST
+//         const [groups, totalCount] = await Promise.all([
+//             prisma.group.findMany({
+//                 where: whereClause,
+//                 include: { groupData: true },
+//                 skip,
+//                 take: Number(limit),
+//                 orderBy: { createsAt: 'desc' },
+//             }),
+//             prisma.group.count({ where: whereClause }),
+//         ]);
 
-        // 2️⃣ Format user and group data
-        const formatUserData = async (user: any) => {
-            const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-            const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
-            const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
-            const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
-            const { password: _, ...userData } = user;
-            return {
-                ...userData,
-                categories: userCategoriesWithSubcategories,
-                countryName: country?.name ?? null,
-                stateName: state?.name ?? null,
-                cityName: city?.name ?? null,
-            };
-        };
+//         // 2️⃣ Format user and group data
+//         const formatUserData = async (user: any) => {
+//             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+//             const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+//             const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+//             const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+//             const { password: _, ...userData } = user;
+//             return {
+//                 ...userData,
+//                 categories: userCategoriesWithSubcategories,
+//                 countryName: country?.name ?? null,
+//                 stateName: state?.name ?? null,
+//                 cityName: city?.name ?? null,
+//             };
+//         };
 
-        const formattedGroups = await Promise.all(groups.map(async (group) => {
-            const subCategoriesWithCategory = group.subCategoryId.length
-                ? await prisma.subCategory.findMany({
-                    where: { id: { in: group.subCategoryId } },
-                    include: { categoryInformation: true },
-                })
-                : [];
+//         const formattedGroups = await Promise.all(groups.map(async (group) => {
+//             const subCategoriesWithCategory = group.subCategoryId.length
+//                 ? await prisma.subCategory.findMany({
+//                     where: { id: { in: group.subCategoryId } },
+//                     include: { categoryInformation: true },
+//                 })
+//                 : [];
 
-            const formattedGroupData = await Promise.all(group.groupData.map(async (groupUser) => {
-                const adminUser = await prisma.user.findUnique({
-                    where: { id: groupUser.userId },
-                    include: {
-                        UserDetail: true, socialMediaPlatforms: true, brandData: true,
-                        countryData: true, stateData: true, cityData: true,
-                    },
-                });
-                const invitedUsers = groupUser.invitedUserId.length
-                    ? await prisma.user.findMany({
-                        where: { id: { in: groupUser.invitedUserId } },
-                        include: {
-                            UserDetail: true, socialMediaPlatforms: true, brandData: true,
-                            countryData: true, stateData: true, cityData: true,
-                        },
-                    }) : [];
+//             const formattedGroupData = await Promise.all(group.groupData.map(async (groupUser) => {
+//                 const adminUser = await prisma.user.findUnique({
+//                     where: { id: groupUser.userId },
+//                     include: {
+//                         UserDetail: true, socialMediaPlatforms: true, brandData: true,
+//                         countryData: true, stateData: true, cityData: true,
+//                     },
+//                 });
+//                 const invitedUsers = groupUser.invitedUserId.length
+//                     ? await prisma.user.findMany({
+//                         where: { id: { in: groupUser.invitedUserId } },
+//                         include: {
+//                             UserDetail: true, socialMediaPlatforms: true, brandData: true,
+//                             countryData: true, stateData: true, cityData: true,
+//                         },
+//                     }) : [];
 
-                const formattedAdminUser = adminUser ? await formatUserData(adminUser) : null;
-                const formattedInvitedUsers = await Promise.all(invitedUsers.map(user => formatUserData(user)));
+//                 const formattedAdminUser = adminUser ? await formatUserData(adminUser) : null;
+//                 const formattedInvitedUsers = await Promise.all(invitedUsers.map(user => formatUserData(user)));
 
-                return {
-                    ...groupUser,
-                    adminUser: formattedAdminUser,
-                    invitedUsers: formattedInvitedUsers,
-                };
-            }));
+//                 return {
+//                     ...groupUser,
+//                     adminUser: formattedAdminUser,
+//                     invitedUsers: formattedInvitedUsers,
+//                 };
+//             }));
 
-            return {
-                ...group,
-                subCategoryId: subCategoriesWithCategory,
-                groupData: formattedGroupData,
-            };
-        }));
+//             return {
+//                 ...group,
+//                 subCategoryId: subCategoriesWithCategory,
+//                 groupData: formattedGroupData,
+//             };
+//         }));
 
-        // Return paginated result with formattedGroups
-        return response.success(res, 'Groups fetched successfully!', {
-            pagination: {
-                total: totalCount,
-                page: Number(page),
-                limit: Number(limit),
-                totalPages: Math.ceil(totalCount / Number(limit)),
-            },
-            groups: formattedGroups,
-        });
-    } catch (error: any) {
-        return response.error(res, error.message);
-    }
-};
+//         // Return paginated result with formattedGroups
+//         return response.success(res, 'Groups fetched successfully!', {
+//             pagination: {
+//                 total: totalCount,
+//                 page: Number(page),
+//                 limit: Number(limit),
+//                 totalPages: Math.ceil(totalCount / Number(limit)),
+//             },
+//             groups: formattedGroups,
+//         });
+//     } catch (error: any) {
+//         return response.error(res, error.message);
+//     }
+// };
 
 
 
@@ -906,5 +567,188 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message || 'Failed to delete group');
     }
 }
+
+
+
+export const getAllGroups = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { page = 1, limit = 10, search = '' } = req.body;
+        const lowerSearch = search.toLowerCase();
+
+        const matchingUserGroupEntries = await prisma.groupUsersList.findMany({
+            where: {
+                OR: [
+                    {
+                        groupAdminListData: {
+                            name: { contains: search, mode: 'insensitive' },
+                        },
+                    },
+                    {
+                        groupInvitesListData: {
+                            name: { contains: search, mode: 'insensitive' },
+                        },
+                    },
+                ],
+            },
+            select: { groupId: true },
+        });
+
+        const matchedGroupIdsFromUsers = [...new Set(matchingUserGroupEntries.map(e => e.groupId))];
+
+        const allGroups = await prisma.group.findMany({
+            where: {
+                OR: [
+                    { groupName: { contains: search, mode: 'insensitive' } },
+                    { groupBio: { contains: search, mode: 'insensitive' } },
+                    { id: { in: matchedGroupIdsFromUsers } },
+                ],
+            },
+            orderBy: { createsAt: 'desc' },
+        });
+
+        const formatUserData = async (user: any) => {
+            const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+            const country = user.countryId
+                ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } })
+                : null;
+            const state = user.stateId
+                ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } })
+                : null;
+            const city = user.cityId
+                ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } })
+                : null;
+
+            const { password: _, ...userData } = user;
+            return {
+                ...userData,
+                categories: userCategoriesWithSubcategories,
+                countryName: country?.name ?? null,
+                stateName: state?.name ?? null,
+                cityName: city?.name ?? null,
+            };
+        };
+
+        const formattedGroups = await Promise.all(allGroups.map(async (group) => {
+            const subCategoriesWithCategory = group.subCategoryId?.length
+                ? await prisma.subCategory.findMany({
+                    where: { id: { in: group.subCategoryId } },
+                    include: { categoryInformation: true },
+                })
+                : [];
+
+            const groupUserEntries = await prisma.groupUsersList.findMany({
+                where: { groupId: group.id },
+                include: {
+                    groupAdminListData: {
+                        include: {
+                            UserDetail: true,
+                            socialMediaPlatforms: true,
+                            brandData: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        },
+                    },
+                    groupInvitesListData: {
+                        include: {
+                            UserDetail: true,
+                            socialMediaPlatforms: true,
+                            brandData: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        },
+                    },
+                },
+            });
+
+            const grouped = new Map<string, any>();
+
+            for (const entry of groupUserEntries) {
+                const key = `${entry.groupId}-${entry.groupUserId}`;
+
+                if (!grouped.has(key)) {
+                    const formattedAdminUser = entry.groupAdminListData
+                        ? await formatUserData(entry.groupAdminListData)
+                        : null;
+
+                    grouped.set(key, {
+                        id: entry.id,
+                        userId: entry.groupUserId,
+                        groupId: entry.groupId,
+                        status: entry.status,
+                        createdAt: entry.createdAt,
+                        updatedAt: entry.updatedAt,
+                        adminUser: formattedAdminUser,
+                        invitedUsers: [],
+                    });
+                }
+
+                if (entry.invitedUserId) {
+                    const invitedUser = await prisma.user.findUnique({
+                        where: { id: entry.invitedUserId },
+                        include: {
+                            UserDetail: true,
+                            socialMediaPlatforms: true,
+                            brandData: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        },
+                    });
+
+                    if (invitedUser) {
+                        const formattedInvitedUser = await formatUserData(invitedUser);
+                        grouped.get(key).invitedUsers.push(formattedInvitedUser);
+                    }
+                }
+            }
+
+            const formattedGroupData = Array.from(grouped.values());
+
+            return {
+                groupInformation: {
+                    ...group,
+                    subCategoryId: subCategoriesWithCategory,
+                    groupData: formattedGroupData,
+                },
+            };
+        }));
+
+        const fullyFilteredGroups = formattedGroups.filter(({ groupInformation }) => {
+            const groupMatch =
+                groupInformation.groupName.toLowerCase().includes(lowerSearch) ||
+                groupInformation.groupBio?.toLowerCase().includes(lowerSearch);
+
+            const adminMatch = groupInformation.groupData.some((gd: any) =>
+                gd.adminUser?.name?.toLowerCase().includes(lowerSearch)
+            );
+
+            const invitedMatch = groupInformation.groupData.some((gd: any) =>
+                gd.invitedUsers?.some((user: any) => user.name?.toLowerCase().includes(lowerSearch))
+            );
+
+            return groupMatch || adminMatch || invitedMatch;
+        });
+
+        const paginatedGroups = fullyFilteredGroups.slice((page - 1) * limit, page * limit);
+
+        return response.success(res, 'Groups fetched successfully!', {
+            pagination: {
+                total: fullyFilteredGroups.length,
+                page: Number(page),
+                limit: Number(limit),
+                totalPages: Math.ceil(fullyFilteredGroups.length / limit),
+            },
+            groups: paginatedGroups,
+        });
+    } catch (error: any) {
+        return response.error(res, error.message);
+    }
+};
+
+
+
+
 
 
