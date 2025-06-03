@@ -749,6 +749,100 @@ export const getAllGroups = async (req: Request, res: Response): Promise<any> =>
 
 
 
+export const getMyGroups = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { userId } = req.body;
 
+        if (!userId) {
+            return response.error(res, 'User ID is required.');
+        }
 
+        // Step 1: Get all group IDs where the user is involved
+        const userGroupLinks = await prisma.groupUsersList.findMany({
+            where: {
+                OR: [
+                    { adminUserId: userId },
+                    { invitedUserId: userId },
+                ],
+            },
+            select: { groupId: true },
+        });
 
+        const groupIds = [...new Set(userGroupLinks.map(link => link.groupId))];
+
+        if (groupIds.length === 0) {
+            return response.success(res, 'No groups found.', { groups: [] });
+        }
+
+        // Step 2: Paginate groups with your common utility
+        const paginated = await paginate(
+            req,
+            prisma.group,
+            {
+                where: { id: { in: groupIds } },
+                orderBy: { createsAt: 'desc' },
+            },
+            'groups'
+        );
+
+        // Step 3: Format each group
+        const formattedGroups = await Promise.all(
+            paginated.groups.map(async (group) => {
+                const subCategories = group.subCategoryId?.length
+                    ? await prisma.subCategory.findMany({
+                        where: { id: { in: group.subCategoryId } },
+                        include: { categoryInformation: true },
+                    })
+                    : [];
+
+                const groupUsers = await prisma.groupUsersList.findMany({
+                    where: { groupId: group.id },
+                    include: {
+                        groupAdminListData: true,
+                        groupInvitesListData: true,
+                    },
+                });
+
+                const groupMap = new Map<string, any>();
+
+                for (const entry of groupUsers) {
+                    const key = `${entry.groupId}-${entry.groupUserId}`;
+
+                    if (!groupMap.has(key)) {
+                        groupMap.set(key, {
+                            id: entry.id,
+                            userId: entry.groupUserId,
+                            groupId: entry.groupId,
+                            status: entry.status,
+                            createdAt: entry.createdAt,
+                            updatedAt: entry.updatedAt,
+                            adminUser: entry.groupAdminListData,
+                            invitedUsers: [],
+                        });
+                    }
+
+                    if (entry.groupInvitesListData) {
+                        groupMap.get(key).invitedUsers.push(entry.groupInvitesListData);
+                    }
+                }
+
+                return {
+                    groupInformation: {
+                        ...group,
+                        subCategoryId: subCategories,
+                        groupData: Array.from(groupMap.values()),
+                    },
+                };
+            })
+        );
+
+        // Replace raw group list with formatted group info
+        paginated.groups = formattedGroups;
+
+        return response.success(res, 'My groups fetched successfully!', paginated);
+
+    } catch (error: any) {
+        console.error(error);
+        return response.error(res, error.message);
+    }
+};
