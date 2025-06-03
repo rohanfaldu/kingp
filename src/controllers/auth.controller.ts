@@ -1037,6 +1037,8 @@ const formatUserData = async (user: any) => {
     };
 };
 
+
+
 // Alternative approach: Separate pagination for users and groups
 export const getAllUsersAlternative = async (req: Request, res: Response): Promise<any> => {
     try {

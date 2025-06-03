@@ -54,6 +54,8 @@ model User {
   cityData                 City?        @relation(fields: [cityId], references: [id])
   stateData                State?       @relation(fields: [stateId], references: [id])
   groupUserData            GroupUsers[]
+  groupAdminListData       GroupUsersList[] @relation("AdminUserRelation")
+  groupInvitesListData     GroupUsersList[] @relation("InvitedUserRelation")
 }
 
 model Category {
@@ -193,18 +195,39 @@ model Group {
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
   groupData                GroupUsers[]
+  groupListData            GroupUsersList[]
 }
 
 model GroupUsers {
-  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
-  userId                   String         @db.Uuid
-  groupId                  String         @db.Uuid
-  invitedUserId            String[]
-  status                   Boolean        @default(true)
-  createsAt                DateTime?      @default(now()) @db.Timestamp(6)
-  updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
-  groupData                Group?         @relation(fields: [groupId], references: [id])
-  groupUserData            User?          @relation(fields: [userId], references: [id])
+  id                          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                      String              @unique @db.Uuid  
+  groupId                     String              @db.Uuid
+  invitedUserId               String[]            @db.Uuid
+  status                      Boolean             @default(true)
+  createdAt                   DateTime?           @default(now()) @db.Timestamp(6)
+  updatedAt                   DateTime?           @default(now()) @db.Timestamp(6)
+  groupData                   Group?              @relation(fields: [groupId], references: [id])
+  groupUserData               User?               @relation(fields: [userId], references: [id])
+  adminUserGroupUsersList     GroupUsersList[]      @relation("AdminUserGroupUsersList")
+  invitedUserGroupUsersList   GroupUsersList[]      @relation("InvitedUserGroupUsersList")
+  groupUserIdData             GroupUsersList[]      @relation("GroupUserIdRelation")
+}
+
+model GroupUsersList {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId             String          @db.Uuid
+  groupUserId         String          @db.Uuid
+  adminUserId         String          @db.Uuid
+  invitedUserId       String          @db.Uuid
+  status              Boolean         @default(true)
+  createdAt           DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime?       @default(now()) @db.Timestamp(6)
+  groupData           Group?          @relation(fields: [groupId], references: [id])
+  adminUser           GroupUsers      @relation("AdminUserGroupUsersList", fields: [adminUserId], references: [userId], map: "GroupUsersList_adminUserId_GroupUsers_fkey")
+  invitedUser         GroupUsers      @relation("InvitedUserGroupUsersList", fields: [invitedUserId], references: [userId], map: "GroupUsersList_invitedUserId_GroupUsers_fkey")
+  groupUser           GroupUsers      @relation("GroupUserIdRelation", fields: [groupUserId], references: [id], map: "GroupUsersList_groupUserId_GroupUsers_fkey")
+  groupAdminListData   User?          @relation("AdminUserRelation", fields: [adminUserId], references: [id], map: "GroupUsersList_adminUserId_User_fkey")
+  groupInvitesListData User?          @relation("InvitedUserRelation", fields: [invitedUserId], references: [id], map: "GroupUsersList_invitedUserId_User_fkey")
 }
 
 model AppSetting {
