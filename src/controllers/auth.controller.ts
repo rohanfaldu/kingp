@@ -16,6 +16,7 @@ import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWi
 import { mapUserWithLocationAndCategories } from '../utils/userResponseMapper';
 import { omit } from 'lodash';
 import { Resend } from 'resend';
+import { Role } from '@prisma/client';
 
 
 const prisma = new PrismaClient();
@@ -762,7 +763,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<any> => {
     try {
         const {
-            platform, type, countryId, stateId, cityId, influencerType, status,
+            platform, type, countryId, stateId, cityId, status,
             subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
             badgeType, search, page = 1, limit = 10,
         } = req.body;
@@ -779,51 +780,211 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const andFilters: any[] = [];
         const filter: any = {};
 
-        if (platform && allowedPlatforms.includes(platform)) {
-            andFilters.push({ socialMediaPlatforms: { some: { platform: platform } } });
+        if (platform) {
+            const platforms = Array.isArray(platform) ? platform.map(p => p.toUpperCase()) : [platform.toString().toUpperCase()];
+            const invalidPlatforms = platforms.filter(p => !allowedPlatforms.includes(p));
+            if (invalidPlatforms.length > 0) {
+                return response.error(res, `Invalid platform(s): ${invalidPlatforms.join(', ')}. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK`);
+            }
+
+            andFilters.push({
+                OR: platforms.map(p => ({
+                    socialMediaPlatforms: {
+                        some: { platform: p },
+                    },
+                })),
+            });
         }
 
-        if (gender && allowedGender.includes(gender)) {
-            andFilters.push({ gender });
-        }
-
-        if (influencerType && allowedInfluencerTypes.includes(influencerType)) {
-            andFilters.push({ influencerType });
-        }
-
-        if (badgeType && allowedBadgeTypes.includes(badgeType)) {
-            andFilters.push({ badgeType });
-        }
-
-        if (countryId) andFilters.push({ countryId });
-        if (stateId) andFilters.push({ stateId });
-        if (cityId) andFilters.push({ cityId });
-
+        // Price filter (based on SocialMediaPlatform.price)
         if (minPrice || maxPrice) {
-            andFilters.push({
-                price: {
-                    gte: minPrice || 0,
-                    lte: maxPrice || Number.MAX_SAFE_INTEGER
+            const priceConditions: any = {};
+
+            if (minPrice) {
+                const parsedMinPrice = parseFloat(minPrice.toString());
+                if (isNaN(parsedMinPrice) || parsedMinPrice < 0) {
+                    return response.error(res, 'Invalid minPrice. Must be a non-negative number.');
                 }
+                priceConditions.gte = parsedMinPrice;
+            }
+
+            if (maxPrice) {
+                const parsedMaxPrice = parseFloat(maxPrice.toString());
+                if (isNaN(parsedMaxPrice) || parsedMaxPrice < 0) {
+                    return response.error(res, 'Invalid maxPrice. Must be a non-negative number.');
+                }
+                priceConditions.lte = parsedMaxPrice;
+            }
+
+            andFilters.push({
+                socialMediaPlatforms: {
+                    some: {
+                        price: priceConditions,
+                    },
+                },
             });
         }
 
-        if (minAge || maxAge) {
-            andFilters.push({
-                age: {
-                    gte: minAge || 0,
-                    lte: maxAge || 100
-                }
-            });
+        if (gender) {
+            const genders = Array.isArray(gender) ? gender.map(g => g.toUpperCase()) : [gender.toString().toUpperCase()];
+            const invalidGenders = genders.filter(g => !allowedGender.includes(g));
+            if (invalidGenders.length > 0) {
+                return response.error(res, `Invalid gender(s): ${invalidGenders.join(', ')}. Allowed: MALE, FEMALE, OTHER`);
+            }
+
+            filter.gender = { in: genders };
         }
 
+        // Age filter (based on birthDate)
+        if (minAge) {
+            const minAge = parseInt(req.body.minAge.toString());
+            if (isNaN(minAge) || minAge <= 0) {
+                return response.error(res, 'Invalid minAge. It must be a positive number.');
+            }
+
+            const today = new Date();
+            const birthDateThreshold = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+
+            filter.birthDate = {
+                lte: birthDateThreshold,
+            };
+        }
+
+        if (maxAge) {
+            const maxAge = parseInt(req.body.maxAge.toString());
+            if (isNaN(maxAge) || maxAge <= 0) {
+                return response.error(res, 'Invalid maxAge. It must be a positive number.');
+            }
+
+            const today = new Date();
+            const birthDateThreshold = new Date(today.getFullYear() - maxAge, today.getMonth(), today.getDate());
+
+            filter.birthDate = {
+                ...(filter.birthDate || {}),
+                gte: birthDateThreshold,
+            };
+        }
+
+        // type of user business or influencer
+        if (type && typeof type === 'string') {
+            const normalizedType = type.toUpperCase();
+            if (Object.values(Role).includes(normalizedType as Role)) {
+                filter.type = normalizedType as Role;
+            } else {
+                return response.error(res, 'Invalid user type, allowed: BUSINESS, INFLUENCER');
+            }
+        }
+
+         // Badge Type filter (NEW)
+        if (badgeType) {
+            const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
+            const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
+
+            if (invalidBadges.length > 0) {
+                return response.error(res, `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`);
+            }
+
+            // Apply badge-specific filters based on criteria
+            const badgeFilters: any[] = [];
+
+            badges.forEach(badge => {
+                switch (badge) {
+                    case '1':
+                        badgeFilters.push({
+                            socialMediaPlatforms: {
+                                some: {
+                                    platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] },
+                                },
+                            },
+                        });
+                        break;
+
+                    case '2':
+                        badgeFilters.push({
+                            ratings: { gte: 4.5 },
+                        });
+                        break;
+
+                    case '3':
+                        badgeFilters.push({
+                            socialMediaPlatforms: {
+                                some: {
+                                    AND: [
+                                        { price: { gte: 100000 } },
+                                    ],
+                                },
+                            },
+                            ratings: { gte: 4.7 },
+
+                        });
+                        break;
+
+                }
+            });
+
+            if (badgeFilters.length > 0) {
+                andFilters.push({
+                    OR: badgeFilters,
+                });
+            }
+        }
+
+        if (countryId) {
+            const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
+            filter.countryId = { in: countries };
+        }
+
+        // STATE filter with multiple values
+        if (stateId) {
+            const states = Array.isArray(stateId) ? stateId.map((id: any) => id.toString()) : [stateId.toString()];
+            filter.stateId = { in: states };
+        }
+
+        // CITY filter with multiple values
+        if (cityId) {
+            const cities = Array.isArray(cityId) ? cityId.map((id: any) => id.toString()) : [cityId.toString()];
+            filter.cityId = { in: cities };
+        }
+
+        // Ratings filter (optional)
+        if (ratings) {
+            if (Array.isArray(ratings)) {
+                // Convert all ratings to numbers and validate
+                const ratingValues = ratings.map(r => parseInt(r.toString())).filter(r => !isNaN(r) && r >= 0);
+                if (ratingValues.length === 0) {
+                    return response.error(res, 'Invalid ratings array. All values must be non-negative numbers.');
+                }
+                // Filter users whose ratings field matches any of the given ratings
+                filter.ratings = { in: ratingValues };
+            } else {
+                const minRating = parseInt(ratings.toString());
+                if (isNaN(minRating) || minRating < 0) {
+                    return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
+                }
+                filter.ratings = { gte: minRating };
+            }
+        }
+
+         if (status !== undefined) {
+            if (status === 'true' || status === 'false') {
+                filter.status = status === 'true';
+            } else {
+                return response.error(res, 'Invalid status value. Use true or false.');
+            }
+        }
+
+       // SubCategory filter (optional)
         if (subCategoryId) {
+            const subCategoryIds = Array.isArray(subCategoryId) ? subCategoryId : [subCategoryId];
             andFilters.push({
-                userSubCategories: {
-                    some: { subCategoryId }
-                }
+                OR: subCategoryIds.map((id: string) => ({
+                    subCategories: {
+                        some: { subCategoryId: id.toString() },
+                    },
+                })),
             });
         }
+
 
         const whereFilter: any = { ...filter };
         if (andFilters.length > 0) whereFilter.AND = andFilters;
@@ -1000,6 +1161,11 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         return response.error(res, error.message);
     }
 };
+
+
+
+
+
 
 
 
