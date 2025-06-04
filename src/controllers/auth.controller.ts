@@ -1010,8 +1010,8 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             prisma.groupUsersList.findMany({
                 where: {
                     OR: [
-                        { groupAdminListData: { name: { contains: search || '', mode: 'insensitive' } } },
-                        { groupInvitesListData: { name: { contains: search || '', mode: 'insensitive' } } },
+                        { adminUser: { name: { contains: search || '', mode: 'insensitive' } } },
+                        { invitedUser: { name: { contains: search || '', mode: 'insensitive' } } },
                     ]
                 },
                 select: { groupId: true }
