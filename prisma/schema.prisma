@@ -222,7 +222,7 @@ model GroupUsersList {
   createdAt     DateTime? @default(now()) @db.Timestamp(6)
   updatedAt     DateTime? @default(now()) @db.Timestamp(6)
 
- group         Group      @relation("GroupToGroupUsersList", fields: [groupId], references: [id])
+  group         Group      @relation("GroupToGroupUsersList", fields: [groupId], references: [id])
   groupUser     GroupUsers @relation("GroupUsersToGroupUsersList", fields: [groupUserId], references: [id])
   adminUser     User       @relation("AdminUser", fields: [adminUserId], references: [id])
   invitedUser   User       @relation("InvitedUser", fields: [invitedUserId], references: [id])
