@@ -213,19 +213,20 @@ model GroupUsers {
 }
 
 model GroupUsersList {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  groupId       String   @db.Uuid
-  groupUserId   String   @db.Uuid
-  adminUserId   String   @db.Uuid
-  invitedUserId String   @db.Uuid
-  status        Boolean  @default(true)
-  createdAt     DateTime? @default(now()) @db.Timestamp(6)
-  updatedAt     DateTime? @default(now()) @db.Timestamp(6)
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId             String              @db.Uuid
+  groupUserId         String              @db.Uuid
+  adminUserId         String              @db.Uuid
+  invitedUserId       String              @db.Uuid
+  status              Boolean             @default(true)
+  requestAccept       Boolean             @default(false)
+  createdAt           DateTime?           @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime?           @default(now()) @db.Timestamp(6)
 
-  group         Group      @relation("GroupToGroupUsersList", fields: [groupId], references: [id])
-  groupUser     GroupUsers @relation("GroupUsersToGroupUsersList", fields: [groupUserId], references: [id])
-  adminUser     User       @relation("AdminUser", fields: [adminUserId], references: [id])
-  invitedUser   User       @relation("InvitedUser", fields: [invitedUserId], references: [id])
+  group               Group                @relation("GroupToGroupUsersList", fields: [groupId], references: [id])
+  groupUser           GroupUsers           @relation("GroupUsersToGroupUsersList", fields: [groupUserId], references: [id])
+  adminUser           User                 @relation("AdminUser", fields: [adminUserId], references: [id])
+  invitedUser         User                 @relation("InvitedUser", fields: [invitedUserId], references: [id])
 }
 
 

@@ -442,6 +442,8 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
     }
 };
 
+
+
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
     try {
         const {
@@ -875,7 +877,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             }
         }
 
-         // Badge Type filter (NEW)
+        // Badge Type filter (NEW)
         if (badgeType) {
             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
@@ -965,7 +967,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             }
         }
 
-         if (status !== undefined) {
+        if (status !== undefined) {
             if (status === 'true' || status === 'false') {
                 filter.status = status === 'true';
             } else {
@@ -973,7 +975,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             }
         }
 
-       // SubCategory filter (optional)
+        // SubCategory filter (optional)
         if (subCategoryId) {
             const subCategoryIds = Array.isArray(subCategoryId) ? subCategoryId : [subCategoryId];
             andFilters.push({
@@ -1085,9 +1087,35 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 group.groupData.map(async (groupUser: any) => {
                     const adminUser = groupUser.groupUserData;
 
-                    const invitedUsers = groupUser.invitedUserId?.length
+                    // const invitedUsers = groupUser.invitedUserId?.length
+                    //     ? await prisma.user.findMany({
+                    //         where: { id: { in: groupUser.invitedUserId } },
+                    //         include: {
+                    //             UserDetail: true,
+                    //             socialMediaPlatforms: true,
+                    //             brandData: true,
+                    //             countryData: true,
+                    //             stateData: true,
+                    //             cityData: true,
+                    //         },
+                    //     })
+                    //     : [];
+
+                    const acceptedInvites = await prisma.groupUsersList.findMany({
+                        where: {
+                            groupId: group.id,
+                            groupUserId: groupUser.id,
+                            requestAccept: true,
+                            status: true,
+                        },
+                        select: { invitedUserId: true }
+                    });
+
+                    const acceptedInvitedUserIds = acceptedInvites.map(i => i.invitedUserId);
+
+                    const invitedUsers = acceptedInvitedUserIds.length
                         ? await prisma.user.findMany({
-                            where: { id: { in: groupUser.invitedUserId } },
+                            where: { id: { in: acceptedInvitedUserIds } },
                             include: {
                                 UserDetail: true,
                                 socialMediaPlatforms: true,
@@ -1098,6 +1126,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                             },
                         })
                         : [];
+
 
                     const formattedAdminUser = adminUser ? {
                         ...adminUser,
@@ -1125,6 +1154,8 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 })
             );
 
+            
+            
             const adminUserData = formattedGroupData[0]?.adminUser || null;
 
             return {
