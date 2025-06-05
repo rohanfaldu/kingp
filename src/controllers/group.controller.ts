@@ -1046,10 +1046,24 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
             return response.error(res, 'groupId, userId, and invitedUserId array are required.');
         }
 
-        // Step 1: Validate group and admin user
+        // Step 1: Validate group
         const group = await prisma.group.findUnique({ where: { id: groupId } });
         if (!group) return response.error(res, 'Invalid groupId. Group does not exist.');
 
+        // Step 2: Verify the user is the group admin (status: true)
+        const isAdmin = await prisma.groupUsers.findFirst({
+            where: {
+                groupId,
+                userId,
+                status: true, // only admin has status: true
+            },
+        });
+
+        if (!isAdmin) {
+            return response.error(res, 'You are not authorized to add members to this group.');
+        }
+
+        // Step 3: Fetch and validate admin user data
         const adminUser = await prisma.user.findUnique({
             where: { id: userId },
             include: {
@@ -1062,7 +1076,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
         });
         if (!adminUser) return response.error(res, 'Invalid userId. User does not exist.');
 
-        // Step 2: Fetch and validate invited users from request
+        // Step 4: Fetch and validate invited users
         const invitedUsers = await prisma.user.findMany({
             where: { id: { in: invitedUserId } },
             include: {
@@ -1080,7 +1094,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
             return response.error(res, `Invalid invitedUserId(s): ${invalidIds.join(', ')}`);
         }
 
-        // Step 3: Get or create GroupUsers entry for admin
+        // Step 5: Get or create GroupUsers entry for admin
         let adminGroupUser = await prisma.groupUsers.findFirst({
             where: { groupId, userId },
         });
@@ -1106,7 +1120,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
             });
         }
 
-        // Step 4: Create GroupUsersList entries if not already existing
+        // Step 6: Create GroupUsersList entries if not already existing
         await Promise.all(validInvitedIds.map(async (invitedId) => {
             const exists = await prisma.groupUsersList.findFirst({
                 where: {
@@ -1129,13 +1143,13 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
             }
         }));
 
-        // Step 5: Fetch subCategory info with category
+        // Step 7: Fetch subCategory info with category
         const subCategoriesWithCategory = await prisma.subCategory.findMany({
             where: { id: { in: group.subCategoryId } },
             include: { categoryInformation: true },
         });
 
-        // Step 6: Format user data
+        // Step 8: Format user data
         const formatUserData = async (user: any) => {
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
@@ -1162,7 +1176,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
 
         const formattedAdminUser = await formatUserData(adminUser);
 
-        // ✅ Fetch all invited users for the group (not just current request)
+        // Step 9: Fetch all invited users for this group
         const allGroupInvitedUsers = await prisma.groupUsersList.findMany({
             where: { groupId },
             include: {
@@ -1178,14 +1192,13 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
             },
         });
 
-        // Format all invited users
         const formattedInvitedUsers = await Promise.all(
             allGroupInvitedUsers.map(async (entry) => {
                 return await formatUserData(entry.invitedUser);
             })
         );
 
-        // Step 7: Final response
+        // Step 10: Final response
         return response.success(res, 'Group updated successfully!', {
             groupInformation: {
                 ...group,
@@ -1200,3 +1213,4 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
         return response.error(res, error.message);
     }
 };
+
