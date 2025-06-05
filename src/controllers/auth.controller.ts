@@ -758,8 +758,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
     } catch (error: any) {
         response.error(res, error.message);
     }
-}
-
+};
 
 
 
