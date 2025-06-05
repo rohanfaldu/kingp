@@ -32,3 +32,9 @@ export enum VisibilityType {
     PUBLIC = 'PUBLIC',
     PRIVATE = 'PRIVATE',
 }
+
+export enum RequestStatus{
+    PENDING = 'PENDING',
+    ACCEPTED = 'ACCEPTED',
+    REJECTED = 'REJECTED',
+}

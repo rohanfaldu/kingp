@@ -219,7 +219,7 @@ model GroupUsersList {
   adminUserId         String              @db.Uuid
   invitedUserId       String              @db.Uuid
   status              Boolean             @default(true)
-  requestAccept       Boolean             @default(false)
+  requestAccept       RequestStatus       @default(PENDING)      
   createdAt           DateTime?           @default(now()) @db.Timestamp(6)
   updatedAt           DateTime?           @default(now()) @db.Timestamp(6)
 
@@ -293,4 +293,10 @@ enum VisibilityType {
 enum OtpType {
   SIGNUP
   RESETPASS
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
