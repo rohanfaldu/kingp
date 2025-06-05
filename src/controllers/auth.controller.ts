@@ -17,6 +17,8 @@ import { mapUserWithLocationAndCategories } from '../utils/userResponseMapper';
 import { omit } from 'lodash';
 import { Resend } from 'resend';
 import { Role } from '@prisma/client';
+import { RequestStatus } from '@prisma/client';
+
 
 
 const prisma = new PrismaClient();
@@ -1094,7 +1096,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     const acceptedInvites = await prisma.groupUsersList.findMany({
                         where: {
                             groupId: group.id,
-                            requestAccept: true,  // Only users who accepted the invitation
+                            requestAccept: RequestStatus.ACCEPTED,  // Only users who accepted the invitation
                             // status: true,         // Only active invitations
                         },
                         select: { invitedUserId: true },
