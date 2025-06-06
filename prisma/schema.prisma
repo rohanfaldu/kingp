@@ -249,7 +249,7 @@ model Badges {
   updatedAt               DateTime        @default(now()) @db.Timestamp(6)
 }
 
-model Offers {
+model Orders {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   groupId                 String?         @db.Uuid
   influencerId            String?         @db.VarChar
@@ -264,8 +264,10 @@ model Offers {
   DiscountAmount          Decimal?        @db.Decimal
   finalAmount             Decimal?        @db.Decimal
   paymentStatus           paymentStatus   @default(PENDING)
-  createdAt           DateTime?           @default(now()) @db.Timestamp(6)
-  updatedAt           DateTime?           @default(now()) @db.Timestamp(6)
+  createdAt               DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
+
+  orderData               Earnings[]
 }
 
 model Earnings {
@@ -278,8 +280,11 @@ model Earnings {
   earningAmount           Decimal?        @db.Decimal
   paymentStatus           paymentStatus   @default(PENDING)
   date                    DateTime        @default(now())
-  createdAt           DateTime?           @default(now()) @db.Timestamp(6)
-  updatedAt           DateTime?           @default(now()) @db.Timestamp(6)
+  createdAt               DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
+  
+  orderData    Orders?      @relation(fields: [orederId], references: [id])
+
 }
 
 

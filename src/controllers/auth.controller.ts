@@ -256,124 +256,124 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
 export const login = async (req: Request, res: Response): Promise<any> => {
     try {
-    const { emailAddress, password, loginType, socialId, fcmToken } = req.body;
+        const { emailAddress, password, loginType, socialId, fcmToken } = req.body;
 
 
-    if (!emailAddress) {
-        return response.error(res, 'Email is required.');
-    }
+        if (!emailAddress) {
+            return response.error(res, 'Email is required.');
+        }
 
-    let user = await prisma.user.findUnique({
-        where: { emailAddress },
-        include: {
-            socialMediaPlatforms: true,
-            brandData: true,
-            countryData: true,
-            stateData: true,
-            cityData: true,
-        },
-    });
-
-    if (!user) {
-        return response.error(res, 'Invalid email address.');
-    }
-
-    const isAdmin = user.type === 'ADMIN';
-
-    if ((!isAdmin) && (user.loginType === 'NONE')) {
-        const verifiedOtp = await prisma.otpVerify.findFirst({
-            where: {
-                emailAddress,
-                verified: true,
+        let user = await prisma.user.findUnique({
+            where: { emailAddress },
+            include: {
+                socialMediaPlatforms: true,
+                brandData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
             },
         });
 
-        if (!verifiedOtp) {
-            return response.error(
-                res,
-                'Email is not verified. Please verify your email with the OTP sent during signup.'
-            );
-        }
-    }
-
-    // Social login flow (GOOGLE or APPLE)
-    if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
-        if (!socialId) {
-            return response.error(res, 'socialId is required for social login.');
+        if (!user) {
+            return response.error(res, 'Invalid email address.');
         }
 
-        if (user.loginType === LoginType.NONE || !user.loginType) {
-            return response.error(res, 'Please login with Email & Password.');
+        const isAdmin = user.type === 'ADMIN';
+
+        if ((!isAdmin) && (user.loginType === 'NONE')) {
+            const verifiedOtp = await prisma.otpVerify.findFirst({
+                where: {
+                    emailAddress,
+                    verified: true,
+                },
+            });
+
+            if (!verifiedOtp) {
+                return response.error(
+                    res,
+                    'Email is not verified. Please verify your email with the OTP sent during signup.'
+                );
+            }
         }
 
-        if (user.loginType !== loginType) {
-            return response.error(res, `Please login using ${user.loginType}.`);
+        // Social login flow (GOOGLE or APPLE)
+        if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
+            if (!socialId) {
+                return response.error(res, 'socialId is required for social login.');
+            }
+
+            if (user.loginType === LoginType.NONE || !user.loginType) {
+                return response.error(res, 'Please login with Email & Password.');
+            }
+
+            if (user.loginType !== loginType) {
+                return response.error(res, `Please login using ${user.loginType}.`);
+            }
+
+            if (!user.socialId) {
+                return response.error(res, 'No socialId registered for this user. Please contact support.');
+            }
+
+            if (user.socialId !== socialId) {
+                return response.error(res, 'Invalid socialId provided.');
+            }
+
+        } else {
+            if (user.loginType === LoginType.GOOGLE || user.loginType === LoginType.APPLE) {
+                return response.error(res, `Please login using ${user.loginType}.`);
+            }
+
+            if (!password) {
+                return response.error(res, 'Password is required for email/password login.');
+            }
+
+            const validPassword = await bcrypt.compare(password, user.password);
+            if (!validPassword) {
+                return response.error(res, 'Invalid password.');
+            }
         }
 
-        if (!user.socialId) {
-            return response.error(res, 'No socialId registered for this user. Please contact support.');
+        // Update FCM token if provided
+        if (fcmToken) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { fcmToken },
+            });
         }
 
-        if (user.socialId !== socialId) {
-            return response.error(res, 'Invalid socialId provided.');
-        }
+        // Fetch country, state, city names
+        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
 
-    } else {
-        if (user.loginType === LoginType.GOOGLE || user.loginType === LoginType.APPLE) {
-            return response.error(res, `Please login using ${user.loginType}.`);
-        }
+        // Get user categories
+        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        if (!password) {
-            return response.error(res, 'Password is required for email/password login.');
-        }
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user.id, email: user.emailAddress },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
 
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-            return response.error(res, 'Invalid password.');
-        }
-    }
+        // Build user response and replace IDs with names
+        const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
 
-    // Update FCM token if provided
-    if (fcmToken) {
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { fcmToken },
+        const userResponse = {
+            ...userWithoutPassword,
+            categories: userCategoriesWithSubcategories,
+            countryName: country?.name ?? null,
+            stateName: state?.name ?? null,
+            cityName: city?.name ?? null,
+
+            // socialMediaPlatforms: user.socialMediaPlatforms ?? [],
+        };
+
+        // Final response
+        return response.success(res, 'Login successful!', {
+            user: userResponse,
+            token,
         });
-    }
-
-    // Fetch country, state, city names
-    const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
-    const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
-    const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
-
-    // Get user categories
-    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
-    // Generate JWT token
-    const token = jwt.sign(
-        { userId: user.id, email: user.emailAddress },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-    );
-
-    // Build user response and replace IDs with names
-    const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
-
-    const userResponse = {
-        ...userWithoutPassword,
-        categories: userCategoriesWithSubcategories,
-        countryName: country?.name ?? null,
-        stateName: state?.name ?? null,
-        cityName: city?.name ?? null,
-
-        // socialMediaPlatforms: user.socialMediaPlatforms ?? [],
-    };
-
-    // Final response
-    return response.success(res, 'Login successful!', {
-        user: userResponse,
-        token,
-    });
 
     } catch (error: any) {
         return response.serverError(res, error.message || 'Login failed.');
@@ -749,9 +749,6 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         response.error(res, error.message);
     }
 };
-
-
-
 
 
 
@@ -1151,15 +1148,27 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
             const adminUserData = formattedGroupData[0]?.adminUser || null;
 
-            return {
-                ...adminUserData,
-                isGroup: true,
-                groupInfo: {
+            // Return different structure based on subtype
+            if (parsedSubtype === 2) {
+                // For subtype = 2, return group information directly
+                return {
                     ...group,
                     subCategoryId: subCategoriesWithCategory,
                     groupData: formattedGroupData,
-                }
-            };
+                    isGroup: true
+                };
+            } else {
+                // For subtype = 0 or 1, return in user data structure
+                return {
+                    ...adminUserData,
+                    isGroup: true,
+                    groupInfo: {
+                        ...group,
+                        subCategoryId: subCategoriesWithCategory,
+                        groupData: formattedGroupData,
+                    }
+                };
+            }
         }));
 
         const allResults = [...formattedUsers, ...formattedGroups];
@@ -1185,6 +1194,440 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         return response.error(res, error.message);
     }
 };
+
+
+
+
+// export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const {
+//             platform, type, countryId, stateId, cityId, status,
+//             subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
+//             badgeType, search, subtype, page = 1, limit = 10,
+//         } = req.body;
+
+//         const currentPage = parseInt(page.toString()) || 1;
+//         const itemsPerPage = parseInt(limit.toString()) || 10;
+//         const skip = (currentPage - 1) * itemsPerPage;
+
+//         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
+//         const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
+//         const allowedInfluencerTypes = ['PRO', 'NORMAL'];
+//         const allowedBadgeTypes = ['1', '2', '3', '4', '5', '6', '7', '8'];
+//         const allowedSubtypes = [0, 1, 2]; // 0: all, 1: influencer only, 2: group only
+
+//         // Validate subtype parameter
+//         const parsedSubtype = subtype !== undefined ? parseInt(subtype.toString()) : 0;
+//         if (!allowedSubtypes.includes(parsedSubtype)) {
+//             return response.error(res, 'Invalid subtype. Allowed values: 0 (all data), 1 (influencer only), 2 (group only)');
+//         }
+
+//         const andFilters: any[] = [];
+//         const filter: any = {};
+
+//         if (platform) {
+//             const platforms = Array.isArray(platform) ? platform.map(p => p.toUpperCase()) : [platform.toString().toUpperCase()];
+//             const invalidPlatforms = platforms.filter(p => !allowedPlatforms.includes(p));
+//             if (invalidPlatforms.length > 0) {
+//                 return response.error(res, `Invalid platform(s): ${invalidPlatforms.join(', ')}. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK`);
+//             }
+
+//             andFilters.push({
+//                 OR: platforms.map(p => ({
+//                     socialMediaPlatforms: {
+//                         some: { platform: p },
+//                     },
+//                 })),
+//             });
+//         }
+
+//         // Price filter (based on SocialMediaPlatform.price)
+//         if (minPrice || maxPrice) {
+//             const priceConditions: any = {};
+
+//             if (minPrice) {
+//                 const parsedMinPrice = parseFloat(minPrice.toString());
+//                 if (isNaN(parsedMinPrice) || parsedMinPrice < 0) {
+//                     return response.error(res, 'Invalid minPrice. Must be a non-negative number.');
+//                 }
+//                 priceConditions.gte = parsedMinPrice;
+//             }
+
+//             if (maxPrice) {
+//                 const parsedMaxPrice = parseFloat(maxPrice.toString());
+//                 if (isNaN(parsedMaxPrice) || parsedMaxPrice < 0) {
+//                     return response.error(res, 'Invalid maxPrice. Must be a non-negative number.');
+//                 }
+//                 priceConditions.lte = parsedMaxPrice;
+//             }
+
+//             andFilters.push({
+//                 socialMediaPlatforms: {
+//                     some: {
+//                         price: priceConditions,
+//                     },
+//                 },
+//             });
+//         }
+
+//         if (gender) {
+//             const genders = Array.isArray(gender) ? gender.map(g => g.toUpperCase()) : [gender.toString().toUpperCase()];
+//             const invalidGenders = genders.filter(g => !allowedGender.includes(g));
+//             if (invalidGenders.length > 0) {
+//                 return response.error(res, `Invalid gender(s): ${invalidGenders.join(', ')}. Allowed: MALE, FEMALE, OTHER`);
+//             }
+
+//             filter.gender = { in: genders };
+//         }
+
+//         // Age filter (based on birthDate)
+//         if (minAge) {
+//             const minAge = parseInt(req.body.minAge.toString());
+//             if (isNaN(minAge) || minAge <= 0) {
+//                 return response.error(res, 'Invalid minAge. It must be a positive number.');
+//             }
+
+//             const today = new Date();
+//             const birthDateThreshold = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+
+//             filter.birthDate = {
+//                 lte: birthDateThreshold,
+//             };
+//         }
+
+//         if (maxAge) {
+//             const maxAge = parseInt(req.body.maxAge.toString());
+//             if (isNaN(maxAge) || maxAge <= 0) {
+//                 return response.error(res, 'Invalid maxAge. It must be a positive number.');
+//             }
+
+//             const today = new Date();
+//             const birthDateThreshold = new Date(today.getFullYear() - maxAge, today.getMonth(), today.getDate());
+
+//             filter.birthDate = {
+//                 ...(filter.birthDate || {}),
+//                 gte: birthDateThreshold,
+//             };
+//         }
+
+//         // type of user business or influencer
+//         if (type && typeof type === 'string') {
+//             const normalizedType = type.toUpperCase();
+//             if (Object.values(Role).includes(normalizedType as Role)) {
+//                 filter.type = normalizedType as Role;
+//             } else {
+//                 return response.error(res, 'Invalid user type, allowed: BUSINESS, INFLUENCER');
+//             }
+//         }
+
+//         // Badge Type filter (NEW)
+//         if (badgeType) {
+//             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
+//             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
+
+//             if (invalidBadges.length > 0) {
+//                 return response.error(res, `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`);
+//             }
+
+//             // Apply badge-specific filters based on criteria
+//             const badgeFilters: any[] = [];
+
+//             badges.forEach(badge => {
+//                 switch (badge) {
+//                     case '1':
+//                         badgeFilters.push({
+//                             socialMediaPlatforms: {
+//                                 some: {
+//                                     platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] },
+//                                 },
+//                             },
+//                         });
+//                         break;
+
+//                     case '2':
+//                         badgeFilters.push({
+//                             ratings: { gte: 4.5 },
+//                         });
+//                         break;
+
+//                     case '3':
+//                         badgeFilters.push({
+//                             socialMediaPlatforms: {
+//                                 some: {
+//                                     AND: [
+//                                         { price: { gte: 100000 } },
+//                                     ],
+//                                 },
+//                             },
+//                             ratings: { gte: 4.7 },
+
+//                         });
+//                         break;
+
+//                 }
+//             });
+
+//             if (badgeFilters.length > 0) {
+//                 andFilters.push({
+//                     OR: badgeFilters,
+//                 });
+//             }
+//         }
+
+//         if (countryId) {
+//             const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
+//             filter.countryId = { in: countries };
+//         }
+
+//         // STATE filter with multiple values
+//         if (stateId) {
+//             const states = Array.isArray(stateId) ? stateId.map((id: any) => id.toString()) : [stateId.toString()];
+//             filter.stateId = { in: states };
+//         }
+
+//         // CITY filter with multiple values
+//         if (cityId) {
+//             const cities = Array.isArray(cityId) ? cityId.map((id: any) => id.toString()) : [cityId.toString()];
+//             filter.cityId = { in: cities };
+//         }
+
+//         // Ratings filter (optional)
+//         if (ratings) {
+//             if (Array.isArray(ratings)) {
+//                 // Convert all ratings to numbers and validate
+//                 const ratingValues = ratings.map(r => parseInt(r.toString())).filter(r => !isNaN(r) && r >= 0);
+//                 if (ratingValues.length === 0) {
+//                     return response.error(res, 'Invalid ratings array. All values must be non-negative numbers.');
+//                 }
+//                 // Filter users whose ratings field matches any of the given ratings
+//                 filter.ratings = { in: ratingValues };
+//             } else {
+//                 const minRating = parseInt(ratings.toString());
+//                 if (isNaN(minRating) || minRating < 0) {
+//                     return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
+//                 }
+//                 filter.ratings = { gte: minRating };
+//             }
+//         }
+
+//         if (status !== undefined) {
+//             if (status === 'true' || status === 'false') {
+//                 filter.status = status === 'true';
+//             } else {
+//                 return response.error(res, 'Invalid status value. Use true or false.');
+//             }
+//         }
+
+//         // SubCategory filter (optional)
+//         if (subCategoryId) {
+//             const subCategoryIds = Array.isArray(subCategoryId) ? subCategoryId : [subCategoryId];
+//             andFilters.push({
+//                 OR: subCategoryIds.map((id: string) => ({
+//                     subCategories: {
+//                         some: { subCategoryId: id.toString() },
+//                     },
+//                 })),
+//             });
+//         }
+
+//         const whereFilter: any = { ...filter };
+//         if (andFilters.length > 0) whereFilter.AND = andFilters;
+//         if (search) {
+//             whereFilter.name = { contains: search, mode: 'insensitive' };
+//         }
+
+//         // Determine what data to fetch based on subtype
+//         let usersResult: any = [[], 0];
+//         let groupsResult: any = [[], 0];
+
+//         if ( parsedSubtype === 1) {
+//             // Fetch users (influencers) when subtype is 0 (all) or 1 (influencer only)
+//             usersResult = await Promise.all([
+//                 prisma.user.findMany({
+//                     where: whereFilter,
+//                     include: {
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     },
+//                     orderBy: { createsAt: 'desc' },
+//                 }),
+//                 prisma.user.count({ where: whereFilter })
+//             ]);
+//         }
+
+//         if (parsedSubtype === 0 || parsedSubtype === 2) {
+//             // Fetch groups when subtype is 0 (all) or 2 (group only)
+//             const matchedGroupIds = await prisma.groupUsersList.findMany({
+//                 where: {
+//                     OR: [
+//                         { adminUser: { name: { contains: search || '', mode: 'insensitive' } } },
+//                         { invitedUser: { name: { contains: search || '', mode: 'insensitive' } } },
+//                     ]
+//                 },
+//                 select: { groupId: true }
+//             });
+
+//             const matchedGroupIdSet = [...new Set(matchedGroupIds.map(e => e.groupId))];
+
+//             groupsResult = await Promise.all([
+//                 prisma.group.findMany({
+//                     where: {
+//                         OR: [
+//                             { groupName: { contains: search || '', mode: 'insensitive' } },
+//                             { groupBio: { contains: search || '', mode: 'insensitive' } },
+//                             { id: { in: matchedGroupIdSet } }
+//                         ]
+//                     },
+//                     include: {
+//                         groupData: {
+//                             include: {
+//                                 groupUserData: {
+//                                     include: {
+//                                         socialMediaPlatforms: true,
+//                                         brandData: true,
+//                                         countryData: true,
+//                                         stateData: true,
+//                                         cityData: true,
+//                                         UserDetail: true
+//                                     }
+//                                 }
+//                             }
+//                         }
+//                     },
+//                     orderBy: { createsAt: 'desc' },
+//                 }),
+//                 prisma.group.count({
+//                     where: {
+//                         OR: [
+//                             { groupName: { contains: search || '', mode: 'insensitive' } },
+//                             { groupBio: { contains: search || '', mode: 'insensitive' } },
+//                             { id: { in: matchedGroupIdSet } }
+//                         ]
+//                     }
+//                 })
+//             ]);
+//         }
+
+//         const [users, usersCount] = usersResult;
+//         const [groups, groupsCount] = groupsResult;
+
+//         const formattedUsers = await Promise.all(users.map(async (user: any) => {
+//             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+//             return {
+//                 ...user,
+//                 categories: userCategoriesWithSubcategories,
+//                 countryName: user.countryData?.name ?? null,
+//                 stateName: user.stateData?.name ?? null,
+//                 cityName: user.cityData?.name ?? null,
+//                 groupInfo: null,
+//                 isGroup: false
+//             };
+//         }));
+
+//         const formattedGroups = await Promise.all(groups.map(async (group: any) => {
+//             const subCategoriesWithCategory = group.subCategoryId?.length
+//                 ? await prisma.subCategory.findMany({
+//                     where: { id: { in: group.subCategoryId } },
+//                     include: { categoryInformation: true }
+//                 })
+//                 : [];
+
+//             const formattedGroupData = await Promise.all(
+//                 group.groupData.map(async (groupUser: any) => {
+//                     const adminUser = groupUser.groupUserData;
+
+//                     // Get only accepted invited users from GroupUsersList (requestAccept: true)
+//                     const acceptedInvites = await prisma.groupUsersList.findMany({
+//                         where: {
+//                             groupId: group.id,
+//                             requestAccept: RequestStatus.ACCEPTED,  // Only users who accepted the invitation
+//                             // status: true,         // Only active invitations
+//                         },
+//                         select: { invitedUserId: true },
+//                         distinct: ['invitedUserId']  // Avoid duplicates
+//                     });
+
+//                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
+
+//                     const invitedUsers = acceptedInvitedUserIds.length > 0
+//                         ? await prisma.user.findMany({
+//                             where: { id: { in: acceptedInvitedUserIds } },
+//                             include: {
+//                                 UserDetail: true,
+//                                 socialMediaPlatforms: true,
+//                                 brandData: true,
+//                                 countryData: true,
+//                                 stateData: true,
+//                                 cityData: true,
+//                             },
+//                         })
+//                         : [];
+
+//                     const formattedAdminUser = adminUser ? {
+//                         ...adminUser,
+//                         categories: await getUserCategoriesWithSubcategories(adminUser.id),
+//                         countryName: adminUser.countryData?.name ?? null,
+//                         stateName: adminUser.stateData?.name ?? null,
+//                         cityName: adminUser.cityData?.name ?? null,
+//                     } : null;
+
+//                     const formattedInvitedUsers = await Promise.all(invitedUsers.map(async (user: any) => ({
+//                         ...user,
+//                         categories: await getUserCategoriesWithSubcategories(user.id),
+//                         countryName: user.countryData?.name ?? null,
+//                         stateName: user.stateData?.name ?? null,
+//                         cityName: user.cityData?.name ?? null,
+//                     })));
+
+//                     const { groupUserData, ...restGroupUser } = groupUser;
+//                     return {
+//                         ...restGroupUser,
+//                         adminUser: formattedAdminUser,
+//                         invitedUsers: formattedInvitedUsers,
+//                     };
+
+//                 })
+//             );
+
+//             const adminUserData = formattedGroupData[0]?.adminUser || null;
+
+//             return {
+//                 ...adminUserData,
+//                 isGroup: true,
+//                 groupInfo: {
+//                     ...group,
+//                     subCategoryId: subCategoriesWithCategory,
+//                     groupData: formattedGroupData,
+//                 }
+//             };
+//         }));
+
+//         const allResults = [...formattedUsers, ...formattedGroups];
+//         const totalCount = usersCount + groupsCount;
+
+//         const paginatedResults = allResults.slice(skip, skip + itemsPerPage);
+
+//         if (paginatedResults.length === 0) {
+//             throw new Error("No users or groups found matching the criteria.");
+//         }
+
+//         return response.success(res, 'Users and groups fetched successfully!', {
+//             pagination: {
+//                 total: totalCount,
+//                 page: currentPage,
+//                 limit: itemsPerPage,
+//                 totalPages: Math.ceil(totalCount / itemsPerPage),
+//             },
+//             users: paginatedResults
+//         });
+
+//     } catch (error: any) {
+//         return response.error(res, error.message);
+//     }
+// };
 
 
 
