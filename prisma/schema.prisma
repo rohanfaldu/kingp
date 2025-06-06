@@ -249,6 +249,39 @@ model Badges {
   updatedAt               DateTime        @default(now()) @db.Timestamp(6)
 }
 
+model Offers {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId                 String?         @db.Uuid
+  influencerId            String?         @db.VarChar
+  businessId              String          @db.VarChar
+  title                   String?         @db.VarChar
+  description             String?         @db.VarChar
+  completionDate          DateTime        @default(now())
+  attachment              String?         @db.VarChar
+  status                  OfferStatus     @default(PENDING)
+  transactionId           String?         @db.VarChar
+  totalAmount             Decimal?        @db.Decimal
+  DiscountAmount          Decimal?        @db.Decimal
+  finalAmount             Decimal?        @db.Decimal
+  paymentStatus           paymentStatus   @default(PENDING)
+  createdAt           DateTime?           @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime?           @default(now()) @db.Timestamp(6)
+}
+
+model Earnings {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orederId                String?         @db.Uuid
+  groupId                 String?         @db.Uuid
+  userId                  String?         @db.VarChar
+  businessId              String          @db.VarChar
+  amount                  Decimal?        @db.Decimal
+  earningAmount           Decimal?        @db.Decimal
+  paymentStatus           paymentStatus   @default(PENDING)
+  date                    DateTime        @default(now())
+  createdAt           DateTime?           @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime?           @default(now()) @db.Timestamp(6)
+}
+
 
 enum Role {
   BUSINESS
@@ -299,4 +332,19 @@ enum RequestStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  CANCELED
+  ACTIVATED
+  SUBMITTED
+  COMPLETED
+  DECLINED
+}
+
+enum paymentStatus {
+  PENDING
+  COMPLETED
 }
