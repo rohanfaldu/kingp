@@ -55,8 +55,12 @@ model User {
   stateData                State?       @relation(fields: [stateId], references: [id])
   groupUserData            GroupUsers[]
   
-  groupUsersCreated GroupUsersList[] @relation("AdminUser")
-  groupUsersInvited GroupUsersList[] @relation("InvitedUser")
+  groupUsersCreated        GroupUsersList[] @relation("AdminUser")
+  groupUsersInvited        GroupUsersList[] @relation("InvitedUser")
+  influencerOrderData      Orders[]         @relation("influencerOrderInfo")
+  businessOrderData        Orders[]         @relation("businessOrderInfo")
+  userEarningData          Earnings[]       @relation("userEarningInfo")
+  businessPaymentData      Earnings[]       @relation("businessPaymentInfo")
 }
 
 model Category {
@@ -196,7 +200,9 @@ model Group {
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
   groupData                GroupUsers[]
-  groupUsersList    GroupUsersList[] @relation("GroupToGroupUsersList")
+  groupUsersList           GroupUsersList[] @relation("GroupToGroupUsersList")
+  groupOrderData           Orders[]
+  groupEarningData         Earnings[]
 }
 
 model GroupUsers {
@@ -252,8 +258,8 @@ model Badges {
 model Orders {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   groupId                 String?         @db.Uuid
-  influencerId            String?         @db.VarChar
-  businessId              String          @db.VarChar
+  influencerId            String?         @db.Uuid
+  businessId              String          @db.Uuid
   title                   String?         @db.VarChar
   description             String?         @db.VarChar
   completionDate          DateTime        @default(now())
@@ -268,14 +274,18 @@ model Orders {
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
 
   orderData               Earnings[]
+  groupOrderData          Group?          @relation(fields: [groupId], references: [id])
+  influencerOrderData     User?           @relation("influencerOrderInfo", fields: [influencerId], references: [id])
+  businessOrderData       User            @relation("businessOrderInfo", fields: [businessId], references: [id])
 }
+
 
 model Earnings {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orederId                String?         @db.Uuid
   groupId                 String?         @db.Uuid
-  userId                  String?         @db.VarChar
-  businessId              String          @db.VarChar
+  userId                  String?         @db.Uuid
+  businessId              String          @db.Uuid
   amount                  Decimal?        @db.Decimal
   earningAmount           Decimal?        @db.Decimal
   paymentStatus           paymentStatus   @default(PENDING)
@@ -283,9 +293,12 @@ model Earnings {
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
   
-  orderData    Orders?      @relation(fields: [orederId], references: [id])
-
+  orderData               Orders?         @relation(fields: [orederId], references: [id])
+  groupEarningData        Group?          @relation(fields: [groupId], references: [id])
+  userEarningData         User?           @relation("userEarningInfo", fields: [userId], references: [id])
+  businessPaymentData     User?           @relation("businessPaymentInfo", fields: [businessId], references: [id])
 }
+
 
 
 enum Role {
