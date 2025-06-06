@@ -1,19 +1,15 @@
 import { Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
-import { validateUser } from '../utils/userValidation';
 import * as bcrypt from 'bcryptjs';
 import { UserType, Gender, LoginType, AvailabilityType } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
-import { isEmail } from 'class-validator/types';
 import jwt from 'jsonwebtoken';
 import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
-import { connect } from "http2";
 import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '../utils/calculateProfileCompletion';
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
-import { mapUserWithLocationAndCategories } from '../utils/userResponseMapper';
 import { omit } from 'lodash';
 import { Resend } from 'resend';
 import { Role } from '@prisma/client';
@@ -150,7 +146,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         },
     });
 
-    // ✅ Create UserSubCategory relations if any
+    //Create UserSubCategory relations if any
     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
         const validSubCategories = await prisma.subCategory.findMany({
             where: { id: { in: subcategoriesId } },
@@ -259,7 +255,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
 
 export const login = async (req: Request, res: Response): Promise<any> => {
-    // try {
+    try {
     const { emailAddress, password, loginType, socialId, fcmToken } = req.body;
 
 
@@ -299,12 +295,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             );
         }
     }
-
-
-    // if (!verifiedOtp) {
-    //     return response.error(res, 'Email is not verified. Please verify your email with the OTP sent during signup.');
-    // }
-
 
     // Social login flow (GOOGLE or APPLE)
     if (loginType === LoginType.GOOGLE || loginType === LoginType.APPLE) {
@@ -385,9 +375,9 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         token,
     });
 
-    // } catch (error: any) {
-    //     return response.serverError(res, error.message || 'Login failed.');
-    // }
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Login failed.');
+    }
 };
 
 
@@ -646,7 +636,6 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             });
         }
 
-
         // Status filter (optional)
         if (status !== undefined) {
             if (status === 'true' || status === 'false') {
@@ -656,7 +645,6 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             }
         }
 
-        // Badges filter
         // Badge Type filter (NEW)
         if (badgeType) {
             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
@@ -1403,6 +1391,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 
+
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params;
     const userData: IUser = req.body;
@@ -1579,6 +1568,8 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
     }
 };
 
+
+
 export const getUsersWithType = async (req: Request, res: Response): Promise<any> => {
     try {
         const { type } = req.body;
@@ -1605,6 +1596,8 @@ export const getUsersWithType = async (req: Request, res: Response): Promise<any
         response.error(res, error.message);
     }
 };
+
+
 
 
 export const incrementInfluencerClick = async (req: Request, res: Response): Promise<any> => {
@@ -1635,6 +1628,9 @@ export const incrementInfluencerClick = async (req: Request, res: Response): Pro
         return response.error(res, error.message);
     }
 };
+
+
+
 
 export const socialLogin = async (req: Request, res: Response): Promise<any> => {
     try {
