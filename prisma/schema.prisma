@@ -267,16 +267,16 @@ model Orders {
   status                  OfferStatus     @default(PENDING)
   transactionId           String?         @db.VarChar
   totalAmount             Decimal?        @db.Decimal
-  DiscountAmount          Decimal?        @db.Decimal
+  discountAmount          Decimal?        @db.Decimal
   finalAmount             Decimal?        @db.Decimal
-  paymentStatus           paymentStatus   @default(PENDING)
+  paymentStatus           PaymentStatus   @default(PENDING)
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
 
   orderData               Earnings[]
   groupOrderData          Group?          @relation(fields: [groupId], references: [id])
   influencerOrderData     User?           @relation("influencerOrderInfo", fields: [influencerId], references: [id])
-  businessOrderData       User            @relation("businessOrderInfo", fields: [businessId], references: [id])
+  businessOrderData       User?            @relation("businessOrderInfo", fields: [businessId], references: [id])
 }
 
 
@@ -288,7 +288,7 @@ model Earnings {
   businessId              String          @db.Uuid
   amount                  Decimal?        @db.Decimal
   earningAmount           Decimal?        @db.Decimal
-  paymentStatus           paymentStatus   @default(PENDING)
+  paymentStatus           PaymentStatus   @default(PENDING)
   date                    DateTime        @default(now())
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
@@ -362,7 +362,7 @@ enum OfferStatus {
   DECLINED
 }
 
-enum paymentStatus {
+enum PaymentStatus {
   PENDING
   COMPLETED
 }

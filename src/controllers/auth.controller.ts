@@ -768,6 +768,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
         const allowedInfluencerTypes = ['PRO', 'NORMAL'];
         const allowedBadgeTypes = ['1', '2', '3', '4', '5', '6', '7', '8'];
+        const allowedTypes = ["BUSINESS", "INFLUENCER"]; // allowed values for type
         const allowedSubtypes = [0, 1, 2]; // 0: all, 1: influencer only, 2: group only
 
         // Validate subtype parameter
@@ -778,6 +779,20 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         const andFilters: any[] = [];
         const filter: any = {};
+
+        if (type) {
+            const types = Array.isArray(type) ? type.map(t => t.toUpperCase()) : [type.toString().toUpperCase()];
+            const invalidTypes = types.filter(t => !allowedTypes.includes(t));
+            if (invalidTypes.length > 0) {
+                return response.error(res, `Invalid type(s): ${invalidTypes.join(', ')}. Allowed: BUSINESS, INFLUENCER`);
+            }
+
+            andFilters.push({
+                OR: types.map(t => ({
+                    type: t,
+                })),
+            });
+        }
 
         if (platform) {
             const platforms = Array.isArray(platform) ? platform.map(p => p.toUpperCase()) : [platform.toString().toUpperCase()];
@@ -1628,6 +1643,8 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 //         return response.error(res, error.message);
 //     }
 // };
+
+
 
 
 

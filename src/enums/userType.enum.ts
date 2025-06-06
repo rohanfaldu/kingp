@@ -38,3 +38,18 @@ export enum RequestStatus{
     ACCEPTED = 'ACCEPTED',
     REJECTED = 'REJECTED',
 }
+
+export enum OfferStatus{
+    PENDING = 'PENDING',
+    ACCEPTED = 'ACCEPTED',
+    CANCELED = 'CANCELED',
+    ACTIVATED = 'ACTIVATED',
+    SUBMITTED = 'SUBMITTED',
+    COMPLETED = 'COMPLETED',
+    DECLINED = 'DECLINED'
+}
+
+export enum PaymentStatus{
+    PENDING = 'PENDING',
+    COMPLETED = 'COMPLETED'
+}
