@@ -148,10 +148,16 @@ const prisma = new PrismaClient();
 
 
 export const createOrder = async (req: Request, res: Response) => {
-    try {
-        const orderData: IOrder & { completionInDays?: number } = req.body;
+    // try {
+        const orderData = req.body;
 
-        const { businessId, influencerId, completionDate, completionInDays, ...restFields } = orderData;
+        const {
+            businessId,
+            influencerId,
+            completionDate,
+            completionInDays, // <-- optional number of days
+            ...restFields
+        } = orderData;
 
         if (!businessId) {
             return res.status(400).json({ error: 'businessId is required' });
@@ -159,17 +165,11 @@ export const createOrder = async (req: Request, res: Response) => {
 
         let parsedCompletionDate: Date | undefined = undefined;
 
-        if (completionInDays !== undefined && !isNaN(completionInDays)) {
-            parsedCompletionDate = addDays(new Date(), Number(completionInDays));
-        } else if (completionDate) {
-            try {
-                parsedCompletionDate = parse(completionDate, 'dd/MM/yyyy', new Date());
-                if (isNaN(parsedCompletionDate.getTime())) {
-                    return response.error(res, 'Invalid completionDate format. Use DD/MM/YYYY');
-                }
-            } catch {
-                return response.error(res, 'Invalid completionDate format. Use DD/MM/YYYY');
-            }
+        
+        if (completionDate) {
+            parsedCompletionDate = new Date(completionDate);
+        } else if (completionInDays && typeof completionInDays === 'number') {
+            parsedCompletionDate = addDays(new Date(), completionInDays);
         }
 
         const newOrder = await prisma.orders.create({
@@ -180,11 +180,7 @@ export const createOrder = async (req: Request, res: Response) => {
                 completionDate: parsedCompletionDate,
             },
             include: {
-                groupOrderData: {
-                    include: {
-                        // add group relations if needed
-                    }
-                },
+                groupOrderData: {},
                 influencerOrderData: {
                     include: {
                         socialMediaPlatforms: true,
@@ -206,7 +202,7 @@ export const createOrder = async (req: Request, res: Response) => {
             }
         });
 
-        async function formatUser(user: any) {
+        const formatUser = async (user: any) => {
             if (!user) return null;
 
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
@@ -218,25 +214,21 @@ export const createOrder = async (req: Request, res: Response) => {
                 stateName: user.stateData?.name ?? null,
                 cityName: user.cityData?.name ?? null,
             };
-        }
-
-        const formattedInfluencer = await formatUser(newOrder.influencerOrderData);
-        const formattedBusiness = await formatUser(newOrder.businessOrderData);
-        const formattedGroup = await formatUser(newOrder.groupOrderData);
+        };
 
         const responseData = {
             ...newOrder,
-            influencerOrderData: formattedInfluencer,
-            businessOrderData: formattedBusiness,
-            groupOrderData: formattedGroup,
+            influencerOrderData: await formatUser(newOrder.influencerOrderData),
+            businessOrderData: await formatUser(newOrder.businessOrderData),
+            groupOrderData: await formatUser(newOrder.groupOrderData),
         };
 
         return response.success(res, 'Order created successfully!', responseData);
-
-    } catch (error: any) {
-        return response.error(res, error.message);
-    }
+    // } catch (error: any) {
+    //     return response.error(res, error.message);
+    // }
 };
+
 
 
 

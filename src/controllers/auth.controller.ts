@@ -942,7 +942,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 });
             }
         }
-
+        
         if (countryId) {
             const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
             filter.countryId = { in: countries };
@@ -1082,7 +1082,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         const [users, usersCount] = usersResult;
         const [groups, groupsCount] = groupsResult;
-
+        console.log('2222');
         const formattedUsers = await Promise.all(users.map(async (user: any) => {
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
@@ -1103,7 +1103,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     include: { categoryInformation: true }
                 })
                 : [];
-
+                console.log('33');
             const formattedGroupData = await Promise.all(
                 group.groupData.map(async (groupUser: any) => {
                     const adminUser = groupUser.groupUserData;
@@ -1120,7 +1120,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     });
 
                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
-
+console.log('44');
                     const invitedUsers = acceptedInvitedUserIds.length > 0
                         ? await prisma.user.findMany({
                             where: { id: { in: acceptedInvitedUserIds } },
@@ -1162,25 +1162,41 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             );
 
             const adminUserData = formattedGroupData[0]?.adminUser || null;
-
+            console.log(adminUserData, '>>>>>>>>>>> adminUserData');
+            console.log(parsedSubtype, '>>>>>>>>>>> parsedSubtype');
             // Return different structure based on subtype
+            const groupDataItem = formattedGroupData[0];
             if (parsedSubtype === 2) {
                 // For subtype = 2, return group information directly
+                const groupInfoData = {
+                    groupImage: group.groupImage,
+                    groupName: group.groupName,
+                    groupBio: group.groupBio,
+                    socialMediaPlatform: group.socialMediaPlatform,
+                    Visibility: group.Visibility,
+                }
                 return {
-                    ...group,
+                    ...groupInfoData,
+                    ...groupDataItem,
                     subCategoryId: subCategoriesWithCategory,
-                    groupData: formattedGroupData,
                     isGroup: true
                 };
             } else {
+                const groupInfoData = {
+                    groupImage: group.groupImage,
+                    groupName: group.groupName,
+                    groupBio: group.groupBio,
+                    socialMediaPlatform: group.socialMediaPlatform,
+                    Visibility: group.Visibility,
+                }
                 // For subtype = 0 or 1, return in user data structure
                 return {
                     ...adminUserData,
                     isGroup: true,
                     groupInfo: {
-                        ...group,
+                        ...groupInfoData,
+                         ...groupDataItem,
                         subCategoryId: subCategoriesWithCategory,
-                        groupData: formattedGroupData,
                     }
                 };
             }
