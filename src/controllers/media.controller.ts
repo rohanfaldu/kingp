@@ -88,14 +88,13 @@ export const getAllMediaList = async (req: Request, res: Response) => {
     try {
         const { status, orderId } = req.body;
 
-        if (status === "" || status === undefined || status === null || typeof orderId === null ) {
+        if (typeof orderId === null ) {
             return response.error(res, 'Status is required');
         }
 
-        const statusEnumValue = getCommonStatusName(status ?? 0);
+      //  const statusEnumValue = getCommonStatusName(status ?? 0);
         const getOrder = await prisma.media.findMany({
             where: {
-                status: statusEnumValue,
                 orderId: orderId
             }
         });
