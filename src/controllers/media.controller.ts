@@ -86,16 +86,17 @@ export const updateMediaStatus = async (req: Request, res: Response) => {
 
 export const getAllMediaList = async (req: Request, res: Response) => {
     try {
-        const { status } = req.body;
+        const { status, orderId } = req.body;
 
-        if (status === "" || status === undefined || status === null) {
+        if (status === "" || status === undefined || status === null || typeof orderId === null ) {
             return response.error(res, 'Status is required');
         }
 
         const statusEnumValue = getCommonStatusName(status ?? 0);
         const getOrder = await prisma.media.findMany({
             where: {
-                status: statusEnumValue
+                status: statusEnumValue,
+                orderId: orderId
             }
         });
         return response.success(res, 'Get All media List', getOrder);
