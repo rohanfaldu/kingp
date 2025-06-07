@@ -1,10 +1,11 @@
 import express from 'express';
-import { createOrder } from '../controllers/order.controller';
+import { createOrder, getByIdOrder } from '../controllers/order.controller';
 
 
 const router = express.Router();
 
 router.post('/create', createOrder);
+router.post('/getById', getByIdOrder);
 // router.post('/edit/:id', editCategory);
 // router.get('/get/:id', getByIdCategory);
 // router.post('/getAll', getAllCategory);

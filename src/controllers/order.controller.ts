@@ -148,7 +148,7 @@ const prisma = new PrismaClient();
 
 
 export const createOrder = async (req: Request, res: Response) => {
-    // try {
+     try {
         const orderData = req.body;
 
         const {
@@ -224,13 +224,45 @@ export const createOrder = async (req: Request, res: Response) => {
         };
 
         return response.success(res, 'Order created successfully!', responseData);
-    // } catch (error: any) {
-    //     return response.error(res, error.message);
-    // }
+    } catch (error: any) {
+        return response.error(res, error.message);
+    }
 };
 
-
-
+export const getByIdOrder = async (req: Request, res: Response) => {
+     try {
+        const { id } = req.body;
+        const getOrder = await prisma.orders.findUnique({
+            where:{
+                id
+            },
+            include: {
+                groupOrderData: {},
+                influencerOrderData: {
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                },
+                businessOrderData: {
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                }
+            }
+        });
+         return response.success(res, 'Get order Detail', getOrder);
+       } catch (error: any) {
+        return response.error(res, error.message);
+    }
+};
 
 
 
