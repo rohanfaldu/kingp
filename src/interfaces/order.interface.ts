@@ -8,7 +8,7 @@ export interface IOrder {
     description?: string;
     completionDate?: string;
     attachment?: string;
-    status?: OfferStatus;
+    status?: number;
     transactionId?: string;
     totalAmount?: number;
     discountAmount?: number;

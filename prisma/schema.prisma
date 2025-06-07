@@ -277,6 +277,18 @@ model Orders {
   groupOrderData          Group?          @relation(fields: [groupId], references: [id])
   influencerOrderData     User?           @relation("influencerOrderInfo", fields: [influencerId], references: [id])
   businessOrderData       User?            @relation("businessOrderInfo", fields: [businessId], references: [id])
+  mediaOrderData          Media[]         @relation("mediaOrderInfo")
+}
+
+model Media {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId    String      @db.Uuid
+  mediaLink  String?      @db.VarChar
+  status     RequestStatus @default(PENDING)
+  createdAt  DateTime?    @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime?    @default(now()) @db.Timestamp(6)
+
+  OrderData  Orders?      @relation("mediaOrderInfo", fields: [orderId], references: [id])
 }
 
 

@@ -1,5 +1,5 @@
 
-import { OfferStatus } from '../enums/userType.enum';
+import { OfferStatus, RequestStatus } from '../enums/userType.enum';
 
 export const resolveStatus = (status: boolean | null | undefined): boolean => {
     return status === null || status === undefined ? true : status;
@@ -15,6 +15,16 @@ export const getStatusName = (code: number): OfferStatus => {
         case 4: return OfferStatus.ORDERSUBMITTED;
         case 5: return OfferStatus.COMPLETED;
         case 6: return OfferStatus.DECLINED;
+        default:
+            throw new Error('Invalid status code');
+    }
+};
+
+export const getCommonStatusName = (code: number): RequestStatus => {
+    switch (code) {
+        case 0: return RequestStatus.PENDING;
+        case 1: return RequestStatus.ACCEPTED;
+        case 2: return RequestStatus.REJECTED;
         default:
             throw new Error('Invalid status code');
     }
