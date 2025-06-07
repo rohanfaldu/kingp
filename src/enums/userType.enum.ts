@@ -44,7 +44,7 @@ export enum OfferStatus{
     ACCEPTED = 'ACCEPTED',
     CANCELED = 'CANCELED',
     ACTIVATED = 'ACTIVATED',
-    SUBMITTED = 'SUBMITTED',
+    ORDERSUBMITTED = 'ORDERSUBMITTED',
     COMPLETED = 'COMPLETED',
     DECLINED = 'DECLINED'
 }
@@ -53,3 +53,4 @@ export enum PaymentStatus{
     PENDING = 'PENDING',
     COMPLETED = 'COMPLETED'
 }
+

@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
+import { OfferStatus } from '../enums/userType.enum';
 import { IOrder } from '../interfaces/order.interface';
 import { parse } from 'date-fns';
 import response from '../utils/response';
-import { resolveStatus } from '../utils/commonFunction'
+import { getStatusName } from '../utils/commonFunction'
 import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
 import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '../utils/calculateProfileCompletion';
@@ -148,7 +149,7 @@ const prisma = new PrismaClient();
 
 
 export const createOrder = async (req: Request, res: Response) => {
-     try {
+    try {
         const orderData = req.body;
 
         const {
@@ -164,8 +165,8 @@ export const createOrder = async (req: Request, res: Response) => {
         }
 
         let parsedCompletionDate: Date | undefined = undefined;
+         const statusEnumValue = getStatusName( restFields.status);
 
-        
         if (completionDate) {
             parsedCompletionDate = new Date(completionDate);
         } else if (completionInDays && typeof completionInDays === 'number') {
@@ -178,6 +179,8 @@ export const createOrder = async (req: Request, res: Response) => {
                 businessId,
                 influencerId,
                 completionDate: parsedCompletionDate,
+                status: statusEnumValue,
+                paymentStatus: restFields.paymentStatus ?? 'PENDING',
             },
             include: {
                 groupOrderData: {},
@@ -230,10 +233,15 @@ export const createOrder = async (req: Request, res: Response) => {
 };
 
 export const getByIdOrder = async (req: Request, res: Response) => {
-     try {
+    try {
         const { id } = req.body;
+
+        if (!id) {
+            return response.error(res, 'Both id and status are required');
+        }
+
         const getOrder = await prisma.orders.findUnique({
-            where:{
+            where: {
                 id
             },
             include: {
@@ -258,9 +266,79 @@ export const getByIdOrder = async (req: Request, res: Response) => {
                 }
             }
         });
-         return response.success(res, 'Get order Detail', getOrder);
-       } catch (error: any) {
+        return response.success(res, 'Get order Detail', getOrder);
+    } catch (error: any) {
         return response.error(res, error.message);
+    }
+};
+
+
+export const updateOrderStatus = async (req: Request, res: Response) => {
+    try {
+        const { id, status } = req.body;
+
+        if (typeof id !== 'string' || typeof status !== 'number') {
+            return response.error(res, 'Both id (string) and status (number) are required');
+        }
+
+        // Map status code (number) to enum value
+
+        const statusEnumValue = getStatusName(status);
+
+        // Update the order
+        const updated = await prisma.orders.updateMany({
+            where: { id },
+            data: { status: statusEnumValue },
+        });
+
+        if (updated.count > 0) {
+            return response.success(res, 'Successfully updated status', null);
+        } else {
+            return response.error(res, 'Order not found or status not updated');
+        }
+    } catch (error: any) {
+        return response.error(res, error.message || 'Something went wrong');
+    }
+};
+
+export const getAllOrderList = async (req: Request, res: Response) => {
+    try {
+        const { status } = req.body;
+
+        // if (!status) {
+        //     return response.error(res, 'status are required');
+        // }
+
+        // const getOrder = await prisma.orders.findUnique({
+        //     where: {
+        //         id
+        //     },
+        //     include: {
+        //         groupOrderData: {},
+        //         influencerOrderData: {
+        //             include: {
+        //                 socialMediaPlatforms: true,
+        //                 brandData: true,
+        //                 countryData: true,
+        //                 stateData: true,
+        //                 cityData: true,
+        //             }
+        //         },
+        //         businessOrderData: {
+        //             include: {
+        //                 socialMediaPlatforms: true,
+        //                 brandData: true,
+        //                 countryData: true,
+        //                 stateData: true,
+        //                 cityData: true,
+        //             }
+        //         }
+        //     }
+        // });
+        // return response.success(res, 'Get order Detail', getOrder);
+
+    } catch (error: any) {
+        return response.error(res, error.message || 'Something went wrong');
     }
 };
 
