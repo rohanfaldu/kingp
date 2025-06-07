@@ -3,7 +3,8 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import response from '../utils/response';
 import { getStatusName } from '../utils/commonFunction'
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
-import { IOrder } from './../interfaces/order.interface';
+import { IOrder, EditIOrder } from './../interfaces/order.interface';
+import { PaymentStatus } from '../enums/userType.enum';
 import { addDays } from 'date-fns';
 
 const prisma = new PrismaClient();
@@ -131,28 +132,84 @@ export const getByIdOrder = async (req: Request, res: Response) => {
 
 export const updateOrderStatus = async (req: Request, res: Response) => {
     try {
-        const { id, status } = req.body;
+        const orderData: EditIOrder = req.body;
 
-        if (typeof id !== 'string' || typeof status !== 'number') {
+        // Validate required fields
+        if (typeof orderData.id !== 'string' || typeof orderData.status !== 'number') {
             return response.error(res, 'Both id (string) and status (number) are required');
         }
 
-        // Map status code (number) to enum value
+        // Extract and convert status
 
-        const statusEnumValue = getStatusName(status);
+        // Destructure and safely omit `id`
+        const {
+            id,
+            status,
+            completionDate,
+            groupId,
+            influencerId,
+            businessId,
+            paymentStatus,
+            ...safeUpdateFields
+        } = orderData;
 
-        // Update the order
-        const updated = await prisma.orders.updateMany({
+        // Build final update object
+        const statusEnumValue = getStatusName(status ?? 0);
+
+        // let parsedCompletionDate: Date | undefined = undefined;
+        // if (!isNaN(Number(completionDate))) {
+        //     parsedCompletionDate = addDays(new Date(), Number(completionDate));
+        // } else if (typeof completionDate === 'string') {
+        //     const date = new Date(completionDate);
+        //     if (!isNaN(date.getTime())) {
+        //         parsedCompletionDate = date;
+        //     }
+        // }
+
+        // Build update payload
+        const dataToUpdate: any = {
+            ...safeUpdateFields,
+            status: statusEnumValue,
+        };
+
+        // Handle group relation correctly
+        // if (groupId === null) {
+        //     dataToUpdate.groupOrderData = { disconnect: true };
+        // } else if (typeof groupId === 'string') {
+        //     dataToUpdate.groupOrderData = { connect: { id: groupId } };
+        // }
+
+
+        // if (influencerId === null) {
+        //     dataToUpdate.influencerOrderData = { disconnect: true };
+        // } else if (typeof influencerId === 'string') {
+        //     dataToUpdate.influencerOrderData = { connect: { id: influencerId } };
+        // }
+
+        // if (businessId === null) {
+        //     dataToUpdate.businessOrderData = { disconnect: true };
+        // } else if (typeof businessId === 'string') {
+        //     dataToUpdate.businessOrderData = { connect: { id: businessId } };
+        // }
+
+        // if (paymentStatus === null) {
+        //     dataToUpdate.paymentStatus = PaymentStatus.PENDING;
+        // } else {
+        //     dataToUpdate.paymentStatus = paymentStatus;
+        // }
+
+        const updated = await prisma.orders.update({
             where: { id },
-            data: { status: statusEnumValue },
+            data: dataToUpdate,
         });
 
-        if (updated.count > 0) {
+        if (updated) {
             return response.success(res, 'Successfully updated status', null);
         } else {
             return response.error(res, 'Order not found or status not updated');
         }
     } catch (error: any) {
+        console.error('Update order failed:', error);
         return response.error(res, error.message || 'Something went wrong');
     }
 };
