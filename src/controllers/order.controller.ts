@@ -26,10 +26,11 @@ export const createOrder = async (req: Request, res: Response) => {
         let parsedCompletionDate: Date | undefined = undefined;
         const statusEnumValue = getStatusName(restFields.status ?? 0);
 
-        if (completionDate) {
-            parsedCompletionDate = new Date(completionDate);
-        } else if (completionDate && typeof completionDate === 'number') {
+    
+        if (completionDate && typeof completionDate === 'number') {
             parsedCompletionDate = addDays(new Date(), completionDate);
+        } else {
+            parsedCompletionDate = completionDate;
         }
 
         const newOrder = await prisma.orders.create({
