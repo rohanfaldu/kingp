@@ -84,7 +84,7 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
         try {
             //  const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol;
             const isUrl = process.env.MEDIA_URL;
-            console.log(isUrl, '>>>>>>>>>>url' )
+            console.log(isUrl, '>>>>>>>>>>url')
             // const url = isUrl ? 'https' : req.protocol;
 
             const filesData = files.map((file) => {
@@ -95,8 +95,9 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
                 return {
                     name: file.filename,
                     path: filePath,
-                    // url: `${req.protocol}://${req.get('host')}/${filePath}`,
-                    url: `${isUrl}://${req.get('host')}/${filePath}`,
+                    url: `${isUrl}/${filePath}`,
+
+                    // url: `${isUrl}://${req.get('host')}/${filePath}`,
                     size: `${(file.size / 1024).toFixed(2)} KB`,
                     type: category,
                     extension: path.extname(file.filename).toLowerCase()

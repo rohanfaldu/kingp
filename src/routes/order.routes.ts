@@ -1,5 +1,5 @@
 import express from 'express';
-import { createOrder, getByIdOrder, updateOrderStatus, getAllOrderList,updateOrderStatusAndInsertEarnings } from '../controllers/order.controller';
+import { createOrder, getByIdOrder, updateOrderStatus, getAllOrderList, orderSubmit, updateOrderStatusAndInsertEarnings } from '../controllers/order.controller';
 import { authenticateToken } from '../services/authorization';
 
 
@@ -10,6 +10,7 @@ router.post('/getById', authenticateToken, getByIdOrder);
 router.post('/updateStatus', authenticateToken, updateOrderStatus);
 router.post('/getAllOrder',authenticateToken, getAllOrderList);
 
+router.post('/orderSubmit',authenticateToken, orderSubmit);
 router.post('/updateOrderStatusAndInsertEarnings', authenticateToken, updateOrderStatusAndInsertEarnings);
 
 

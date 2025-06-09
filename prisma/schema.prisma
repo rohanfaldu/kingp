@@ -270,6 +270,8 @@ model Orders {
   discountAmount          Decimal?        @db.Decimal
   finalAmount             Decimal?        @db.Decimal
   paymentStatus           PaymentStatus   @default(PENDING)
+  submittedDescription    String?         @db.VarChar
+  socialMediaLink         String?         @db.VarChar
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
 
