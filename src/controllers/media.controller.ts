@@ -11,26 +11,30 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
     try {
 
         try {
-    const mediaData: IMediaType = req.body;
+            const mediaData: IMediaType = req.body;
 
-    if (!mediaData.orderId) {
-        return response.error(res, 'OrderId is required');
-    }
+            if (!mediaData.orderId) {
+                return response.error(res, 'OrderId is required');
+            }
 
-    const statusEnumValue = getCommonStatusName(mediaData.status ?? 0);
+            const statusEnumValue = getCommonStatusName(mediaData.status ?? 0);
 
-    const createMedia = await prisma.media.create({
-      data: {
-        orderId: mediaData.orderId,
-        mediaLink: mediaData.mediaLink || null,
-        status: statusEnumValue,
-      },
-    });
+            const createMedia = await prisma.media.create({
+                data: {
+                    orderId: mediaData.orderId,
+                    mediaLink: mediaData.mediaLink || null,
+                    status: statusEnumValue,
+                    // mediaType: mediaData.mediaType,
+                    mediaType: mediaData.mediaType != null ? Number(mediaData.mediaType) : undefined,
 
-    return response.success(res, 'Media created successfully!', createMedia);
-  } catch (error: any) {
-    return response.error(res, error.message);
-  }
+
+                },
+            });
+
+            return response.success(res, 'Media created successfully!', createMedia);
+        } catch (error: any) {
+            return response.error(res, error.message);
+        }
     } catch (error: any) {
         return response.error(res, error.message);
     }
@@ -71,7 +75,7 @@ export const updateMediaStatus = async (req: Request, res: Response): Promise<an
         // Update the order
         const updated = await prisma.media.updateMany({
             where: { id },
-            data: { status: statusEnumValue, reason: reason?? null },
+            data: { status: statusEnumValue, reason: reason ?? null },
         });
 
         if (updated.count > 0) {
@@ -88,11 +92,11 @@ export const getAllMediaList = async (req: Request, res: Response): Promise<any>
     try {
         const { status, orderId } = req.body;
 
-        if (typeof orderId === null ) {
+        if (typeof orderId === null) {
             return response.error(res, 'Status is required');
         }
 
-      //  const statusEnumValue = getCommonStatusName(status ?? 0);
+        //  const statusEnumValue = getCommonStatusName(status ?? 0);
         const getOrder = await prisma.media.findMany({
             where: {
                 orderId: orderId

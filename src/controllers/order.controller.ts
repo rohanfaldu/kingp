@@ -569,7 +569,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
 
 export const orderSubmit = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { id, submittedDescription, socialMediaLink, attachment, mediaType } = req.body;
+        const { id, submittedDescription, socialMediaLink, attachment,  } = req.body;
         if (!id || typeof id !== 'string') {
             return response.error(res, 'Order ID is required and must be a string');
         }
@@ -581,7 +581,6 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                 submittedDescription,
                 socialMediaLink,
                 attachment,
-                mediaType: Number(mediaType),
                 status: OfferStatus.ORDERSUBMITTED,
             },
         });

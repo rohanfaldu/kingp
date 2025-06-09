@@ -272,7 +272,6 @@ model Orders {
   paymentStatus           PaymentStatus   @default(PENDING)
   submittedDescription    String?         @db.VarChar
   socialMediaLink         String?         @db.VarChar
-  mediaType               Int?
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
 
@@ -286,9 +285,10 @@ model Orders {
 model Media {
   id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orderId    String      @db.Uuid
-  mediaLink  String?      @db.VarChar
+  mediaLink  String?      @db.VarChar 
   reason     String?      @db.VarChar
   status     RequestStatus @default(PENDING)
+  mediaType  Int?          @default(0)
   createdAt  DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt  DateTime?    @default(now()) @db.Timestamp(6)
 

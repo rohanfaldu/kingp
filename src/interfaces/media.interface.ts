@@ -3,6 +3,7 @@ export interface IMediaType {
     mediaLink?: string;
     reason?: string;
     status?: number;
+    mediaType?: number;
     createdAt: Date;
     updatedAt: Date;
 }
