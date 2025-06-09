@@ -127,6 +127,9 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             },
         });
 
+        if (!order) {
+            return response.error(res, 'Order not found');
+        }
         if (!order?.groupOrderData) {
             return response.success(res, 'Order fetched', order);
         }
