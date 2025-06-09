@@ -7,7 +7,7 @@ import { IMediaType } from './../interfaces/media.interface';
 
 const prisma = new PrismaClient();
 
-export const createMedia = async (req: Request, res: Response) => {
+export const createMedia = async (req: Request, res: Response): Promise<any> => {
     try {
 
         try {
@@ -36,7 +36,7 @@ export const createMedia = async (req: Request, res: Response) => {
     }
 };
 
-export const getByIdMedia = async (req: Request, res: Response) => {
+export const getByIdMedia = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
 
@@ -56,7 +56,7 @@ export const getByIdMedia = async (req: Request, res: Response) => {
 };
 
 
-export const updateMediaStatus = async (req: Request, res: Response) => {
+export const updateMediaStatus = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id, status, reason } = req.body;
 
@@ -84,7 +84,7 @@ export const updateMediaStatus = async (req: Request, res: Response) => {
     }
 };
 
-export const getAllMediaList = async (req: Request, res: Response) => {
+export const getAllMediaList = async (req: Request, res: Response): Promise<any> => {
     try {
         const { status, orderId } = req.body;
 

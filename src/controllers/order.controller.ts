@@ -9,7 +9,7 @@ import { addDays } from 'date-fns';
 
 const prisma = new PrismaClient();
 
-export const createOrder = async (req: Request, res: Response) => {
+export const createOrder = async (req: Request, res: Response): Promise<any> => {
     try {
         const orderData: IOrder = req.body;
         const {
@@ -90,7 +90,9 @@ export const createOrder = async (req: Request, res: Response) => {
     }
 };
 
-export const getByIdOrder = async (req: Request, res: Response) => {
+
+
+export const getByIdOrder = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
         if (!id) return response.error(res, 'Order ID is required');
@@ -238,7 +240,9 @@ export const getByIdOrder = async (req: Request, res: Response) => {
 
 
 
-export const updateOrderStatus = async (req: Request, res: Response) => {
+
+
+export const updateOrderStatus = async (req: Request, res: Response): Promise<any> => {
     try {
         const orderData: EditIOrder = req.body;
 
@@ -264,47 +268,11 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
         // Build final update object
         const statusEnumValue = getStatusName(status ?? 0);
 
-        // let parsedCompletionDate: Date | undefined = undefined;
-        // if (!isNaN(Number(completionDate))) {
-        //     parsedCompletionDate = addDays(new Date(), Number(completionDate));
-        // } else if (typeof completionDate === 'string') {
-        //     const date = new Date(completionDate);
-        //     if (!isNaN(date.getTime())) {
-        //         parsedCompletionDate = date;
-        //     }
-        // }
-
         // Build update payload
         const dataToUpdate: any = {
             ...safeUpdateFields,
             status: statusEnumValue,
         };
-
-        // Handle group relation correctly
-        // if (groupId === null) {
-        //     dataToUpdate.groupOrderData = { disconnect: true };
-        // } else if (typeof groupId === 'string') {
-        //     dataToUpdate.groupOrderData = { connect: { id: groupId } };
-        // }
-
-
-        // if (influencerId === null) {
-        //     dataToUpdate.influencerOrderData = { disconnect: true };
-        // } else if (typeof influencerId === 'string') {
-        //     dataToUpdate.influencerOrderData = { connect: { id: influencerId } };
-        // }
-
-        // if (businessId === null) {
-        //     dataToUpdate.businessOrderData = { disconnect: true };
-        // } else if (typeof businessId === 'string') {
-        //     dataToUpdate.businessOrderData = { connect: { id: businessId } };
-        // }
-
-        // if (paymentStatus === null) {
-        //     dataToUpdate.paymentStatus = PaymentStatus.PENDING;
-        // } else {
-        //     dataToUpdate.paymentStatus = paymentStatus;
-        // }
 
         const updated = await prisma.orders.update({
             where: { id },
@@ -322,7 +290,10 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     }
 };
 
-export const getAllOrderList = async (req: Request, res: Response) => {
+
+
+
+export const getAllOrderList = async (req: Request, res: Response): Promise<any> => {
     try {
         const { status } = req.body;
 
@@ -363,3 +334,6 @@ export const getAllOrderList = async (req: Request, res: Response) => {
         return response.error(res, error.message || 'Something went wrong');
     }
 };
+
+
+

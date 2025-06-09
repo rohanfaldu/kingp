@@ -52,13 +52,22 @@ const storage = multer.diskStorage({
 });
 
 // More flexible approach - accepts any field name
+// const upload = multer({ 
+//     storage,
+//     fileFilter: (req, file, cb) => {
+//         console.log('File received:', file.fieldname, file.originalname);
+//         cb(null, true); // Accept all files
+//     }
+// }).any(); // This accepts files with any field name
+
 const upload = multer({ 
     storage,
+    limits: { fileSize: 20 * 1024 * 1024 }, // 50 MB limit
     fileFilter: (req, file, cb) => {
         console.log('File received:', file.fieldname, file.originalname);
         cb(null, true); // Accept all files
     }
-}).any(); // This accepts files with any field name
+}).any();
 
 export const uploadMultipleImages = (req: Request, res: Response) => {
     console.log('Upload function called');

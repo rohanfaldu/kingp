@@ -23,7 +23,7 @@ const prisma = new PrismaClient();
 //     }
 // });
 
-router.post('/allLocations', async (_req: Request, res: Response) => {
+router.post('/allLocations', async (_req: Request, res: Response): Promise<any> => {
   try {
     const allLocationData = await readJsonFile();
 
