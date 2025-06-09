@@ -250,67 +250,273 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
 
 
 
-// export const updateOrderStatus = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const orderData: EditIOrder = req.body;
-
-//         // Validate required fields
-//         if (typeof orderData.id !== 'string' || typeof orderData.status !== 'number') {
-//             return response.error(res, 'Both id (string) and status (number) are required');
-//         }
-
-//         // Extract and convert status
-
-//         // Destructure and safely omit `id`
-//         const {
-//             id,
-//             status,
-//             completionDate,
-//             groupId,
-//             influencerId,
-//             businessId,
-//             paymentStatus,
-//             ...safeUpdateFields
-//         } = orderData;
-
-//         // Build final update object
-//         const statusEnumValue = getStatusName(status ?? 0);
-
-//         // Build update payload
-//         const dataToUpdate: any = {
-//             ...safeUpdateFields,
-//             status: statusEnumValue,
-//         };
-
-//         const updated = await prisma.orders.update({
-//             where: { id },
-//             data: dataToUpdate,
-//         });
-
-//         if (updated) {
-//             return response.success(res, 'Successfully updated status', null);
-//         } else {
-//             return response.error(res, 'Order not found or status not updated');
-//         }
-//     } catch (error: any) {
-//         console.error('Update order failed:', error);
-//         return response.error(res, error.message || 'Something went wrong');
-//     }
-// };
-
-
-
 export const updateOrderStatus = async (req: Request, res: Response): Promise<any> => {
     try {
-       
-        // Return success for non-completed status updates
-        return response.success(res, 'Order status updated successfully', updated);
+        const orderData: EditIOrder = req.body;
+
+        if (typeof orderData.id !== 'string' || typeof orderData.status !== 'number') {
+            return response.error(res, 'Both id (string) and status (number) are required');
+        }
+
+        const {
+            id,
+            status,
+            completionDate,
+            groupId,
+            influencerId,
+            businessId,
+            paymentStatus,
+            ...safeUpdateFields
+        } = orderData;
+
+        const statusEnumValue = getStatusName(status ?? 0);
+
+        if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
+            const currentOrder = await prisma.orders.findUnique({ where: { id }, select: { status: true } });
+            if (!currentOrder) return response.error(res, 'Order not found');
+            if (currentOrder.status === OfferStatus.COMPLETED) {
+                const existingEarnings = await prisma.earnings.findFirst({ where: { orederId: id } });
+                if (existingEarnings) {
+                    return response.error(res, 'Order is already completed and earnings have been distributed');
+                } else {
+                    return response.error(res, 'Order is already completed');
+                }
+            }
+            if (currentOrder.status !== OfferStatus.ORDERSUBMITTED) {
+                return response.error(res, 'Order must be in ORDERSUBMITTED status before it can be marked as COMPLETED');
+            }
+        }
+
+        const updated = await prisma.orders.update({
+            where: { id },
+            data: { ...safeUpdateFields, status: statusEnumValue },
+        });
+
+        const order = await prisma.orders.findUnique({
+            where: { id },
+            include: {
+                groupOrderData: true,
+                influencerOrderData: {
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    },
+                },
+                businessOrderData: {
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    },
+                },
+            },
+        });
+
+        if (!order) return response.error(res, 'Order not found after update');
+
+        const formatUserData = async (user: any) => {
+            const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+            const { password: _, socialMediaPlatform: __, ...userData } = user;
+            return {
+                ...userData,
+                categories: userCategoriesWithSubcategories,
+                countryName: user.countryData?.name ?? null,
+                stateName: user.stateData?.name ?? null,
+                cityName: user.cityData?.name ?? null,
+            };
+        };
+
+        let formattedGroup: any = null;
+
+        if (order.groupOrderData) {
+            const group = order.groupOrderData;
+
+            const subCategoriesWithCategory = await prisma.subCategory.findMany({
+                where: { id: { in: group.subCategoryId } },
+                include: { categoryInformation: true },
+            });
+
+            const groupUsers = await prisma.groupUsers.findMany({ where: { groupId: group.id } });
+
+            const groupMap = new Map<string, any>();
+
+            for (const groupUser of groupUsers) {
+                const adminUser = await prisma.user.findUnique({
+                    where: { id: groupUser.userId },
+                    include: {
+                        UserDetail: true,
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    },
+                });
+
+                const formattedAdmin = adminUser ? await formatUserData(adminUser) : null;
+
+                const invitedEntries = await prisma.groupUsersList.findMany({
+                    where: {
+                        groupId: group.id,
+                        groupUserId: groupUser.id,
+                        requestAccept: 'ACCEPTED',
+                    },
+                    include: {
+                        invitedUser: {
+                            include: {
+                                UserDetail: true,
+                                socialMediaPlatforms: true,
+                                brandData: true,
+                                countryData: true,
+                                stateData: true,
+                                cityData: true,
+                            },
+                        },
+                    },
+                });
+
+                const formattedInvitedUsers = await Promise.all(
+                    invitedEntries.map(async (entry) => {
+                        if (!entry.invitedUser) return null;
+                        const formatted = await formatUserData(entry.invitedUser);
+                        return {
+                            ...formatted,
+                            requestStatus: 1,
+                        };
+                    })
+                );
+
+                groupMap.set(`${groupUser.groupId}-${groupUser.id}`, {
+                    id: groupUser.id,
+                    userId: groupUser.userId,
+                    groupId: groupUser.groupId,
+                    status: groupUser.status,
+                    createdAt: groupUser.createsAt,
+                    updatedAt: groupUser.updatedAt,
+                    adminUser: formattedAdmin,
+                    invitedUsers: formattedInvitedUsers.filter(Boolean),
+                });
+            }
+
+            formattedGroup = {
+                ...group,
+                subCategoryId: subCategoriesWithCategory,
+                groupData: Array.from(groupMap.values()),
+            };
+        }
+
+        // Earnings logic if COMPLETED
+        if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
+            const amount = updated.finalAmount ?? updated.totalAmount;
+            if (!amount) return response.error(res, 'Order amount is missing');
+
+            const baseEarning = {
+                orederId: updated.id,
+                groupId: updated.groupId ?? null,
+                businessId: updated.businessId,
+                paymentStatus: PaymentStatus.COMPLETED,
+            };
+
+            const earningsData: any[] = [];
+
+            // Admin earns 20%
+            const adminUser = await prisma.user.findFirst({ where: { type: 'ADMIN' }, select: { id: true } });
+            if (!adminUser) return response.error(res, 'Admin user not found');
+
+            const adminAmount = amount * 0.2;
+            earningsData.push({
+                ...baseEarning,
+                userId: adminUser.id,
+                amount,
+                earningAmount: adminAmount,
+            });
+
+            // Remaining 80% split among eligible users
+            const eligibleUserIds: string[] = [];
+
+            if (updated.influencerId) eligibleUserIds.push(updated.influencerId);
+
+            if (updated.groupId) {
+                const acceptedUsers = await prisma.groupUsersList.findMany({
+                    where: { groupId: updated.groupId, requestAccept: 'ACCEPTED' },
+                    select: { invitedUserId: true },
+                });
+                acceptedUsers.forEach(({ invitedUserId }) => eligibleUserIds.push(invitedUserId));
+
+                const groupAdmins = await prisma.groupUsers.findMany({
+                    where: { groupId: updated.groupId },
+                    select: { userId: true },
+                });
+                groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
+            }
+
+            if (eligibleUserIds.length > 0) {
+                const sharedAmount = (amount * 0.8) / eligibleUserIds.length;
+                for (const userId of eligibleUserIds) {
+                    earningsData.push({
+                        ...baseEarning,
+                        userId,
+                        amount,
+                        earningAmount: sharedAmount,
+                    });
+                }
+            }
+
+            await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
+
+            const detailedEarnings = await Promise.all(
+                earningsData.map(async (entry) => {
+                    const user = await prisma.user.findUnique({
+                        where: { id: entry.userId },
+                        include: {
+                            socialMediaPlatforms: true,
+                            brandData: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        },
+                    });
+                    if (!user) return null;
+                    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+                    const { password: _, ...userData } = user;
+                    return {
+                        user: {
+                            ...userData,
+                            categories: userCategoriesWithSubcategories,
+                            countryName: user?.countryData?.name ?? null,
+                            stateName: user?.stateData?.name ?? null,
+                            cityName: user?.cityData?.name ?? null,
+                        },
+                        earningAmount: entry.earningAmount,
+                        orderAmount: entry.amount,
+                    };
+                })
+            );
+
+            return response.success(res, 'Order status updated and earnings distributed successfully', {
+                ...order,
+                groupOrderData: formattedGroup,
+                earnings: detailedEarnings.filter(Boolean),
+            });
+        }
+
+        // Non-completed order return
+        return response.success(res, 'Order status updated successfully', {
+            ...order,
+            groupOrderData: formattedGroup,
+        });
 
     } catch (error: any) {
         console.error('Update order status failed:', error);
         return response.error(res, error.message || 'Something went wrong');
     }
 };
+
 
 
 
