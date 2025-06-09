@@ -175,7 +175,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                 where: {
                     groupId: group.id,
                     groupUserId: groupUser.id,
-                    requestAccept: 'ACCEPTED',
+                    // requestAccept: 'ACCEPTED',
                 },
                 include: {
                     invitedUser: {
