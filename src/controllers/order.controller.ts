@@ -26,7 +26,7 @@ export const createOrder = async (req: Request, res: Response) => {
         let parsedCompletionDate: Date | undefined = undefined;
         const statusEnumValue = getStatusName(restFields.status ?? 0);
 
-    
+
         if (completionDate && typeof completionDate === 'number') {
             parsedCompletionDate = addDays(new Date(), completionDate);
         } else {
@@ -93,17 +93,12 @@ export const createOrder = async (req: Request, res: Response) => {
 export const getByIdOrder = async (req: Request, res: Response) => {
     try {
         const { id } = req.body;
+        if (!id) return response.error(res, 'Order ID is required');
 
-        if (!id) {
-            return response.error(res, 'Both id and status are required');
-        }
-
-        const getOrder = await prisma.orders.findUnique({
-            where: {
-                id
-            },
+        const order = await prisma.orders.findUnique({
+            where: { id },
             include: {
-                groupOrderData: {},
+                groupOrderData: true, 
                 influencerOrderData: {
                     include: {
                         socialMediaPlatforms: true,
@@ -111,7 +106,7 @@ export const getByIdOrder = async (req: Request, res: Response) => {
                         countryData: true,
                         stateData: true,
                         cityData: true,
-                    }
+                    },
                 },
                 businessOrderData: {
                     include: {
@@ -120,15 +115,127 @@ export const getByIdOrder = async (req: Request, res: Response) => {
                         countryData: true,
                         stateData: true,
                         cityData: true,
-                    }
-                }
-            }
+                    },
+                },
+            },
         });
-        return response.success(res, 'Get order Detail', getOrder);
+
+        if (!order?.groupOrderData) {
+            return response.success(res, 'Order fetched', order);
+        }
+
+        const group = order.groupOrderData;
+
+        const formatUserData = async (user: any) => {
+            const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+            const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+            const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+            const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+            const { password: _, socialMediaPlatform: __, ...userData } = user;
+            return {
+                ...userData,
+                categories: userCategoriesWithSubcategories,
+                countryName: country?.name ?? null,
+                stateName: state?.name ?? null,
+                cityName: city?.name ?? null,
+            };
+        };
+
+        const subCategoriesWithCategory = await prisma.subCategory.findMany({
+            where: { id: { in: group.subCategoryId } },
+            include: { categoryInformation: true },
+        });
+
+        const groupUsers = await prisma.groupUsers.findMany({
+            where: { groupId: group.id },
+        });
+
+        const groupMap = new Map<string, any>();
+
+        for (const groupUser of groupUsers) {
+            const key = `${groupUser.groupId}-${groupUser.id}`;
+
+            const adminUser = await prisma.user.findUnique({
+                where: { id: groupUser.userId },
+                include: {
+                    UserDetail: true,
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
+                },
+            });
+
+            const formattedAdmin = adminUser ? await formatUserData(adminUser) : null;
+
+            const invitedEntries = await prisma.groupUsersList.findMany({
+                where: {
+                    groupId: group.id,
+                    groupUserId: groupUser.id,
+                    requestAccept: 'ACCEPTED',
+                },
+                include: {
+                    invitedUser: {
+                        include: {
+                            UserDetail: true,
+                            socialMediaPlatforms: true,
+                            brandData: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        },
+                    },
+                },
+            });
+
+            const formattedInvitedUsers = await Promise.all(
+                invitedEntries.map(async (entry) => {
+                    if (!entry.invitedUser) return null;
+                    const formatted = await formatUserData(entry.invitedUser);
+                    return {
+                        ...formatted,
+                        requestStatus:
+                            entry.requestAccept === 'ACCEPTED'
+                                ? 1
+                                : entry.requestAccept === 'REJECTED'
+                                    ? 2
+                                    : 0,
+                    };
+                })
+            );
+
+            groupMap.set(key, {
+                id: groupUser.id,
+                userId: groupUser.userId,
+                groupId: groupUser.groupId,
+                status: groupUser.status,
+                createdAt: groupUser.createsAt,
+                updatedAt: groupUser.updatedAt,
+                adminUser: formattedAdmin,
+                invitedUsers: formattedInvitedUsers.filter(Boolean),
+            });
+        }
+
+        // Replace raw groupOrderData with formatted one
+        const formattedGroup = {
+            ...group,
+            subCategoryId: subCategoriesWithCategory,
+            groupData: Array.from(groupMap.values()),
+        };
+
+        const finalResponse = {
+            ...order,
+            groupOrderData: formattedGroup,
+        };
+
+        return response.success(res, 'Order fetched with group data', finalResponse);
     } catch (error: any) {
+        console.error('getByIdOrder error:', error);
         return response.error(res, error.message);
     }
 };
+
 
 
 export const updateOrderStatus = async (req: Request, res: Response) => {
