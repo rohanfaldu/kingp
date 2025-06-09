@@ -82,10 +82,11 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
         }
 
         try {
+             const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol;
             const filesData = files.map((file) => {
                 const category = getFileCategory(file.filename);
                 const filePath = `uploads/${category}/${file.filename}`;
-                const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol;
+               
 
                 return {
                     name: file.filename,
