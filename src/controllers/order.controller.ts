@@ -300,7 +300,17 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
 
 
 
+export const updateOrderStatus = async (req: Request, res: Response): Promise<any> => {
+    try {
+       
+        // Return success for non-completed status updates
+        return response.success(res, 'Order status updated successfully', updated);
 
+    } catch (error: any) {
+        console.error('Update order status failed:', error);
+        return response.error(res, error.message || 'Something went wrong');
+    }
+};
 
 
 
