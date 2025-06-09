@@ -231,7 +231,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
         const formattedGroup = {
             ...group,
             subCategoryId: subCategoriesWithCategory,
-            groupData: Array.from(groupMap.values()),
+            groupData: Array.from(groupMap.values())[0] || null,
         };
         const finalResponse = {
             ...order,
@@ -406,7 +406,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             formattedGroup = {
                 ...group,
                 subCategoryId: subCategoriesWithCategory,
-                groupData: Array.from(groupMap.values()),
+                groupData: Array.from(groupMap.values())[0] || null,
             };
         }
 
@@ -569,7 +569,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
 
 export const orderSubmit = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { id, description, socialMediaLink, attachment } = req.body;
+        const { id, submittedDescription, socialMediaLink, attachment } = req.body;
         if (!id || typeof id !== 'string') {
             return response.error(res, 'Order ID is required and must be a string');
         }
@@ -578,7 +578,7 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
         await prisma.orders.update({
             where: { id },
             data: {
-                description,
+                submittedDescription,
                 socialMediaLink,
                 attachment,
                 status: OfferStatus.ORDERSUBMITTED,
@@ -714,7 +714,7 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
         const formattedGroup = {
             ...group,
             subCategoryId: subCategoriesWithCategory,
-            groupData: Array.from(groupMap.values()),
+            groupData: Array.from(groupMap.values())[0] || null,
         };
 
         const finalResponse = {
