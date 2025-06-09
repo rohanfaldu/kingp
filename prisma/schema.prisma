@@ -301,7 +301,7 @@ model Earnings {
   businessId              String          @db.Uuid
   amount                  Decimal?        @db.Decimal
   earningAmount           Decimal?        @db.Decimal
-  paymentStatus           PaymentStatus   @default(PENDING)
+  paymentStatus           PaymentStatus   
   date                    DateTime        @default(now())
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)

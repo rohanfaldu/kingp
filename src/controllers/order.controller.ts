@@ -13,6 +13,7 @@ import { OfferStatus, PaymentStatus, RequestStatus, Role } from '@prisma/client'
 
 const prisma = new PrismaClient();
 
+
 export const createOrder = async (req: Request, res: Response): Promise<any> => {
     try {
         const orderData: IOrder = req.body;
@@ -104,7 +105,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
         const order = await prisma.orders.findUnique({
             where: { id },
             include: {
-                groupOrderData: true, 
+                groupOrderData: true,
                 influencerOrderData: {
                     include: {
                         socialMediaPlatforms: true,
@@ -343,267 +344,172 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
 
 
 
+
+
+
+
 export const updateOrderStatusAndInsertEarnings = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id, status } = req.body;
+    try {
+        const { id, status } = req.body;
 
-    if (typeof id !== 'string' || typeof status !== 'number') {
-      return response.error(res, 'Both id (string) and status (number) are required');
-    }
-
-    const statusEnum = getStatusName(status);
-
-    // 1. Update Order Status
-    const order = await prisma.orders.update({
-      where: { id },
-      data: { status: statusEnum },
-      include: {
-        groupOrderData: {
-          include: {
-            groupData: true, // Include group details
-            groupUsersList: true, // Include group members
-          }
-        },
-        influencerOrderData: true,
-        businessOrderData: true,
-      },
-    });
-
-    if (!order) {
-      return response.error(res, 'Order not found');
-    }
-
-    // 2. On COMPLETED, insert earnings
-    if (statusEnum === OfferStatus.COMPLETED) {
-      const amount = order.finalAmount ?? order.totalAmount;
-      if (!amount) {
-        return response.error(res, 'Order amount is missing, cannot generate earnings');
-      }
-
-      const earningsData: any[] = [];
-
-      // a. Business earnings (unchanged)
-      const baseEarning = {
-        orederId: order.id,
-        groupId: order.groupId ?? null,
-        businessId: order.businessId,
-        amount: amount,
-        paymentStatus: PaymentStatus.PENDING,
-      };
-
-      earningsData.push({
-        ...baseEarning,
-        userId: order.businessId,
-        earningAmount: amount,
-      });
-
-      // b. Handle Individual Influencer vs Group Orders
-      if (order.groupId) {
-        // GROUP ORDER - Apply 20:80 ratio distribution
-        
-        // Get main admin ID (you'll need to implement this logic)
-        const MAIN_ADMIN_ID = await getMainAdminId(); // Replace with actual logic to get main admin ID
-        
-        // Get group details and admin from the group data
-        const groupData = order.groupOrderData?.groupData;
-        let groupAdminId = null;
-        
-        // Assuming group has an adminId or createdBy field for group admin
-        if (groupData) {
-          groupAdminId = groupData.adminId || groupData.createdBy || groupData.userId; // Adjust based on your Group model
+        if (typeof id !== 'string' || typeof status !== 'number') {
+            return response.error(res, 'Both id string and status number are required');
         }
-        
-        // Get all accepted group members (influencers) - use included data or fetch separately
-        let groupUsersList = order.groupOrderData?.groupUsersList || [];
-        
-        // If not included, fetch separately
-        if (!groupUsersList || groupUsersList.length === 0) {
-          groupUsersList = await prisma.groupUsersList.findMany({
-            where: {
-              groupId: order.groupId,
-              requestAccept: RequestStatus.ACCEPTED,
+
+        if (!id) {
+            return response.error(res, 'Invalid Uuid formate.');
+        }
+
+        const statusEnum = getStatusName(status);
+
+        // 1. Update Order Status
+        const order = await prisma.orders.update({
+            where: { id },
+            data: { status: statusEnum },
+            include: {
+                groupOrderData: true,
+                influencerOrderData: true,
+                businessOrderData: true,
             },
-          });
+        });
+
+        if (!order) {
+            return response.error(res, 'Order not found');
         }
 
-        // Calculate earnings distribution
-        const totalAmount = Number(amount);
-        const mainAdminShare = totalAmount * 0.20; // 20% to main admin
-        const groupShare = totalAmount * 0.80; // 80% to be shared among group members
-        
-        // Count total recipients for group share (group admin + influencers)
-        const groupMembersCount = groupUsersList.length + (groupAdminId ? 1 : 0);
-        const perMemberShare = groupMembersCount > 0 ? groupShare / groupMembersCount : 0;
 
-        // 1. Main Admin Earnings (20%)
-        earningsData.push({
-          ...baseEarning,
-          userId: MAIN_ADMIN_ID,
-          earningAmount: mainAdminShare,
-        });
+        if (statusEnum === OfferStatus.COMPLETED) {
+            const amount = order.finalAmount ?? order.totalAmount;
 
-        // 2. Group Admin Earnings (part of 80% split)
-        if (groupAdminId) {
-          earningsData.push({
-            ...baseEarning,
-            userId: groupAdminId,
-            earningAmount: perMemberShare,
-          });
+            if (!amount) {
+                return response.error(res, 'Order amount is missing, cannot generate earnings');
+            }
+
+            const earningsData: any[] = [];
+
+            const baseEarning = {
+                orederId: order.id,
+                groupId: order.groupId ?? null,
+                businessId: order.businessId,
+                paymentStatus: PaymentStatus.COMPLETED,
+            };
+
+            // 1. Admin gets 20%
+            const adminUser = await prisma.user.findFirst({
+                where: { type: 'ADMIN' },
+                select: { id: true },
+            });
+
+            if (!adminUser) {
+                return response.error(res, 'Admin user not found');
+            }
+
+            const adminAmount = amount * 0.2;
+            earningsData.push({
+                ...baseEarning,
+                userId: adminUser.id,
+                amount: amount,
+                earningAmount: adminAmount,
+            });
+
+            // 2. Collect all other eligible user IDs: influencer, invited users, and group admin(s)
+            const eligibleUserIds: string[] = [];
+
+            // a. Add influencer if exists
+            if (order.influencerId) {
+                eligibleUserIds.push(order.influencerId);
+            }
+
+            // b. Add accepted invited group users
+            if (order.groupId) {
+                const acceptedInvited = await prisma.groupUsersList.findMany({
+                    where: {
+                        groupId: order.groupId,
+                        requestAccept: RequestStatus.ACCEPTED,
+                    },
+                    select: {
+                        invitedUserId: true,
+                    },
+                });
+
+                acceptedInvited.forEach(user => eligibleUserIds.push(user.invitedUserId));
+
+                // c. Add group admin(s) from groupUsers table
+                const groupAdmins = await prisma.groupUsers.findMany({
+                    where: {
+                        groupId: order.groupId,
+                    },
+                    select: {
+                        userId: true,
+                    },
+                });
+
+                groupAdmins.forEach(admin => eligibleUserIds.push(admin.userId));
+            }
+
+            // 3. Distribute 80% equally
+            if (eligibleUserIds.length > 0) {
+                const sharedAmountPerUser = (amount * 0.8) / eligibleUserIds.length;
+
+                for (const userId of eligibleUserIds) {
+                    earningsData.push({
+                        ...baseEarning,
+                        userId,
+                        amount: amount,
+                        earningAmount: sharedAmountPerUser,
+                    });
+                }
+            }
+
+            /// 4. Insert all earnings
+            if (earningsData.length > 0) {
+                await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
+
+                // Fetch user details for response
+                const detailedEarnings = await Promise.all(
+                    earningsData.map(async (entry) => {
+                        const user = await prisma.user.findUnique({
+                            where: { id: entry.userId },
+                            include: {
+                                // UserDetail: true,
+                                socialMediaPlatforms: true,
+                                brandData: true,
+                                countryData: true,
+                                stateData: true,
+                                cityData: true,
+                            },
+                        });
+
+                        const { password: _, ...userData } = user || {};
+                        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+
+                        return {
+                            user: {
+                                ...userData,
+                                categories: userCategoriesWithSubcategories,
+                                countryName: user?.countryData?.name ?? null,
+                                stateName: user?.stateData?.name ?? null,
+                                cityName: user?.cityData?.name ?? null,
+                            },
+                            earningAmount: entry.earningAmount,
+                            orderAmount: entry.amount,
+                        };
+                    })
+                );
+
+                return response.success(
+                    res,
+                    'Order status updated and earnings inserted (if applicable)',
+                    detailedEarnings
+                    // detailedEarnings.filter(Boolean)
+                );
+            }
         }
 
-        // 3. Group Members (Influencers) Earnings (part of 80% split)
-        for (const member of groupUsersList) {
-          earningsData.push({
-            ...baseEarning,
-            userId: member.invitedUserId,
-            earningAmount: perMemberShare,
-          });
-        }
-
-      } else if (order.influencerId) {
-        // INDIVIDUAL INFLUENCER ORDER - Apply 20:80 ratio
-        const MAIN_ADMIN_ID = await getMainAdminId(); // Replace with actual logic
-        
-        const totalAmount = Number(amount);
-        const mainAdminShare = totalAmount * 0.20; // 20% to main admin
-        const influencerShare = totalAmount * 0.80; // 80% to influencer
-
-        // Main Admin Earnings (20%)
-        earningsData.push({
-          ...baseEarning,
-          userId: MAIN_ADMIN_ID,
-          earningAmount: mainAdminShare,
-        });
-
-        // Influencer Earnings (80%)
-        earningsData.push({
-          ...baseEarning,
-          userId: order.influencerId,
-          earningAmount: influencerShare,
-        });
-      }
-
-      // 3. Insert earnings
-      if (earningsData.length > 0) {
-        await prisma.earnings.createMany({
-          data: earningsData,
-          skipDuplicates: true
-        });
-      }
+        return response.success(res, 'Order status updated', null);
+    } catch (error: any) {
+        console.error('Earnings generation failed:', error);
+        return response.error(res, error.message || 'Something went wrong');
     }
-
-    return response.success(res, 'Order status updated and earnings inserted (if applicable)', null);
-
-  } catch (error: any) {
-    console.error('Earnings generation failed:', error);
-    return response.error(res, error.message || 'Something went wrong');
-  }
 };
-
-
-
-
-
-// Helper function to get main admin ID (you'll need to implement this based on your system)
-const getMainAdminId = async (): Promise<string> => {
-  // Option 1: From a settings/config table
-  const adminConfig = await prisma.adminSettings.findFirst({
-    where: { type: 'MAIN_ADMIN' }
-  });
-  
-  // Option 2: From user table with a specific role
-  const mainAdmin = await prisma.user.findFirst({
-    where: { role: 'SUPER_ADMIN' }
-  });
-  
-  // Option 3: Hardcoded (not recommended for production)
-  return adminConfig?.value || mainAdmin?.id || 'default-admin-id';
-};
-
-// export const updateOrderStatusAndInsertEarnings = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { id, status } = req.body;
-
-//         if (typeof id !== 'string' || typeof status !== 'number') {
-//             return response.error(res, 'Both id (string) and status (number) are required');
-//         }
-
-//         const statusEnum = getStatusName(status);
-
-//         // 1. Update Order Status
-//         const order = await prisma.orders.update({
-//             where: { id },
-//             data: { status: statusEnum },
-//             include: {
-//                 groupOrderData: true,
-//                 influencerOrderData: true,
-//                 businessOrderData: true,
-//             },
-//         });
-
-//         if (!order) {
-//             return response.error(res, 'Order not found');
-//         }
-
-//         // 2. On COMPLETED, insert earnings
-//         if (statusEnum === OfferStatus.COMPLETED) {
-//             const amount = order.finalAmount ?? order.totalAmount;
-
-//             if (!amount) {
-//                 return response.error(res, 'Order amount is missing, cannot generate earnings');
-//             }
-
-//             const earningsData: any[] = [];
-
-//             const baseEarning = {
-//                 orederId: order.id,
-//                 groupId: order.groupId ?? null,
-//                 businessId: order.businessId,
-//                 amount: amount,
-//                 earningAmount: amount, // Add commission logic if needed
-//                 paymentStatus: PaymentStatus.PENDING,
-//             };
-
-//             // a. Business earnings
-//             earningsData.push({
-//                 ...baseEarning,
-//                 userId: order.businessId,
-//             });
-
-//             // b. Influencer earnings
-//             if (order.influencerId) {
-//                 earningsData.push({
-//                     ...baseEarning,
-//                     userId: order.influencerId,
-//                 });
-//             }
-
-//             // c. Group invited users (ACCEPTED only)
-//             if (order.groupId) {
-//                 const groupUsersList = await prisma.groupUsersList.findMany({
-//                     where: {
-//                         groupId: order.groupId,
-//                         requestAccept: RequestStatus.ACCEPTED,
-//                     },
-//                 });
-
-//                 for (const invited of groupUsersList) {
-//                     earningsData.push({
-//                         ...baseEarning,
-//                         userId: invited.invitedUserId,
-//                     });
-//                 }
-//             }
-
-//             // 3. Insert earnings
-//             if (earningsData.length > 0) {
-//                 await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
-//             }
-//         }
-
-//         return response.success(res, 'Order status updated and earnings inserted (if applicable)', null);
-//     } catch (error: any) {
-//         console.error('Earnings generation failed:', error);
-//         return response.error(res, error.message || 'Something went wrong');
-//     }
-// };
