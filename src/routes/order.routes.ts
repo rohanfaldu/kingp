@@ -1,13 +1,17 @@
 import express from 'express';
-import { createOrder, getByIdOrder, updateOrderStatus, getAllOrderList } from '../controllers/order.controller';
+import { createOrder, getByIdOrder, updateOrderStatus, getAllOrderList,updateOrderStatusAndInsertEarnings } from '../controllers/order.controller';
+import { authenticateToken } from '../services/authorization';
 
 
 const router = express.Router();
 
-router.post('/create', createOrder);
-router.post('/getById', getByIdOrder);
-router.post('/updateStatus', updateOrderStatus);
-router.post('/getAllOrder', getAllOrderList);
+router.post('/create', authenticateToken, createOrder);
+router.post('/getById', authenticateToken, getByIdOrder);
+router.post('/updateStatus', authenticateToken, updateOrderStatus);
+router.post('/getAllOrder',authenticateToken, getAllOrderList);
+
+router.post('/updateOrderStatusAndInsertEarnings', authenticateToken, updateOrderStatusAndInsertEarnings);
+
 
 
 export default router;  
