@@ -58,7 +58,7 @@ export const getByIdMedia = async (req: Request, res: Response) => {
 
 export const updateMediaStatus = async (req: Request, res: Response) => {
     try {
-        const { id, status } = req.body;
+        const { id, status, reason } = req.body;
 
         if (typeof id !== 'string' || typeof status !== 'number') {
             return response.error(res, 'Both id (string) and status (number) are required');
@@ -71,7 +71,7 @@ export const updateMediaStatus = async (req: Request, res: Response) => {
         // Update the order
         const updated = await prisma.media.updateMany({
             where: { id },
-            data: { status: statusEnumValue },
+            data: { status: statusEnumValue, reason: reason?? null },
         });
 
         if (updated.count > 0) {

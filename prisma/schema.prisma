@@ -284,6 +284,7 @@ model Media {
   id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orderId    String      @db.Uuid
   mediaLink  String?      @db.VarChar
+  reason     String?      @db.VarChar
   status     RequestStatus @default(PENDING)
   createdAt  DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt  DateTime?    @default(now()) @db.Timestamp(6)
