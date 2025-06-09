@@ -51,14 +51,6 @@ const storage = multer.diskStorage({
     }
 });
 
-// More flexible approach - accepts any field name
-// const upload = multer({ 
-//     storage,
-//     fileFilter: (req, file, cb) => {
-//         console.log('File received:', file.fieldname, file.originalname);
-//         cb(null, true); // Accept all files
-//     }
-// }).any(); // This accepts files with any field name
 
 const upload = multer({ 
     storage,
@@ -93,10 +85,13 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
             const filesData = files.map((file) => {
                 const category = getFileCategory(file.filename);
                 const filePath = `uploads/${category}/${file.filename}`;
+                const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol;
+
                 return {
                     name: file.filename,
                     path: filePath,
-                    url: `${req.protocol}://${req.get('host')}/${filePath}`,
+                    // url: `${req.protocol}://${req.get('host')}/${filePath}`,
+                    url: `${protocol}://${req.get('host')}/${filePath}`,
                     size: `${(file.size / 1024).toFixed(2)} KB`,
                     type: category,
                     extension: path.extname(file.filename).toLowerCase()
