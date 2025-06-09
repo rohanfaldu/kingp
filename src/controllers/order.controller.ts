@@ -179,7 +179,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                 where: {
                     groupId: group.id,
                     groupUserId: groupUser.id,
-                    // requestAccept: 'ACCEPTED',
+                    requestAccept: 'ACCEPTED',
                 },
                 include: {
                     invitedUser: {
@@ -201,12 +201,12 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                     const formatted = await formatUserData(entry.invitedUser);
                     return {
                         ...formatted,
-                    //     requestStatus:
-                    //         entry.requestAccept === 'ACCEPTED'
-                    //             ? 1
-                    //             : entry.requestAccept === 'REJECTED'
-                    //                 ? 2
-                    //                 : 0,
+                        requestStatus:
+                            entry.requestAccept === 'ACCEPTED'
+                                ? 1
+                                : entry.requestAccept === 'REJECTED'
+                                    ? 2
+                                    : 0,
                     };
                 })
             );
@@ -229,11 +229,11 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             subCategoryId: subCategoriesWithCategory,
             groupData: Array.from(groupMap.values()),
         };
-
         const finalResponse = {
             ...order,
             groupOrderData: formattedGroup,
         };
+        console.log(finalResponse, '>>>>finalResponse')
 
         return response.success(res, 'Order fetched with group data', finalResponse);
     } catch (error: any) {
@@ -499,6 +499,10 @@ export const updateOrderStatusAndInsertEarnings = async (req: Request, res: Resp
     return response.error(res, error.message || 'Something went wrong');
   }
 };
+
+
+
+
 
 // Helper function to get main admin ID (you'll need to implement this based on your system)
 const getMainAdminId = async (): Promise<string> => {
