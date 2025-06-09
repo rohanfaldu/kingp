@@ -15,11 +15,11 @@ const FILE_TYPES = {
 // Function to determine file category
 const getFileCategory = (filename: string): string => {
     const ext = path.extname(filename).toLowerCase();
-    
+
     if (FILE_TYPES.images.includes(ext)) return 'images';
     if (FILE_TYPES.documents.includes(ext)) return 'documents';
     if (FILE_TYPES.videos.includes(ext)) return 'videos';
-    
+
     return 'documents'; // Default to documents for unknown types
 };
 
@@ -27,7 +27,7 @@ const getFileCategory = (filename: string): string => {
 const createUploadDirs = () => {
     const baseUploadDir = path.join(__dirname, '..', 'uploads');
     const dirs = ['images', 'documents', 'videos'];
-    
+
     dirs.forEach(dir => {
         const dirPath = path.join(baseUploadDir, dir);
         if (!fs.existsSync(dirPath)) {
@@ -52,7 +52,7 @@ const storage = multer.diskStorage({
 });
 
 
-const upload = multer({ 
+const upload = multer({
     storage,
     limits: { fileSize: 20 * 1024 * 1024 }, // 50 MB limit
     fileFilter: (req, file, cb) => {
@@ -65,7 +65,7 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
     console.log('Upload function called');
     console.log('Request body:', req.body);
     console.log('Request files before multer:', req.files);
-    
+
     upload(req, res, async function (error) {
         if (error) {
             console.error("Upload Error:", error);
@@ -82,17 +82,22 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
         }
 
         try {
-             const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol;
+            //  const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol;
+            const isUrl = process.env.FRONT_URL;
+            console.log(isUrl, '>>>>>>>>>>url' )
+            const url = isUrl ? 'https' : req.protocol;
+
             const filesData = files.map((file) => {
                 const category = getFileCategory(file.filename);
                 const filePath = `uploads/${category}/${file.filename}`;
-               
+
 
                 return {
                     name: file.filename,
                     path: filePath,
                     // url: `${req.protocol}://${req.get('host')}/${filePath}`,
-                    url: `https://${req.get('host')}/${filePath}`,
+                    url: `${url}://${req.get('host')}/${filePath}`,
+                    // url: `https://${req.get('host')}/${filePath}`,
                     size: `${(file.size / 1024).toFixed(2)} KB`,
                     type: category,
                     extension: path.extname(file.filename).toLowerCase()

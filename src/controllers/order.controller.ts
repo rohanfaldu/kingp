@@ -197,12 +197,12 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                     const formatted = await formatUserData(entry.invitedUser);
                     return {
                         ...formatted,
-                        requestStatus:
-                            entry.requestAccept === 'ACCEPTED'
-                                ? 1
-                                : entry.requestAccept === 'REJECTED'
-                                    ? 2
-                                    : 0,
+                    //     requestStatus:
+                    //         entry.requestAccept === 'ACCEPTED'
+                    //             ? 1
+                    //             : entry.requestAccept === 'REJECTED'
+                    //                 ? 2
+                    //                 : 0,
                     };
                 })
             );
