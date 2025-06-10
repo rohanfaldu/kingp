@@ -943,7 +943,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 });
             }
         }
-        
+
         if (countryId) {
             const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
             filter.countryId = { in: countries };
@@ -1104,7 +1104,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     include: { categoryInformation: true }
                 })
                 : [];
-                console.log('33');
+            console.log('33');
             const formattedGroupData = await Promise.all(
                 group.groupData.map(async (groupUser: any) => {
                     const adminUser = groupUser.groupUserData;
@@ -1121,7 +1121,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     });
 
                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
-console.log('44');
+                    console.log('44');
                     const invitedUsers = acceptedInvitedUserIds.length > 0
                         ? await prisma.user.findMany({
                             where: { id: { in: acceptedInvitedUserIds } },
@@ -1163,8 +1163,8 @@ console.log('44');
             );
 
             const adminUserData = formattedGroupData[0]?.adminUser || null;
-            console.log(adminUserData, '>>>>>>>>>>> adminUserData');
-            console.log(parsedSubtype, '>>>>>>>>>>> parsedSubtype');
+            // console.log(adminUserData, '>>>>>>>>>>> adminUserData');
+            // console.log(parsedSubtype, '>>>>>>>>>>> parsedSubtype');
             // Return different structure based on subtype
             const groupDataItem = formattedGroupData[0];
             if (parsedSubtype === 2) {
@@ -1196,7 +1196,7 @@ console.log('44');
                     isGroup: true,
                     groupInfo: {
                         ...groupInfoData,
-                         ...groupDataItem,
+                        ...groupDataItem,
                         subCategoryId: subCategoriesWithCategory,
                     }
                 };

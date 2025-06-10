@@ -13,7 +13,6 @@ import { formatBirthDate } from '../controllers/auth.controller'
 
 
 
-
 const prisma = new PrismaClient();
 
 
