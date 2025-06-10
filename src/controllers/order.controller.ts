@@ -810,28 +810,22 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
       return response.error(res, 'userId is required');
     }
 
-    // const dateFilter: any = {};
-    // if (startDate) dateFilter.gte = new Date(startDate);
-    // if (endDate) dateFilter.lte = new Date(endDate);
-
     const dateFilter: any = {};
-    
+
     // Parse dates with DD/MM/YYYY support
     if (startDate) {
       const parsedStartDate = formatBirthDate(startDate);
       if (parsedStartDate) {
-        // Set to start of day (00:00:00)
         parsedStartDate.setHours(0, 0, 0, 0);
         dateFilter.gte = parsedStartDate;
       } else {
         return response.error(res, 'Invalid startDate format. Expected DD/MM/YYYY');
       }
     }
-    
+
     if (endDate) {
       const parsedEndDate = formatBirthDate(endDate);
       if (parsedEndDate) {
-        // Set to end of day (23:59:59.999)
         parsedEndDate.setHours(23, 59, 59, 999);
         dateFilter.lte = parsedEndDate;
       } else {
@@ -840,9 +834,8 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
     }
 
     let formattedEarnings: TransactionHistoryItem[] = [];
-    let formattedWithdrawals: TransactionHistoryItem[] = [];
+    let totalEarnings = 0;
 
-    // Apply EARNING type filter
     if (!type || type === 'EARNING') {
       const earnings = await prisma.earnings.findMany({
         where: {
@@ -873,7 +866,6 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
         },
       });
 
-      // Optional JS-side businessId filter (due to nested relation limitation)
       const filteredEarnings = businessId
         ? earnings.filter((e) =>
             e.orderData?.businessOrderData?.id === businessId ||
@@ -882,9 +874,12 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
         : earnings;
 
       formattedEarnings = filteredEarnings.map(formatEarningToTransaction);
+      totalEarnings = formattedEarnings.reduce((sum, t) => sum + Number(t.amount), 0);
     }
 
-    // Apply WITHDRAWAL type filter
+    let formattedWithdrawals: TransactionHistoryItem[] = [];
+    let totalWithdraw = 0;
+
     if (!type || type === 'WITHDRAWAL') {
       const withdrawals = await prisma.withdraw.findMany({
         where: {
@@ -894,18 +889,27 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
       });
 
       formattedWithdrawals = withdrawals.map(formatWithdrawToTransaction);
+      totalWithdraw = formattedWithdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
     }
 
-    const allTransactions = [...formattedEarnings, ...formattedWithdrawals].sort(
+    const transactionData = [...formattedEarnings, ...formattedWithdrawals].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    return response.success(res, 'Transaction history fetched successfully', allTransactions);
+    const responseData = {
+      totalEarnings,
+      totalWithdraw,
+      netEarnings: totalEarnings - totalWithdraw,
+      transactionData,
+    };
+
+    return response.success(res, 'Transaction history fetched successfully', responseData);
   } catch (error: any) {
     console.error('Error fetching transaction history:', error);
     return response.error(res, error.message || 'Something went wrong');
   }
 };
+
 
 
 
