@@ -652,25 +652,34 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
         }
 
         const statusEnumValue = getStatusName(status);
-        console.log(currentUserId, " >>>>>>> currentUserId");
+        let whereStatus;
+        if(status === 3){
+            const completedEnumValue = getStatusName(4);
+            whereStatus = [statusEnumValue, completedEnumValue];
+        }else{
+            whereStatus = [statusEnumValue];
+        }
 
-             console.log(currentUserId, " >>>>>>> currentUserId");
+        console.log(whereStatus, " >>>>>>> whereStatus");
         const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
-        console.log(existingUser, ">>>>>>>>>>> existingUser");
+      //  console.log(existingUser, ">>>>>>>>>>> existingUser");
         let whereCondition;
-        if(existingUser.type === UserType.INFLUENCER){
+        if (existingUser.type === UserType.INFLUENCER) {
             whereCondition = {
                 influencerId: currentUserId
             };
-        }else{
+        } else {
             whereCondition = {
                 businessId: currentUserId
             };
         }
+
         // Option 1: Simple approach - exclude only userId (your original approach)
         const getOrder = await prisma.orders.findMany({
             where: {
-                status: statusEnumValue,
+                status: {
+                    in: whereStatus
+                },
                 ...whereCondition
             },
             include: {
