@@ -783,7 +783,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
         await prisma.user.update({
             where: { id: userId },
             data: {
-                totalEarnings: currentEarnings - withdrawAmount,
+                // totalEarnings: currentEarnings - withdrawAmount,
                 totalWithdraw: currentWithdrawals + withdrawAmount,
             },
         });
