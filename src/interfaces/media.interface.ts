@@ -4,6 +4,7 @@ export interface IMediaType {
     reason?: string;
     status?: number;
     mediaType?: number;
+    videoThumbnail?: string;
     createdAt: Date;
     updatedAt: Date;
 }

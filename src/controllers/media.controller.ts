@@ -26,6 +26,7 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                     status: statusEnumValue,
                     // mediaType: mediaData.mediaType,
                     mediaType: mediaData.mediaType != null ? Number(mediaData.mediaType) : undefined,
+                    videoThumbnail: mediaData.videoThumbnail,
 
 
                 },
@@ -87,6 +88,9 @@ export const updateMediaStatus = async (req: Request, res: Response): Promise<an
         return response.error(res, error.message || 'Something went wrong');
     }
 };
+
+
+
 
 export const getAllMediaList = async (req: Request, res: Response): Promise<any> => {
     try {

@@ -45,6 +45,8 @@ model User {
   updatedBy                String?      @db.Uuid
   fcmToken                 String?
   socialId                 String?
+  totalEarnings            Int?
+  totalWithdraw            Int?
   countryData              Country?     @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 OtpVerify[]
@@ -54,7 +56,6 @@ model User {
   cityData                 City?        @relation(fields: [cityId], references: [id])
   stateData                State?       @relation(fields: [stateId], references: [id])
   groupUserData            GroupUsers[]
-  
   groupUsersCreated        GroupUsersList[] @relation("AdminUser")
   groupUsersInvited        GroupUsersList[] @relation("InvitedUser")
   influencerOrderData      Orders[]         @relation("influencerOrderInfo")
@@ -283,16 +284,17 @@ model Orders {
 }
 
 model Media {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId    String      @db.Uuid
-  mediaLink  String?      @db.VarChar 
-  reason     String?      @db.VarChar
-  status     RequestStatus @default(PENDING)
-  mediaType  Int?          @default(0)
-  createdAt  DateTime?    @default(now()) @db.Timestamp(6)
-  updatedAt  DateTime?    @default(now()) @db.Timestamp(6)
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId               String          @db.Uuid
+  mediaLink             String?         @db.VarChar 
+  reason                String?         @db.VarChar
+  status                RequestStatus   @default(PENDING)
+  mediaType             Int?            @default(0)
+  videoThumbnail        String?         @db.VarChar
+  createdAt             DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt             DateTime?       @default(now()) @db.Timestamp(6)
 
-  OrderData  Orders?      @relation("mediaOrderInfo", fields: [orderId], references: [id])
+  OrderData             Orders?         @relation("mediaOrderInfo", fields: [orderId], references: [id])
 }
 
 
