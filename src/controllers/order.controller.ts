@@ -9,7 +9,7 @@ import { addDays } from 'date-fns';
 import { OfferStatus, PaymentStatus, RequestStatus, Role } from '@prisma/client';
 import { formatEarningToTransaction, formatWithdrawToTransaction, TransactionHistoryItem } from './../interfaces/responseInterface/history.interface';
 import { formatBirthDate } from '../controllers/auth.controller'
-
+import { UserType } from '../enums/userType.enum';
 
 
 
@@ -653,11 +653,25 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
 
         const statusEnumValue = getStatusName(status);
         console.log(currentUserId, " >>>>>>> currentUserId");
+
+             console.log(currentUserId, " >>>>>>> currentUserId");
+        const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
+        console.log(existingUser, ">>>>>>>>>>> existingUser");
+        let whereCondition;
+        if(existingUser.type === UserType.INFLUENCER){
+            whereCondition = {
+                influencerId: currentUserId
+            };
+        }else{
+            whereCondition = {
+                businessId: currentUserId
+            };
+        }
         // Option 1: Simple approach - exclude only userId (your original approach)
         const getOrder = await prisma.orders.findMany({
             where: {
                 status: statusEnumValue,
-                influencerId: currentUserId
+                ...whereCondition
             },
             include: {
                 groupOrderData: {},
