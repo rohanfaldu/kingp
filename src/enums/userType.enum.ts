@@ -54,3 +54,7 @@ export enum PaymentStatus{
     COMPLETED = 'COMPLETED'
 }
 
+export enum TransactionType {
+  CREDIT = 'CREDIT',
+  DEBIT = 'DEBIT',
+}

@@ -19,7 +19,8 @@ import { RequestStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
-const formatBirthDate = (birthDate: string): Date | null => {
+
+export const formatBirthDate = (birthDate: string): Date | null => {
     // Check if the birthDate is in DD/MM/YYYY format
     const regexDDMMYYYY = /^(\d{2})\/(\d{2})\/(\d{4})$/;
     // Check if the birthDate is in YYYY-MM-DD format

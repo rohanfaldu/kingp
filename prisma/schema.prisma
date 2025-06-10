@@ -45,16 +45,17 @@ model User {
   updatedBy                String?      @db.Uuid
   fcmToken                 String?
   socialId                 String?
-  totalEarnings            Int?
-  totalWithdraw            Int?
-  countryData              Country?     @relation(fields: [countryId], references: [id])
+  totalEarnings            Int?         @default(0)
+  totalWithdraw            Int?         @default(0)
+
+  countryData              Country?         @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 OtpVerify[]
-  brandData                BrandType?     @relation(fields: [brandTypeId], references: [id])
+  brandData                BrandType?       @relation(fields: [brandTypeId], references: [id])
   socialMediaPlatforms     SocialMediaPlatform[]
   subCategories            UserSubCategory[]
-  cityData                 City?        @relation(fields: [cityId], references: [id])
-  stateData                State?       @relation(fields: [stateId], references: [id])
+  cityData                 City?            @relation(fields: [cityId], references: [id])
+  stateData                State?           @relation(fields: [stateId], references: [id])
   groupUserData            GroupUsers[]
   groupUsersCreated        GroupUsersList[] @relation("AdminUser")
   groupUsersInvited        GroupUsersList[] @relation("InvitedUser")
@@ -62,6 +63,8 @@ model User {
   businessOrderData        Orders[]         @relation("businessOrderInfo")
   userEarningData          Earnings[]       @relation("userEarningInfo")
   businessPaymentData      Earnings[]       @relation("businessPaymentInfo")
+  userWithdrawal           Withdraw[]
+
 }
 
 model Category {
@@ -234,6 +237,7 @@ model GroupUsersList {
   groupUser           GroupUsers           @relation("GroupUsersToGroupUsersList", fields: [groupUserId], references: [id])
   adminUser           User                 @relation("AdminUser", fields: [adminUserId], references: [id])
   invitedUser         User                 @relation("InvitedUser", fields: [invitedUserId], references: [id])
+  
 }
 
 
@@ -317,6 +321,17 @@ model Earnings {
   businessPaymentData     User?           @relation("businessPaymentInfo", fields: [businessId], references: [id])
 }
 
+model Withdraw {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String?         @db.Uuid
+  withdrawAmount          Int?            @default(0)
+  withdrawalType          Int?            @default(0)
+  transactionType         TransactionType? @default(DEBIT)
+  createdAt               DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
+
+  userWithdrawal          User?            @relation(fields: [userId], references: [id])
+}
 
 
 enum Role {
@@ -383,4 +398,9 @@ enum OfferStatus {
 enum PaymentStatus {
   PENDING
   COMPLETED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
 }

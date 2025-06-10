@@ -7,6 +7,9 @@ import { IOrder, EditIOrder } from './../interfaces/order.interface';
 // import { PaymentStatus, OfferStatus } from '../enums/userType.enum';
 import { addDays } from 'date-fns';
 import { OfferStatus, PaymentStatus, RequestStatus, Role } from '@prisma/client';
+import { formatEarningToTransaction, formatWithdrawToTransaction, TransactionHistoryItem } from './../interfaces/responseInterface/history.interface';
+import { formatBirthDate } from '../controllers/auth.controller'
+
 
 
 
@@ -469,6 +472,22 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
             await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
 
+            // Update each user's totalEarnings
+            for (const entry of earningsData) {
+                const existingUser = await prisma.user.findUnique({
+                    where: { id: entry.userId },
+                    select: { totalEarnings: true },
+                });
+
+                const currentTotal = existingUser?.totalEarnings ?? 0;
+                const updatedTotal = currentTotal + Number(entry.earningAmount ?? 0);
+
+                await prisma.user.update({
+                    where: { id: entry.userId },
+                    data: { totalEarnings: updatedTotal },
+                });
+            }
+
             const detailedEarnings = await Promise.all(
                 earningsData.map(async (entry) => {
                     const user = await prisma.user.findUnique({
@@ -569,7 +588,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
 
 export const orderSubmit = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { id, submittedDescription, socialMediaLink, attachment,  } = req.body;
+        const { id, submittedDescription, socialMediaLink, attachment, } = req.body;
         if (!id || typeof id !== 'string') {
             return response.error(res, 'Order ID is required and must be a string');
         }
@@ -728,6 +747,176 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message || 'Something went wrong');
     }
 }
+
+
+
+
+
+
+export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { userId, withdrawAmount, withdrawalType } = req.body;
+
+        if (!userId || typeof withdrawAmount !== 'number') {
+            return response.error(res, 'userId and withdrawAmount are required');
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return response.error(res, 'User not found');
+
+        const currentEarnings = user.totalEarnings ?? 0;
+        const currentWithdrawals = user.totalWithdraw ?? 0;
+
+        if (withdrawAmount > currentEarnings) {
+            return response.error(res, 'Insufficient balance for withdrawal');
+        }
+
+        const newWithdraw = await prisma.withdraw.create({
+            data: {
+                userId,
+                withdrawAmount,
+                withdrawalType,
+                transactionType: 'DEBIT',
+            },
+        });
+
+        // Update user's earnings and withdrawals
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                totalEarnings: currentEarnings - withdrawAmount,
+                totalWithdraw: currentWithdrawals + withdrawAmount,
+            },
+        });
+
+        return response.success(res, 'Withdrawal successful', {
+            withdraw: newWithdraw,
+            updatedBalance: currentEarnings - withdrawAmount,
+        });
+
+    } catch (error: any) {
+        console.error('Withdraw API error:', error);
+        return response.error(res, error.message || 'Something went wrong');
+    }
+};
+
+
+
+
+export const getTransactionHistory = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { userId, startDate, endDate, businessId, type } = req.body;
+
+    if (!userId || typeof userId !== 'string') {
+      return response.error(res, 'userId is required');
+    }
+
+    // const dateFilter: any = {};
+    // if (startDate) dateFilter.gte = new Date(startDate);
+    // if (endDate) dateFilter.lte = new Date(endDate);
+
+    const dateFilter: any = {};
+    
+    // Parse dates with DD/MM/YYYY support
+    if (startDate) {
+      const parsedStartDate = formatBirthDate(startDate);
+      if (parsedStartDate) {
+        // Set to start of day (00:00:00)
+        parsedStartDate.setHours(0, 0, 0, 0);
+        dateFilter.gte = parsedStartDate;
+      } else {
+        return response.error(res, 'Invalid startDate format. Expected DD/MM/YYYY');
+      }
+    }
+    
+    if (endDate) {
+      const parsedEndDate = formatBirthDate(endDate);
+      if (parsedEndDate) {
+        // Set to end of day (23:59:59.999)
+        parsedEndDate.setHours(23, 59, 59, 999);
+        dateFilter.lte = parsedEndDate;
+      } else {
+        return response.error(res, 'Invalid endDate format. Expected DD/MM/YYYY');
+      }
+    }
+
+    let formattedEarnings: TransactionHistoryItem[] = [];
+    let formattedWithdrawals: TransactionHistoryItem[] = [];
+
+    // Apply EARNING type filter
+    if (!type || type === 'EARNING') {
+      const earnings = await prisma.earnings.findMany({
+        where: {
+          userId,
+          createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
+        },
+        include: {
+          orderData: {
+            include: {
+              businessOrderData: {
+                include: {
+                  socialMediaPlatforms: true,
+                  brandData: true,
+                  countryData: true,
+                  stateData: true,
+                  cityData: true,
+                },
+              },
+            },
+          },
+          groupEarningData: true,
+          businessPaymentData: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      // Optional JS-side businessId filter (due to nested relation limitation)
+      const filteredEarnings = businessId
+        ? earnings.filter((e) =>
+            e.orderData?.businessOrderData?.id === businessId ||
+            e.businessPaymentData?.id === businessId
+          )
+        : earnings;
+
+      formattedEarnings = filteredEarnings.map(formatEarningToTransaction);
+    }
+
+    // Apply WITHDRAWAL type filter
+    if (!type || type === 'WITHDRAWAL') {
+      const withdrawals = await prisma.withdraw.findMany({
+        where: {
+          userId,
+          createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
+        },
+      });
+
+      formattedWithdrawals = withdrawals.map(formatWithdrawToTransaction);
+    }
+
+    const allTransactions = [...formattedEarnings, ...formattedWithdrawals].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return response.success(res, 'Transaction history fetched successfully', allTransactions);
+  } catch (error: any) {
+    console.error('Error fetching transaction history:', error);
+    return response.error(res, error.message || 'Something went wrong');
+  }
+};
+
+
+
+
+
+
+
+
+
+
 
 
 
