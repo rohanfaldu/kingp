@@ -539,18 +539,76 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
 
 
+// export const getAllOrderList = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { status } = req.body;
+
+//         const currentUserId = req.user?.id || req.userId;
+
+//         if (status === "" || status === undefined || status === null) {
+//             return response.error(res, 'Status is required');
+//         }
+
+//         const statusEnumValue = getStatusName(status);
+//         const getOrder = await prisma.orders.findMany({
+//             where: {
+//                 status: statusEnumValue,
+//                 NOT: {
+//                     userId: currentUserId
+//                 }
+//             },
+//             include: {
+//                 groupOrderData: {},
+//                 influencerOrderData: {
+//                     include: {
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     }
+//                 },
+//                 businessOrderData: {
+//                     include: {
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     }
+//                 }
+//             }
+//         });
+//         return response.success(res, 'Get All order List', getOrder);
+
+//     } catch (error: any) {
+//         return response.error(res, error.message || 'Something went wrong');
+//     }
+// };
+
+
+
 export const getAllOrderList = async (req: Request, res: Response): Promise<any> => {
     try {
         const { status } = req.body;
+
+        const currentUserId = req.user?.userId;
 
         if (status === "" || status === undefined || status === null) {
             return response.error(res, 'Status is required');
         }
 
         const statusEnumValue = getStatusName(status);
+        console.log(currentUserId, " >>>>>>> currentUserId");
+        // Option 1: Simple approach - exclude only userId (your original approach)
         const getOrder = await prisma.orders.findMany({
             where: {
-                status: statusEnumValue
+                status: statusEnumValue,
+                NOT: {
+                    OR: [
+                        { influencerId: currentUserId }
+                    ]
+                }
             },
             include: {
                 groupOrderData: {},
@@ -572,15 +630,89 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                         cityData: true,
                     }
                 }
+            },
+            orderBy: {
+                createdAt: 'desc'
             }
         });
-        return response.success(res, 'Get All order List', getOrder);
+
+        // Option 2: Filter out orders where current user appears in related data
+        const filteredOrders = getOrder.filter(order => {
+            // Check if current user is the influencer in the order
+            const isInfluencer = order.influencerOrderData?.id === currentUserId;
+
+            // Check if current user is the business in the order
+            const isBusiness = order.businessOrderData?.id === currentUserId;
+
+            // Check if current user is part of group order (if applicable)
+            // Add your group logic here if needed
+
+            // Return false to exclude, true to include
+            return !isInfluencer && !isBusiness;
+        });
+
+        return response.success(res, 'Get All order List', filteredOrders);
 
     } catch (error: any) {
         return response.error(res, error.message || 'Something went wrong');
     }
 };
 
+// Alternative approach - if you know the exact field names
+export const getAllOrderListAlternative = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { status } = req.body;
+        const currentUserId = req.user?.id || req.userId;
+
+        if (status === "" || status === undefined || status === null) {
+            return response.error(res, 'Status is required');
+        }
+
+        const statusEnumValue = getStatusName(status);
+
+        const getOrder = await prisma.orders.findMany({
+            where: {
+                status: statusEnumValue,
+                NOT: {
+                    OR: [
+                        { userId: currentUserId },
+                        { influencerOrderData: { id: currentUserId } },
+                        { businessOrderData: { id: currentUserId } }
+                    ]
+                }
+            },
+            include: {
+                groupOrderData: {},
+                influencerOrderData: {
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                },
+                businessOrderData: {
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        return response.success(res, 'Get All order List', getOrder);
+
+    } catch (error: any) {
+        return response.error(res, error.message || 'Something went wrong');
+    }
+};
 
 
 
@@ -803,111 +935,111 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
 
 
 export const getTransactionHistory = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { userId, startDate, endDate, businessId, type } = req.body;
+    try {
+        const { userId, startDate, endDate, businessId, type } = req.body;
 
-    if (!userId || typeof userId !== 'string') {
-      return response.error(res, 'userId is required');
-    }
+        if (!userId || typeof userId !== 'string') {
+            return response.error(res, 'userId is required');
+        }
 
-    const dateFilter: any = {};
+        const dateFilter: any = {};
 
-    // Parse dates with DD/MM/YYYY support
-    if (startDate) {
-      const parsedStartDate = formatBirthDate(startDate);
-      if (parsedStartDate) {
-        parsedStartDate.setHours(0, 0, 0, 0);
-        dateFilter.gte = parsedStartDate;
-      } else {
-        return response.error(res, 'Invalid startDate format. Expected DD/MM/YYYY');
-      }
-    }
+        // Parse dates with DD/MM/YYYY support
+        if (startDate) {
+            const parsedStartDate = formatBirthDate(startDate);
+            if (parsedStartDate) {
+                parsedStartDate.setHours(0, 0, 0, 0);
+                dateFilter.gte = parsedStartDate;
+            } else {
+                return response.error(res, 'Invalid startDate format. Expected DD/MM/YYYY');
+            }
+        }
 
-    if (endDate) {
-      const parsedEndDate = formatBirthDate(endDate);
-      if (parsedEndDate) {
-        parsedEndDate.setHours(23, 59, 59, 999);
-        dateFilter.lte = parsedEndDate;
-      } else {
-        return response.error(res, 'Invalid endDate format. Expected DD/MM/YYYY');
-      }
-    }
+        if (endDate) {
+            const parsedEndDate = formatBirthDate(endDate);
+            if (parsedEndDate) {
+                parsedEndDate.setHours(23, 59, 59, 999);
+                dateFilter.lte = parsedEndDate;
+            } else {
+                return response.error(res, 'Invalid endDate format. Expected DD/MM/YYYY');
+            }
+        }
 
-    let formattedEarnings: TransactionHistoryItem[] = [];
-    let totalEarnings = 0;
+        let formattedEarnings: TransactionHistoryItem[] = [];
+        let totalEarnings = 0;
 
-    if (!type || type === 'EARNING') {
-      const earnings = await prisma.earnings.findMany({
-        where: {
-          userId,
-          createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
-        },
-        include: {
-          orderData: {
-            include: {
-              businessOrderData: {
-                include: {
-                  socialMediaPlatforms: true,
-                  brandData: true,
-                  countryData: true,
-                  stateData: true,
-                  cityData: true,
+        if (!type || type === 'EARNING') {
+            const earnings = await prisma.earnings.findMany({
+                where: {
+                    userId,
+                    createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
                 },
-              },
-            },
-          },
-          groupEarningData: true,
-          businessPaymentData: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      });
+                include: {
+                    orderData: {
+                        include: {
+                            businessOrderData: {
+                                include: {
+                                    socialMediaPlatforms: true,
+                                    brandData: true,
+                                    countryData: true,
+                                    stateData: true,
+                                    cityData: true,
+                                },
+                            },
+                        },
+                    },
+                    groupEarningData: true,
+                    businessPaymentData: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                },
+            });
 
-      const filteredEarnings = businessId
-        ? earnings.filter((e) =>
-            e.orderData?.businessOrderData?.id === businessId ||
-            e.businessPaymentData?.id === businessId
-          )
-        : earnings;
+            const filteredEarnings = businessId
+                ? earnings.filter((e) =>
+                    e.orderData?.businessOrderData?.id === businessId ||
+                    e.businessPaymentData?.id === businessId
+                )
+                : earnings;
 
-      formattedEarnings = filteredEarnings.map(formatEarningToTransaction);
-      totalEarnings = formattedEarnings.reduce((sum, t) => sum + Number(t.amount), 0);
+            formattedEarnings = filteredEarnings.map(formatEarningToTransaction);
+            totalEarnings = formattedEarnings.reduce((sum, t) => sum + Number(t.amount), 0);
+        }
+
+        let formattedWithdrawals: TransactionHistoryItem[] = [];
+        let totalWithdraw = 0;
+
+        if (!type || type === 'WITHDRAWAL') {
+            const withdrawals = await prisma.withdraw.findMany({
+                where: {
+                    userId,
+                    createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
+                },
+            });
+
+            formattedWithdrawals = withdrawals.map(formatWithdrawToTransaction);
+            totalWithdraw = formattedWithdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
+        }
+
+        const transactionData = [...formattedEarnings, ...formattedWithdrawals].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        const responseData = {
+            totalEarnings,
+            totalWithdraw,
+            netEarnings: totalEarnings - totalWithdraw,
+            transactionData,
+        };
+
+        return response.success(res, 'Transaction history fetched successfully', responseData);
+    } catch (error: any) {
+        console.error('Error fetching transaction history:', error);
+        return response.error(res, error.message || 'Something went wrong');
     }
-
-    let formattedWithdrawals: TransactionHistoryItem[] = [];
-    let totalWithdraw = 0;
-
-    if (!type || type === 'WITHDRAWAL') {
-      const withdrawals = await prisma.withdraw.findMany({
-        where: {
-          userId,
-          createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
-        },
-      });
-
-      formattedWithdrawals = withdrawals.map(formatWithdrawToTransaction);
-      totalWithdraw = formattedWithdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
-    }
-
-    const transactionData = [...formattedEarnings, ...formattedWithdrawals].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    const responseData = {
-      totalEarnings,
-      totalWithdraw,
-      netEarnings: totalEarnings - totalWithdraw,
-      transactionData,
-    };
-
-    return response.success(res, 'Transaction history fetched successfully', responseData);
-  } catch (error: any) {
-    console.error('Error fetching transaction history:', error);
-    return response.error(res, error.message || 'Something went wrong');
-  }
 };
 
 

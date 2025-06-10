@@ -753,6 +753,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
 
 
+
 export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<any> => {
     try {
         const {
@@ -761,6 +762,11 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             badgeType, search, subtype, page = 1, limit = 10,
         } = req.body;
 
+        // const currentUserId = req.user?.id || req.userId; 
+        //const currentUserId = '016fe38e-fe2a-4080-85b5-a3aa14b86717';
+        const currentUserId = req.user?.userId;
+
+        console.log(req.user, '>>>>>>>>>>>>>>>currentUserId');
         const currentPage = parseInt(page.toString()) || 1;
         const itemsPerPage = parseInt(limit.toString()) || 10;
         const skip = (currentPage - 1) * itemsPerPage;
@@ -780,6 +786,11 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         const andFilters: any[] = [];
         const filter: any = {};
+
+        // Exclude current logged-in user from results
+        if (currentUserId) {
+            filter.id = { not: currentUserId };
+        }
 
         if (type) {
             const types = Array.isArray(type) ? type.map(t => t.toUpperCase()) : [type.toString().toUpperCase()];
@@ -1030,6 +1041,19 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         if (parsedSubtype === 0 || parsedSubtype === 2) {
             // Fetch groups when subtype is 0 (all) or 2 (group only)
+            // Also exclude groups where the current user is the admin
+            const groupWhereFilter: any = {};
+
+            // Exclude groups where current user is admin
+            if (currentUserId) {
+                // groupWhereFilter.groupData = {
+                //     none: {
+                //         adminUserId: currentUserId,
+
+                //     }
+                // };
+            }
+
             const matchedGroupIds = await prisma.groupUsersList.findMany({
                 where: {
                     OR: [
@@ -1042,15 +1066,23 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
             const matchedGroupIdSet = [...new Set(matchedGroupIds.map(e => e.groupId))];
 
-            groupsResult = await Promise.all([
-                prisma.group.findMany({
-                    where: {
+            // Combine search filters with current user exclusion
+            const finalGroupFilter = {
+                AND: [
+                    groupWhereFilter,
+                    {
                         OR: [
                             { groupName: { contains: search || '', mode: 'insensitive' } },
                             { groupBio: { contains: search || '', mode: 'insensitive' } },
                             { id: { in: matchedGroupIdSet } }
                         ]
-                    },
+                    }
+                ]
+            };
+
+            groupsResult = await Promise.all([
+                prisma.group.findMany({
+                    where: finalGroupFilter,
                     include: {
                         groupData: {
                             include: {
@@ -1070,20 +1102,14 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     orderBy: { createsAt: 'desc' },
                 }),
                 prisma.group.count({
-                    where: {
-                        OR: [
-                            { groupName: { contains: search || '', mode: 'insensitive' } },
-                            { groupBio: { contains: search || '', mode: 'insensitive' } },
-                            { id: { in: matchedGroupIdSet } }
-                        ]
-                    }
+                    where: finalGroupFilter
                 })
             ]);
         }
 
         const [users, usersCount] = usersResult;
         const [groups, groupsCount] = groupsResult;
-        console.log('2222');
+        // console.log('2222');
         const formattedUsers = await Promise.all(users.map(async (user: any) => {
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
@@ -1104,24 +1130,28 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     include: { categoryInformation: true }
                 })
                 : [];
-            console.log('33');
+            // console.log('33');
             const formattedGroupData = await Promise.all(
                 group.groupData.map(async (groupUser: any) => {
                     const adminUser = groupUser.groupUserData;
 
-                    // Get only accepted invited users from GroupUsersList (requestAccept: true)
+                    // Also exclude the current user from invited users list
                     const acceptedInvites = await prisma.groupUsersList.findMany({
                         where: {
                             groupId: group.id,
+                            invitedUserId: {
+                                not: currentUserId // Assuming you have the current user's ID
+                            },
                             requestAccept: RequestStatus.ACCEPTED,  // Only users who accepted the invitation
-                            // status: true,         // Only active invitations
+                            // Exclude current user from invited users
                         },
                         select: { invitedUserId: true },
                         distinct: ['invitedUserId']  // Avoid duplicates
                     });
 
+                    console.log(acceptedInvites, '> acceptedInvites');
                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
-                    console.log('44');
+                    console.log('44 >>>>>>>>>', acceptedInvitedUserIds);
                     const invitedUsers = acceptedInvitedUserIds.length > 0
                         ? await prisma.user.findMany({
                             where: { id: { in: acceptedInvitedUserIds } },
@@ -1226,446 +1256,6 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         return response.error(res, error.message);
     }
 };
-
-
-
-
-
-
-// export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const {
-//             platform, type, countryId, stateId, cityId, status,
-//             subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
-//             badgeType, search, subtype, page = 1, limit = 10,
-//         } = req.body;
-
-//         const currentPage = parseInt(page.toString()) || 1;
-//         const itemsPerPage = parseInt(limit.toString()) || 10;
-//         const skip = (currentPage - 1) * itemsPerPage;
-
-//         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
-//         const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
-//         const allowedInfluencerTypes = ['PRO', 'NORMAL'];
-//         const allowedBadgeTypes = ['1', '2', '3', '4', '5', '6', '7', '8'];
-//         const allowedSubtypes = [0, 1, 2]; // 0: all, 1: influencer only, 2: group only
-
-//         // Validate subtype parameter
-//         const parsedSubtype = subtype !== undefined ? parseInt(subtype.toString()) : 0;
-//         if (!allowedSubtypes.includes(parsedSubtype)) {
-//             return response.error(res, 'Invalid subtype. Allowed values: 0 (all data), 1 (influencer only), 2 (group only)');
-//         }
-
-//         const andFilters: any[] = [];
-//         const filter: any = {};
-
-//         if (platform) {
-//             const platforms = Array.isArray(platform) ? platform.map(p => p.toUpperCase()) : [platform.toString().toUpperCase()];
-//             const invalidPlatforms = platforms.filter(p => !allowedPlatforms.includes(p));
-//             if (invalidPlatforms.length > 0) {
-//                 return response.error(res, `Invalid platform(s): ${invalidPlatforms.join(', ')}. Allowed: INSTAGRAM, TWITTER, YOUTUBE, FACEBOOK`);
-//             }
-
-//             andFilters.push({
-//                 OR: platforms.map(p => ({
-//                     socialMediaPlatforms: {
-//                         some: { platform: p },
-//                     },
-//                 })),
-//             });
-//         }
-
-//         // Price filter (based on SocialMediaPlatform.price)
-//         if (minPrice || maxPrice) {
-//             const priceConditions: any = {};
-
-//             if (minPrice) {
-//                 const parsedMinPrice = parseFloat(minPrice.toString());
-//                 if (isNaN(parsedMinPrice) || parsedMinPrice < 0) {
-//                     return response.error(res, 'Invalid minPrice. Must be a non-negative number.');
-//                 }
-//                 priceConditions.gte = parsedMinPrice;
-//             }
-
-//             if (maxPrice) {
-//                 const parsedMaxPrice = parseFloat(maxPrice.toString());
-//                 if (isNaN(parsedMaxPrice) || parsedMaxPrice < 0) {
-//                     return response.error(res, 'Invalid maxPrice. Must be a non-negative number.');
-//                 }
-//                 priceConditions.lte = parsedMaxPrice;
-//             }
-
-//             andFilters.push({
-//                 socialMediaPlatforms: {
-//                     some: {
-//                         price: priceConditions,
-//                     },
-//                 },
-//             });
-//         }
-
-//         if (gender) {
-//             const genders = Array.isArray(gender) ? gender.map(g => g.toUpperCase()) : [gender.toString().toUpperCase()];
-//             const invalidGenders = genders.filter(g => !allowedGender.includes(g));
-//             if (invalidGenders.length > 0) {
-//                 return response.error(res, `Invalid gender(s): ${invalidGenders.join(', ')}. Allowed: MALE, FEMALE, OTHER`);
-//             }
-
-//             filter.gender = { in: genders };
-//         }
-
-//         // Age filter (based on birthDate)
-//         if (minAge) {
-//             const minAge = parseInt(req.body.minAge.toString());
-//             if (isNaN(minAge) || minAge <= 0) {
-//                 return response.error(res, 'Invalid minAge. It must be a positive number.');
-//             }
-
-//             const today = new Date();
-//             const birthDateThreshold = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
-
-//             filter.birthDate = {
-//                 lte: birthDateThreshold,
-//             };
-//         }
-
-//         if (maxAge) {
-//             const maxAge = parseInt(req.body.maxAge.toString());
-//             if (isNaN(maxAge) || maxAge <= 0) {
-//                 return response.error(res, 'Invalid maxAge. It must be a positive number.');
-//             }
-
-//             const today = new Date();
-//             const birthDateThreshold = new Date(today.getFullYear() - maxAge, today.getMonth(), today.getDate());
-
-//             filter.birthDate = {
-//                 ...(filter.birthDate || {}),
-//                 gte: birthDateThreshold,
-//             };
-//         }
-
-//         // type of user business or influencer
-//         if (type && typeof type === 'string') {
-//             const normalizedType = type.toUpperCase();
-//             if (Object.values(Role).includes(normalizedType as Role)) {
-//                 filter.type = normalizedType as Role;
-//             } else {
-//                 return response.error(res, 'Invalid user type, allowed: BUSINESS, INFLUENCER');
-//             }
-//         }
-
-//         // Badge Type filter (NEW)
-//         if (badgeType) {
-//             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
-//             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
-
-//             if (invalidBadges.length > 0) {
-//                 return response.error(res, `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`);
-//             }
-
-//             // Apply badge-specific filters based on criteria
-//             const badgeFilters: any[] = [];
-
-//             badges.forEach(badge => {
-//                 switch (badge) {
-//                     case '1':
-//                         badgeFilters.push({
-//                             socialMediaPlatforms: {
-//                                 some: {
-//                                     platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] },
-//                                 },
-//                             },
-//                         });
-//                         break;
-
-//                     case '2':
-//                         badgeFilters.push({
-//                             ratings: { gte: 4.5 },
-//                         });
-//                         break;
-
-//                     case '3':
-//                         badgeFilters.push({
-//                             socialMediaPlatforms: {
-//                                 some: {
-//                                     AND: [
-//                                         { price: { gte: 100000 } },
-//                                     ],
-//                                 },
-//                             },
-//                             ratings: { gte: 4.7 },
-
-//                         });
-//                         break;
-
-//                 }
-//             });
-
-//             if (badgeFilters.length > 0) {
-//                 andFilters.push({
-//                     OR: badgeFilters,
-//                 });
-//             }
-//         }
-
-//         if (countryId) {
-//             const countries = Array.isArray(countryId) ? countryId.map((id: any) => id.toString()) : [countryId.toString()];
-//             filter.countryId = { in: countries };
-//         }
-
-//         // STATE filter with multiple values
-//         if (stateId) {
-//             const states = Array.isArray(stateId) ? stateId.map((id: any) => id.toString()) : [stateId.toString()];
-//             filter.stateId = { in: states };
-//         }
-
-//         // CITY filter with multiple values
-//         if (cityId) {
-//             const cities = Array.isArray(cityId) ? cityId.map((id: any) => id.toString()) : [cityId.toString()];
-//             filter.cityId = { in: cities };
-//         }
-
-//         // Ratings filter (optional)
-//         if (ratings) {
-//             if (Array.isArray(ratings)) {
-//                 // Convert all ratings to numbers and validate
-//                 const ratingValues = ratings.map(r => parseInt(r.toString())).filter(r => !isNaN(r) && r >= 0);
-//                 if (ratingValues.length === 0) {
-//                     return response.error(res, 'Invalid ratings array. All values must be non-negative numbers.');
-//                 }
-//                 // Filter users whose ratings field matches any of the given ratings
-//                 filter.ratings = { in: ratingValues };
-//             } else {
-//                 const minRating = parseInt(ratings.toString());
-//                 if (isNaN(minRating) || minRating < 0) {
-//                     return response.error(res, 'Invalid ratings value. Must be a non-negative number.');
-//                 }
-//                 filter.ratings = { gte: minRating };
-//             }
-//         }
-
-//         if (status !== undefined) {
-//             if (status === 'true' || status === 'false') {
-//                 filter.status = status === 'true';
-//             } else {
-//                 return response.error(res, 'Invalid status value. Use true or false.');
-//             }
-//         }
-
-//         // SubCategory filter (optional)
-//         if (subCategoryId) {
-//             const subCategoryIds = Array.isArray(subCategoryId) ? subCategoryId : [subCategoryId];
-//             andFilters.push({
-//                 OR: subCategoryIds.map((id: string) => ({
-//                     subCategories: {
-//                         some: { subCategoryId: id.toString() },
-//                     },
-//                 })),
-//             });
-//         }
-
-//         const whereFilter: any = { ...filter };
-//         if (andFilters.length > 0) whereFilter.AND = andFilters;
-//         if (search) {
-//             whereFilter.name = { contains: search, mode: 'insensitive' };
-//         }
-
-//         // Determine what data to fetch based on subtype
-//         let usersResult: any = [[], 0];
-//         let groupsResult: any = [[], 0];
-
-//         if ( parsedSubtype === 1) {
-//             // Fetch users (influencers) when subtype is 0 (all) or 1 (influencer only)
-//             usersResult = await Promise.all([
-//                 prisma.user.findMany({
-//                     where: whereFilter,
-//                     include: {
-//                         socialMediaPlatforms: true,
-//                         brandData: true,
-//                         countryData: true,
-//                         stateData: true,
-//                         cityData: true,
-//                     },
-//                     orderBy: { createsAt: 'desc' },
-//                 }),
-//                 prisma.user.count({ where: whereFilter })
-//             ]);
-//         }
-
-//         if (parsedSubtype === 0 || parsedSubtype === 2) {
-//             // Fetch groups when subtype is 0 (all) or 2 (group only)
-//             const matchedGroupIds = await prisma.groupUsersList.findMany({
-//                 where: {
-//                     OR: [
-//                         { adminUser: { name: { contains: search || '', mode: 'insensitive' } } },
-//                         { invitedUser: { name: { contains: search || '', mode: 'insensitive' } } },
-//                     ]
-//                 },
-//                 select: { groupId: true }
-//             });
-
-//             const matchedGroupIdSet = [...new Set(matchedGroupIds.map(e => e.groupId))];
-
-//             groupsResult = await Promise.all([
-//                 prisma.group.findMany({
-//                     where: {
-//                         OR: [
-//                             { groupName: { contains: search || '', mode: 'insensitive' } },
-//                             { groupBio: { contains: search || '', mode: 'insensitive' } },
-//                             { id: { in: matchedGroupIdSet } }
-//                         ]
-//                     },
-//                     include: {
-//                         groupData: {
-//                             include: {
-//                                 groupUserData: {
-//                                     include: {
-//                                         socialMediaPlatforms: true,
-//                                         brandData: true,
-//                                         countryData: true,
-//                                         stateData: true,
-//                                         cityData: true,
-//                                         UserDetail: true
-//                                     }
-//                                 }
-//                             }
-//                         }
-//                     },
-//                     orderBy: { createsAt: 'desc' },
-//                 }),
-//                 prisma.group.count({
-//                     where: {
-//                         OR: [
-//                             { groupName: { contains: search || '', mode: 'insensitive' } },
-//                             { groupBio: { contains: search || '', mode: 'insensitive' } },
-//                             { id: { in: matchedGroupIdSet } }
-//                         ]
-//                     }
-//                 })
-//             ]);
-//         }
-
-//         const [users, usersCount] = usersResult;
-//         const [groups, groupsCount] = groupsResult;
-
-//         const formattedUsers = await Promise.all(users.map(async (user: any) => {
-//             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-//             return {
-//                 ...user,
-//                 categories: userCategoriesWithSubcategories,
-//                 countryName: user.countryData?.name ?? null,
-//                 stateName: user.stateData?.name ?? null,
-//                 cityName: user.cityData?.name ?? null,
-//                 groupInfo: null,
-//                 isGroup: false
-//             };
-//         }));
-
-//         const formattedGroups = await Promise.all(groups.map(async (group: any) => {
-//             const subCategoriesWithCategory = group.subCategoryId?.length
-//                 ? await prisma.subCategory.findMany({
-//                     where: { id: { in: group.subCategoryId } },
-//                     include: { categoryInformation: true }
-//                 })
-//                 : [];
-
-//             const formattedGroupData = await Promise.all(
-//                 group.groupData.map(async (groupUser: any) => {
-//                     const adminUser = groupUser.groupUserData;
-
-//                     // Get only accepted invited users from GroupUsersList (requestAccept: true)
-//                     const acceptedInvites = await prisma.groupUsersList.findMany({
-//                         where: {
-//                             groupId: group.id,
-//                             requestAccept: RequestStatus.ACCEPTED,  // Only users who accepted the invitation
-//                             // status: true,         // Only active invitations
-//                         },
-//                         select: { invitedUserId: true },
-//                         distinct: ['invitedUserId']  // Avoid duplicates
-//                     });
-
-//                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
-
-//                     const invitedUsers = acceptedInvitedUserIds.length > 0
-//                         ? await prisma.user.findMany({
-//                             where: { id: { in: acceptedInvitedUserIds } },
-//                             include: {
-//                                 UserDetail: true,
-//                                 socialMediaPlatforms: true,
-//                                 brandData: true,
-//                                 countryData: true,
-//                                 stateData: true,
-//                                 cityData: true,
-//                             },
-//                         })
-//                         : [];
-
-//                     const formattedAdminUser = adminUser ? {
-//                         ...adminUser,
-//                         categories: await getUserCategoriesWithSubcategories(adminUser.id),
-//                         countryName: adminUser.countryData?.name ?? null,
-//                         stateName: adminUser.stateData?.name ?? null,
-//                         cityName: adminUser.cityData?.name ?? null,
-//                     } : null;
-
-//                     const formattedInvitedUsers = await Promise.all(invitedUsers.map(async (user: any) => ({
-//                         ...user,
-//                         categories: await getUserCategoriesWithSubcategories(user.id),
-//                         countryName: user.countryData?.name ?? null,
-//                         stateName: user.stateData?.name ?? null,
-//                         cityName: user.cityData?.name ?? null,
-//                     })));
-
-//                     const { groupUserData, ...restGroupUser } = groupUser;
-//                     return {
-//                         ...restGroupUser,
-//                         adminUser: formattedAdminUser,
-//                         invitedUsers: formattedInvitedUsers,
-//                     };
-
-//                 })
-//             );
-
-//             const adminUserData = formattedGroupData[0]?.adminUser || null;
-
-//             return {
-//                 ...adminUserData,
-//                 isGroup: true,
-//                 groupInfo: {
-//                     ...group,
-//                     subCategoryId: subCategoriesWithCategory,
-//                     groupData: formattedGroupData,
-//                 }
-//             };
-//         }));
-
-//         const allResults = [...formattedUsers, ...formattedGroups];
-//         const totalCount = usersCount + groupsCount;
-
-//         const paginatedResults = allResults.slice(skip, skip + itemsPerPage);
-
-//         if (paginatedResults.length === 0) {
-//             throw new Error("No users or groups found matching the criteria.");
-//         }
-
-//         return response.success(res, 'Users and groups fetched successfully!', {
-//             pagination: {
-//                 total: totalCount,
-//                 page: currentPage,
-//                 limit: itemsPerPage,
-//                 totalPages: Math.ceil(totalCount / itemsPerPage),
-//             },
-//             users: paginatedResults
-//         });
-
-//     } catch (error: any) {
-//         return response.error(res, error.message);
-//     }
-// };
-
-
-
-
 
 
 // Helper function to format user data (if you want to extract it)
