@@ -657,6 +657,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
         const getOrder = await prisma.orders.findMany({
             where: {
                 status: statusEnumValue,
+                influencerId: currentUserId
             },
             include: {
                 groupOrderData: {},
