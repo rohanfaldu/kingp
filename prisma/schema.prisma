@@ -45,14 +45,7 @@ model User {
   updatedBy                String?      @db.Uuid
   fcmToken                 String?
   socialId                 String?
-  totalEarnings            Int?         @default(0)
-  totalWithdraw            Int?         @default(0)
-  totalDeals               Int?         @default(0)
-  averageValue             Int?         @default(0)
-  repeatClient             Int?         @default(0)
-  level                    Int?         @default(0)
-  onTimeDelivery           Int?         @default(0)
-
+ 
   countryData              Country?         @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 OtpVerify[]
@@ -69,6 +62,7 @@ model User {
   userEarningData          Earnings[]       @relation("userEarningInfo")
   businessPaymentData      Earnings[]       @relation("businessPaymentInfo")
   userWithdrawal           Withdraw[]
+  userStatsData            UserStats[]
 
 }
 
@@ -338,6 +332,19 @@ model Withdraw {
   userWithdrawal          User?            @relation(fields: [userId], references: [id])
 }
 
+model UserStats {
+  id                       String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String?      @db.Uuid
+  totalEarnings            Int?         @default(0)
+  totalWithdraw            Int?         @default(0)
+  totalDeals               Int?         @default(0)
+  averageValue             Int?         @default(0)
+  repeatClient             Int?         @default(0)
+  level                    Int?         @default(0)
+  onTimeDelivery           Int?         @default(0)
+
+  userStatsData           User?         @relation(fields: [userId], references: [id])
+}
 
 enum Role {
   BUSINESS

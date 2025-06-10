@@ -473,7 +473,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
             // Update each user's totalEarnings
             for (const entry of earningsData) {
-                const existingUser = await prisma.user.findUnique({
+                const existingUser = await prisma.userStats.findUnique({
                     where: { id: entry.userId },
                     select: { totalEarnings: true },
                 });
@@ -481,11 +481,64 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 const currentTotal = existingUser?.totalEarnings ?? 0;
                 const updatedTotal = currentTotal + Number(entry.earningAmount ?? 0);
 
-                await prisma.user.update({
-                    where: { id: entry.userId },
-                    data: { totalEarnings: updatedTotal },
+                await prisma.userStats.create({
+                    // data: { totalEarnings: updatedTotal },
+                    data: {
+                        totalEarnings: updatedTotal,
+                        user: {
+                            connect: { id: userId } // Connect to an existing user
+                        }
+                    }
                 });
             }
+
+            // Update each user's totalEarnings, totalDeals, averageValue, and onTimeDelivery (if on time)
+            for (const entry of earningsData) {
+                const userStats = await prisma.userStats.findUnique({
+                    where: { userId: entry.userId },
+                    select: {
+                        totalEarnings: true,
+                        totalDeals: true,
+                        onTimeDelivery: true,
+                    },
+                });
+
+                const currentEarnings = userStats?.totalEarnings ?? 0;
+                const currentDeals = userStats?.totalDeals ?? 0;
+                const currentOnTimeDelivery = userStats?.onTimeDelivery ?? 0;
+
+                const updatedEarnings = currentEarnings + Number(entry.earningAmount ?? 0);
+                const updatedDeals = currentDeals + 1;
+                const updatedAverageValue = Math.floor(updatedEarnings / updatedDeals);
+
+                let updatedOnTimeDelivery = currentOnTimeDelivery;
+
+                if (
+                    updated.completionDate &&
+                    updated.deliveryDate &&
+                    new Date(updated.completionDate) <= new Date(updated.deliveryDate)
+                ) {
+                    updatedOnTimeDelivery += 1;
+                }
+
+                await prisma.userStats.upsert({
+                    where: { userId: entry.userId },
+                    update: {
+                        totalEarnings: updatedEarnings,
+                        totalDeals: updatedDeals,
+                        averageValue: updatedAverageValue,
+                        onTimeDelivery: updatedOnTimeDelivery,
+                    },
+                    create: {
+                        userId: entry.userId,
+                        totalEarnings: updatedEarnings,
+                        totalDeals: updatedDeals,
+                        averageValue: updatedAverageValue,
+                        onTimeDelivery: updatedOnTimeDelivery,
+                    },
+                });
+            }
+
 
             const detailedEarnings = await Promise.all(
                 earningsData.map(async (entry) => {
@@ -604,11 +657,6 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
         const getOrder = await prisma.orders.findMany({
             where: {
                 status: statusEnumValue,
-                NOT: {
-                    OR: [
-                        { influencerId: currentUserId }
-                    ]
-                }
             },
             include: {
                 groupOrderData: {},
