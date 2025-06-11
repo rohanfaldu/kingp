@@ -484,21 +484,46 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 onTimeDelivery: true,
             },
         });
-
-
-        // Format decimal values to two decimal points
+        console.log(userStats, '>>>>>>>>>> userStats');
         const formattedUserStats = userStats
             ? {
                 ...userStats,
-                totalEarnings: userStats.totalEarnings ? Number(userStats.totalEarnings).toFixed(2) : 0,
-                totalWithdraw: userStats.totalWithdraw ? Number(userStats.totalWithdraw).toFixed(2) : 0,
-                averageValue: userStats.averageValue ? Number(userStats.averageValue).toFixed(2) : 0,
+                totalEarnings: userStats.totalEarnings
+                    ? Number(userStats.totalEarnings).toFixed(2)
+                    : "0.00",
+                totalWithdraw: userStats.totalWithdraw
+                    ? Number(userStats.totalWithdraw).toFixed(2)
+                    : "0.00",
+                totalDeals: userStats.totalDeals
+                    ? Number(userStats.totalDeals).toFixed(2)
+                    : "0.00",
+                repeatClient: userStats.repeatClient
+                    ? Number(userStats.repeatClient).toFixed(2)
+                    : "0.00",
+                level: userStats.level
+                    ? Number(userStats.level).toFixed(2)
+                    : "0.00",
+                onTimeDelivery: userStats.onTimeDelivery
+                    ? Number(userStats.onTimeDelivery).toFixed(2)
+                    : "0.00",
                 netEarning: (
                     (userStats.totalEarnings?.toNumber?.() ?? 0) -
                     (userStats.totalWithdraw?.toNumber?.() ?? 0)
                 ).toFixed(2),
             }
-            : null;
+            :
+            {
+                totalEarnings: "0.00",
+                totalWithdraw: "0.00",
+                totalDeals: "0.00",
+                averageValue: "0.00",
+                repeatClient: "0.00",
+                level: "0.00",
+                onTimeDelivery: "0.00",
+                netEarning: "0.00"
+            };
+
+
 
         const { password: _, socialMediaPlatform: __, ...users } = user as any;
 
