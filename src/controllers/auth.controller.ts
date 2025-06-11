@@ -384,6 +384,58 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
 
 
+// export const getByIdUser = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { id } = req.body;
+
+//         if (!isUuid(id)) {
+//             return response.error(res, 'Invalid UUID format');
+//         }
+
+//         const user = await prisma.user.findUnique({
+//             where: { id },
+//             include: {
+//                 socialMediaPlatforms: true,
+//                 brandData: true,
+//                 countryData: true,
+//                 stateData: true,
+//                 cityData: true,
+//             },
+//         });
+
+//         if (!user) {
+//             return response.error(res, 'User not found');
+//         }
+
+//         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+//         const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+//         const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+//         const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+
+//         const { password: _, socialMediaPlatform: __, ...users } = user as any;
+//         const responseUser = {
+//             ...users,
+//             categories: userCategoriesWithSubcategories,
+//             countryName: country?.name ?? null,
+//             stateName: state?.name ?? null,
+//             cityName: city?.name ?? null,
+//         };
+//         const token = jwt.sign(
+//             { userId: user.id, email: user.emailAddress },
+//             JWT_SECRET,
+//             { expiresIn: '7d' }
+//         );
+//         return response.success(res, 'User fetched successfully!', {
+//             user: responseUser,
+//             token,
+//         });
+//     } catch (error: any) {
+//         return response.error(res, error.message);
+//     }
+// };
+
+
 export const getByIdUser = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
@@ -409,27 +461,67 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
-        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
-        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+        const country = user.countryId
+            ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } })
+            : null;
+        const state = user.stateId
+            ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } })
+            : null;
+        const city = user.cityId
+            ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } })
+            : null;
+
+        // ✅ Fetch user stats
+        const userStats = await prisma.userStats.findFirst({
+            where: { userId: user.id },
+            select: {
+                totalEarnings: true,
+                totalWithdraw: true,
+                totalDeals: true,
+                averageValue: true,
+                repeatClient: true,
+                level: true,
+                onTimeDelivery: true,
+            },
+        });
+
+
+        // Format decimal values to two decimal points
+        const formattedUserStats = userStats
+            ? {
+                ...userStats,
+                totalEarnings: userStats.totalEarnings ? Number(userStats.totalEarnings).toFixed(2) : 0,
+                totalWithdraw: userStats.totalWithdraw ? Number(userStats.totalWithdraw).toFixed(2) : 0,
+                averageValue: userStats.averageValue ? Number(userStats.averageValue).toFixed(2) : 0,
+                netEarning: (
+                    (userStats.totalEarnings?.toNumber?.() ?? 0) -
+                    (userStats.totalWithdraw?.toNumber?.() ?? 0)
+                ).toFixed(2),
+            }
+            : null;
 
         const { password: _, socialMediaPlatform: __, ...users } = user as any;
+
         const responseUser = {
             ...users,
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
+            userStats: formattedUserStats, // ✅ add userStats here
         };
+
         const token = jwt.sign(
             { userId: user.id, email: user.emailAddress },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
+
         return response.success(res, 'User fetched successfully!', {
             user: responseUser,
             token,
         });
+
     } catch (error: any) {
         return response.error(res, error.message);
     }
