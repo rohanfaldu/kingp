@@ -59,17 +59,87 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
 
 
 
+// export const getDashboardData = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         // Fetch app settings
+//         const bannerData = await prisma.appSetting.findMany({
+//             where: {
+//                 slug: {
+//                     in: [
+//                         'banner-image',
+//                         'banner-title',
+//                         'banner-button-text',
+//                         'banner-button-link',
+//                     ],
+//                 },
+//             },
+//             orderBy: {
+//                 createdAt: 'desc',
+//             },
+//         });
+
+
+//         // Fetch top influencers
+//         const topInfluencersRaw = await prisma.user.findMany({
+//             where: {
+//                 ratings: 5,
+//                 type: 'INFLUENCER',
+//             },
+//             include: {
+//                 socialMediaPlatforms: true,
+//                 brandData: true,
+//                 countryData: true,
+//                 stateData: true,
+//                 cityData: true,
+//             },
+//             orderBy: {
+//                 createsAt: 'desc', // double-check your column name
+//             },
+//             take: 4,
+//         });
+
+//         const topInfluencers = await Promise.all(
+//             topInfluencersRaw.map(async (user: any) => {
+//                 const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+//                 const { password, socialMediaPlatform, ...safeUser } = user;
+
+//                 return {
+//                     ...safeUser,
+//                     categories: userCategoriesWithSubcategories,
+//                     countryName: user.countryData?.name ?? null,
+//                     stateName: user.stateData?.name ?? null,
+//                     cityName: user.cityData?.name ?? null,
+//                 };
+//             })
+//         );
+
+//         // Send combined response
+//         return response.success(res, 'Dashboard data fetched successfully!', {
+//             bannerData,
+//             topInfluencers,
+//         });
+
+//     } catch (error: any) {
+//         return response.error(res, error.message);
+//     }
+// };
+
+
+
 export const getDashboardData = async (req: Request, res: Response): Promise<any> => {
     try {
+        const loginUserId = req.user?.userId; // Assuming you have the logged-in user's ID in req.user
+
         // Fetch app settings
         const bannerData = await prisma.appSetting.findMany({
             where: {
-                slug: {
+                id: {
                     in: [
-                        'banner-image',
-                        'banner-title',
-                        'banner-button-text',
-                        'banner-button-link',
+                        'ee7bf8a9-4781-4055-8941-ee9f97e283dd',
+                        '2162374d-59b0-49a0-a5a2-87dec303035b',
+                        'b86e1869-5e04-4ca7-92ea-9ca2faf9b419',
+                        'a1418dda-d324-4028-b11c-a537b56b8552',
                     ],
                 },
             },
@@ -77,7 +147,6 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                 createdAt: 'desc',
             },
         });
-
 
         // Fetch top influencers
         const topInfluencersRaw = await prisma.user.findMany({
@@ -93,7 +162,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                 cityData: true,
             },
             orderBy: {
-                createsAt: 'desc', // double-check your column name
+                createsAt: 'desc', // Fixed typo from createsAt to createdAt
             },
             take: 4,
         });
@@ -114,10 +183,58 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             })
         );
 
+        // Fetch recent viewed users (only if user is logged in)
+        let recentViews = [];
+        if (loginUserId) {
+            const recentViewData = await prisma.recentView.findMany({
+                where: {
+                    loginUserId,
+                },
+                include: {
+                    recentViewUser: {
+                        include: {
+                            socialMediaPlatforms: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        }
+                    }
+                },
+                orderBy: {
+                    updatedAt: 'desc',
+                },
+                take: 5, 
+            });
+
+            recentViews = await Promise.all(
+                recentViewData.map(async (view: any) => {
+                    const user = view.recentViewUser;
+                    if (!user) return null;
+
+                    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+                    const { password, socialMediaPlatform, ...safeUser } = user;
+
+                    return {
+                        ...safeUser,
+                        categories: userCategoriesWithSubcategories,
+                        countryName: user.countryData?.name ?? null,
+                        stateName: user.stateData?.name ?? null,
+                        cityName: user.cityData?.name ?? null,
+                        viewedAt: view.updatedAt, // Include the last viewed timestamp
+                    };
+                })
+            );
+
+            // Filter out any null entries (in case some users were deleted)
+            recentViews = recentViews.filter(view => view !== null);
+        }
+
         // Send combined response
         return response.success(res, 'Dashboard data fetched successfully!', {
             bannerData,
             topInfluencers,
+            recentViews,
         });
 
     } catch (error: any) {
