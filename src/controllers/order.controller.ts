@@ -1210,10 +1210,13 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                         groupOrderData: {
                             groupUsersList: {
                                 some: {
-                                    invitedUserId: currentUserId,
+                                    OR: [
+                                        { adminUserId: currentUserId },
+                                        { invitedUserId: currentUserId },
+                                    ],
                                 },
-                            }
-                        }
+                            },
+                        },
                     },
                     { influencerId: currentUserId },
                 ],
