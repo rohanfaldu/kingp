@@ -14,6 +14,7 @@ import { omit } from 'lodash';
 import { Resend } from 'resend';
 import { Role } from '@prisma/client';
 import { RequestStatus } from '@prisma/client';
+import { contains } from "class-validator/types";
 
 
 
@@ -1191,6 +1192,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         OR: [
                             { groupName: { contains: search || '', mode: 'insensitive' } },
                             { groupBio: { contains: search || '', mode: 'insensitive' } },
+                            { subCategoryId: { contains: search || '', mode: 'insensitive'}},
                             { id: { in: matchedGroupIdSet } }
                         ]
                     }
