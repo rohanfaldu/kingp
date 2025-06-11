@@ -1205,8 +1205,6 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
 
 
 
-
-
 export const updateOrderStatusAndInsertEarnings = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id, status } = req.body;
