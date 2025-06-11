@@ -242,9 +242,9 @@ model GroupUsersList {
 
 model AppSetting {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title                   String          @db.VarChar
-  slug                    String          @unique @db.VarChar
-  value                   String          @db.VarChar
+  title                   String?         @db.VarChar
+  slug                    String?         @unique @db.VarChar
+  value                   String?         @db.VarChar
   createdAt               DateTime        @default(now()) @db.Timestamp(6)
   updatedAt               DateTime        @default(now()) @db.Timestamp(6)
 }
@@ -342,6 +342,7 @@ model UserStats {
   repeatClient             Int?         @default(0)
   level                    Int?         @default(0)
   onTimeDelivery           Int?         @default(0)
+  totalExpenses            Decimal?     @db.Decimal
 
   userStatsData           User?         @relation(fields: [userId], references: [id])
 }

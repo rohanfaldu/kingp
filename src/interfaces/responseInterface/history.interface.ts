@@ -14,7 +14,7 @@ export interface TransactionHistoryItem {
   orderId?: string | null;
   groupId?: string | null;
   createdAt: Date | string;
-  orderDetails?: any | null; 
+  orderDetails?: any | null;
 }
 
 export function formatEarningToTransaction(earning: Earnings & any): TransactionHistoryItem {
@@ -30,6 +30,8 @@ export function formatEarningToTransaction(earning: Earnings & any): Transaction
       earning.businessPaymentData?.name ||
       null,
     orderId: earning.orederId,
+    title: earning.orderData.title,
+    description: earning.orderData.description,
     groupId: earning.groupId,
     createdAt: earning.createdAt ?? new Date(),
     orderDetails: earning.orderData?.businessOrderData || null,
@@ -46,6 +48,8 @@ export function formatWithdrawToTransaction(withdraw: Withdraw): TransactionHist
     status: 'COMPLETED',
     source: 'Withdrawal',
     orderId: null,
+    title: null,
+    description: null,
     groupId: null,
     createdAt: withdraw.createdAt ?? new Date(),
     orderDetails: null,

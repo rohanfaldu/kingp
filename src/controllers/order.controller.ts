@@ -373,10 +373,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     const totalEarnings = existingUserStats.totalEarnings ?? 0;
                     const currentRepeatClient = existingUserStats.repeatClient ?? 0;
 
-                    console.log(currentDeals, '>>>>>>>>>>>> currentDeals');
-                    console.log(totalEarnings, '>>>>>>>>>>>> totalEarnings');
-                    console.log(isNewRepeatBusiness, '>>>>>>>>>>>> isNewRepeatBusiness');
-
                     // Calculate average value after incrementing totalDeals
                     const newTotalDeals = currentDeals;
                     const averageValue = newTotalDeals > 0
@@ -698,7 +694,547 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 };
 
 
+// export const updateOrderStatus = async (req: Request, res: Response): Promise<any> => {
+//     // try {
+//         const orderData: EditIOrder = req.body;
 
+//         if (typeof orderData.id !== 'string' || typeof orderData.status !== 'number') {
+//             return response.error(res, 'Both id (string) and status (number) are required');
+//         }
+
+//         const {
+//             id,
+//             status,
+//             completionDate,
+//             groupId,
+//             influencerId,
+//             businessId,
+//             paymentStatus,
+//             ...safeUpdateFields
+//         } = orderData;
+
+//         const statusEnumValue = getStatusName(status ?? 0);
+
+//         // Handle COMPLETED status - update totalDeals, averageValue, onTimeDelivery, and repeatClient
+//         if (statusEnumValue === OfferStatus.COMPLETED) {
+//             const currentOrder = await prisma.orders.findUnique({
+//                 where: { id },
+//                 select: {
+//                     influencerId: true,
+//                     groupId: true,
+//                     completionDate: true,
+//                     businessId: true
+//                 }
+//             });
+
+//             if (!currentOrder) return response.error(res, 'Order not found');
+
+//             const eligibleUserIds: string[] = [];
+
+//             // Add influencer
+//             if (currentOrder.influencerId) {
+//                 eligibleUserIds.push(currentOrder.influencerId);
+//             }
+
+//             // Add group users
+//             if (currentOrder.groupId) {
+//                 // Get accepted users from group
+//                 const acceptedUsers = await prisma.groupUsersList.findMany({
+//                     where: { groupId: currentOrder.groupId, requestAccept: 'ACCEPTED' },
+//                     select: { invitedUserId: true },
+//                 });
+//                 acceptedUsers.forEach(({ invitedUserId }) => {
+//                     if (invitedUserId) eligibleUserIds.push(invitedUserId);
+//                 });
+
+//                 // Get group admins
+//                 const groupAdmins = await prisma.groupUsers.findMany({
+//                     where: { groupId: currentOrder.groupId },
+//                     select: { userId: true },
+//                 });
+//                 groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
+//             }
+
+//             // Add business user
+//             if (currentOrder.businessId) {
+//                 eligibleUserIds.push(currentOrder.businessId);
+//             }
+
+//             // Update UserStats for each eligible user
+//             for (const userId of eligibleUserIds) {
+//                 const existingUserStats = await prisma.userStats.findFirst({
+//                     where: { userId },
+//                     select: {
+//                         id: true,
+//                         totalDeals: true,
+//                         onTimeDelivery: true,
+//                         totalEarnings: true,
+//                         totalExpenses: true,
+//                         repeatClient: true
+//                     },
+//                 });
+
+//                 // Check if delivery is on time
+//                 const isOnTime = currentOrder.completionDate ?
+//                     new Date(currentOrder.completionDate) >= new Date() : true;
+
+//                 // Check for repeat client
+//                 let isNewRepeatBusiness = false;
+//                 if (currentOrder.businessId) {
+//                     const previousOrdersCount = await prisma.orders.count({
+//                         where: {
+//                             businessId: currentOrder.businessId,
+//                             status: OfferStatus.COMPLETED,
+//                             id: { not: id }, // Exclude current order
+//                             OR: [
+//                                 { influencerId: userId },
+//                                 {
+//                                     groupId: {
+//                                         in: await prisma.groupUsersList.findMany({
+//                                             where: { 
+//                                                 invitedUserId: userId, 
+//                                                 requestAccept: 'ACCEPTED' 
+//                                             },
+//                                             select: { groupId: true }
+//                                         }).then(results => results.map(r => r.groupId).filter(Boolean))
+//                                     }
+//                                 },
+//                                 {
+//                                     groupId: {
+//                                         in: await prisma.groupUsers.findMany({
+//                                             where: { userId },
+//                                             select: { groupId: true }
+//                                         }).then(results => results.map(r => r.groupId))
+//                                     }
+//                                 }
+//                             ]
+//                         }
+//                     });
+
+//                     isNewRepeatBusiness = previousOrdersCount === 1;
+//                 }
+
+//                 if (existingUserStats) {
+//                     // Update existing UserStats record
+//                     const currentDeals = existingUserStats.totalDeals ?? 0;
+//                     const currentOnTime = existingUserStats.onTimeDelivery ?? 0;
+//                     const currentRepeatClient = existingUserStats.repeatClient ?? 0;
+
+//                     await prisma.userStats.update({
+//                         where: { id: existingUserStats.id },
+//                         data: {
+//                             totalDeals: currentDeals + 1,
+//                             onTimeDelivery: isOnTime ? currentOnTime + 1 : currentOnTime,
+//                             repeatClient: isNewRepeatBusiness ? currentRepeatClient + 1 : currentRepeatClient,
+//                         },
+//                     });
+//                 } else {
+//                     // Create new UserStats record if it doesn't exist
+//                     await prisma.userStats.create({
+//                         data: {
+//                             userId,
+//                             totalDeals: 1,
+//                             onTimeDelivery: isOnTime ? 1 : 0,
+//                             repeatClient: 0,
+//                             totalEarnings: 0,
+//                             totalExpenses: 0,
+//                             averageValue: 0,
+//                         },
+//                     });
+//                 }
+//             }
+//         }
+
+//         if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
+//             const currentOrder = await prisma.orders.findUnique({ where: { id }, select: { status: true } });
+//             if (!currentOrder) return response.error(res, 'Order not found');
+//             if (currentOrder.status === OfferStatus.COMPLETED) {
+//                 const existingEarnings = await prisma.earnings.findFirst({ where: { orederId: id } });
+//                 const existingExpenses = await prisma.expenses.findFirst({ where: { orderId: id } });
+//                 if (existingEarnings || existingExpenses) {
+//                     return response.error(res, 'Order is already completed and earnings/expenses have been distributed');
+//                 } else {
+//                     return response.error(res, 'Order is already completed');
+//                 }
+//             }
+//             if (currentOrder.status !== OfferStatus.ORDERSUBMITTED) {
+//                 return response.error(res, 'Order must be in ORDERSUBMITTED status before it can be marked as COMPLETED');
+//             }
+//         }
+
+//         const updated = await prisma.orders.update({
+//             where: { id },
+//             data: { ...safeUpdateFields, status: statusEnumValue },
+//         });
+
+//         const order = await prisma.orders.findUnique({
+//             where: { id },
+//             include: {
+//                 groupOrderData: true,
+//                 influencerOrderData: {
+//                     include: {
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     },
+//                 },
+//                 businessOrderData: {
+//                     include: {
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     },
+//                 },
+//             },
+//         });
+
+//         if (!order) return response.error(res, 'Order not found after update');
+
+//         const formatUserData = async (user: any) => {
+//             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+//             const { password: _, socialMediaPlatform: __, ...userData } = user;
+//             return {
+//                 ...userData,
+//                 categories: userCategoriesWithSubcategories,
+//                 countryName: user.countryData?.name ?? null,
+//                 stateName: user.stateData?.name ?? null,
+//                 cityName: user.cityData?.name ?? null,
+//             };
+//         };
+
+//         let formattedGroup: any = null;
+
+//         if (order.groupOrderData) {
+//             const group = order.groupOrderData;
+
+//             const subCategoriesWithCategory = await prisma.subCategory.findMany({
+//                 where: { id: { in: group.subCategoryId } },
+//                 include: { categoryInformation: true },
+//             });
+
+//             const groupUsers = await prisma.groupUsers.findMany({ where: { groupId: group.id } });
+
+//             const groupMap = new Map<string, any>();
+
+//             for (const groupUser of groupUsers) {
+//                 const adminUser = await prisma.user.findUnique({
+//                     where: { id: groupUser.userId },
+//                     include: {
+//                         UserDetail: true,
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     },
+//                 });
+
+//                 const formattedAdmin = adminUser ? await formatUserData(adminUser) : null;
+
+//                 const invitedEntries = await prisma.groupUsersList.findMany({
+//                     where: {
+//                         groupId: group.id,
+//                         groupUserId: groupUser.id,
+//                         requestAccept: 'ACCEPTED',
+//                     },
+//                     include: {
+//                         invitedUser: {
+//                             include: {
+//                                 UserDetail: true,
+//                                 socialMediaPlatforms: true,
+//                                 brandData: true,
+//                                 countryData: true,
+//                                 stateData: true,
+//                                 cityData: true,
+//                             },
+//                         },
+//                     },
+//                 });
+
+//                 const formattedInvitedUsers = await Promise.all(
+//                     invitedEntries.map(async (entry) => {
+//                         if (!entry.invitedUser) return null;
+//                         const formatted = await formatUserData(entry.invitedUser);
+//                         return {
+//                             ...formatted,
+//                             requestStatus: 1,
+//                         };
+//                     })
+//                 );
+
+//                 groupMap.set(`${groupUser.groupId}-${groupUser.id}`, {
+//                     id: groupUser.id,
+//                     userId: groupUser.userId,
+//                     groupId: groupUser.groupId,
+//                     status: groupUser.status,
+//                     createdAt: groupUser.createsAt,
+//                     updatedAt: groupUser.updatedAt,
+//                     adminUser: formattedAdmin,
+//                     invitedUsers: formattedInvitedUsers.filter(Boolean),
+//                 });
+//             }
+
+//             formattedGroup = {
+//                 ...group,
+//                 subCategoryId: subCategoriesWithCategory,
+//                 groupData: Array.from(groupMap.values())[0] || null,
+//             };
+//         }
+
+//         // Earnings and Expenses logic if COMPLETED
+//         if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
+//             const amount = updated.finalAmount ?? updated.totalAmount;
+//             if (!amount) return response.error(res, 'Order amount is missing');
+
+//             const baseEarning = {
+//                 orederId: updated.id,
+//                 groupId: updated.groupId ?? null,
+//                 businessId: updated.businessId,
+//                 paymentStatus: PaymentStatus.COMPLETED,
+//             };
+
+//             const baseExpense = {
+//                 orderId: updated.id,
+//                 groupId: updated.groupId ?? null,
+//                 businessId: updated.businessId,
+//                 paymentStatus: PaymentStatus.COMPLETED,
+//             };
+
+//             const earningsData: any[] = [];
+//             const expensesData: any[] = [];
+
+//             // Admin earns 20%
+//             const adminUser = await prisma.user.findFirst({ where: { type: 'ADMIN' }, select: { id: true } });
+//             if (!adminUser) return response.error(res, 'Admin user not found');
+
+//             const adminAmount = Number(amount) * 0.2;
+//             earningsData.push({
+//                 ...baseEarning,
+//                 userId: adminUser.id,
+//                 amount,
+//                 earningAmount: adminAmount,
+//             });
+
+//             // Remaining 80% split among eligible users (influencers/groups)
+//             const eligibleEarningUserIds: string[] = [];
+
+//             if (updated.influencerId) eligibleEarningUserIds.push(updated.influencerId);
+
+//             if (updated.groupId) {
+//                 const acceptedUsers = await prisma.groupUsersList.findMany({
+//                     where: { groupId: updated.groupId, requestAccept: 'ACCEPTED' },
+//                     select: { invitedUserId: true },
+//                 });
+//                 acceptedUsers.forEach(({ invitedUserId }) => {
+//                     if (invitedUserId) eligibleEarningUserIds.push(invitedUserId);
+//                 });
+
+//                 const groupAdmins = await prisma.groupUsers.findMany({
+//                     where: { groupId: updated.groupId },
+//                     select: { userId: true },
+//                 });
+//                 groupAdmins.forEach(({ userId }) => eligibleEarningUserIds.push(userId));
+//             }
+
+//             if (eligibleEarningUserIds.length > 0) {
+//                 const sharedAmount = (Number(amount) * 0.8) / eligibleEarningUserIds.length;
+//                 for (const userId of eligibleEarningUserIds) {
+//                     earningsData.push({
+//                         ...baseEarning,
+//                         userId,
+//                         amount,
+//                         earningAmount: sharedAmount,
+//                     });
+//                 }
+//             }
+
+//             // Create expense entry for business
+//             if (updated.businessId) {
+//                 expensesData.push({
+//                     ...baseExpense,
+//                     userId: updated.businessId,
+//                     amount,
+//                     expenseAmount: Number(amount),
+//                 });
+//             }
+
+//             // Create earnings and expenses records
+//             if (earningsData.length > 0) {
+//                 await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
+//             }
+
+//             if (expensesData.length > 0) {
+//                 await prisma.expenses.createMany({ data: expensesData, skipDuplicates: true });
+//             }
+
+//             // Update UserStats with earnings and expenses
+//             const allFinancialData = [...earningsData, ...expensesData];
+
+//             for (const entry of allFinancialData) {
+//                 // Get user type to determine if this is earning or expense
+//                 const user = await prisma.user.findUnique({
+//                     where: { id: entry.userId },
+//                     select: { type: true }
+//                 });
+
+//                 if (!user) continue;
+
+//                 const existingUserStats = await prisma.userStats.findFirst({
+//                     where: { userId: entry.userId },
+//                     select: { 
+//                         id: true, 
+//                         totalEarnings: true, 
+//                         totalExpenses: true, 
+//                         totalDeals: true 
+//                     },
+//                 });
+
+//                 const isEarning = earningsData.some(e => e.userId === entry.userId);
+//                 const isExpense = expensesData.some(e => e.userId === entry.userId);
+
+//                 if (existingUserStats) {
+//                     const currentTotalEarnings = existingUserStats.totalEarnings ?? 0;
+//                     const currentTotalExpenses = existingUserStats.totalExpenses ?? 0;
+//                     const currentTotalDeals = existingUserStats.totalDeals ?? 0;
+
+//                     let updateData: any = {};
+
+//                     if (isEarning) {
+//                         const updatedEarnings = Number(currentTotalEarnings) + Number(entry.earningAmount);
+//                         const averageEarningValue = currentTotalDeals > 0 ? (updatedEarnings / currentTotalDeals) : updatedEarnings;
+                        
+//                         updateData = {
+//                             totalEarnings: updatedEarnings,
+//                             averageValue: averageEarningValue
+//                         };
+//                     }
+
+//                     if (isExpense) {
+//                         const updatedExpenses = Number(currentTotalExpenses) + Number(entry.expenseAmount);
+//                         const averageExpenseValue = currentTotalDeals > 0 ? (updatedExpenses / currentTotalDeals) : updatedExpenses;
+                        
+//                         updateData = {
+//                             totalExpenses: updatedExpenses,
+//                             averageValue: averageExpenseValue
+//                         };
+//                     }
+
+//                     await prisma.userStats.update({
+//                         where: { id: existingUserStats.id },
+//                         data: updateData,
+//                     });
+//                 } else {
+//                     // Create new UserStats record
+//                     const newStatsData: any = {
+//                         userId: entry.userId,
+//                         totalDeals: 0, // This will be updated by the earlier logic
+//                         onTimeDelivery: 0,
+//                         repeatClient: 0,
+//                         totalEarnings: 0,
+//                         totalExpenses: 0,
+//                         averageValue: 0,
+//                     };
+
+//                     if (isEarning) {
+//                         newStatsData.totalEarnings = Number(entry.earningAmount ?? 0);
+//                         newStatsData.averageValue = Number(entry.earningAmount ?? 0);
+//                     }
+
+//                     if (isExpense) {
+//                         newStatsData.totalExpenses = Number(entry.expenseAmount ?? 0);
+//                         newStatsData.averageValue = Number(entry.expenseAmount ?? 0);
+//                     }
+
+//                     await prisma.userStats.create({
+//                         data: newStatsData,
+//                     });
+//                 }
+//             }
+
+//             // Prepare detailed response data
+//             const detailedEarnings = await Promise.all(
+//                 earningsData.map(async (entry) => {
+//                     const user = await prisma.user.findUnique({
+//                         where: { id: entry.userId },
+//                         include: {
+//                             socialMediaPlatforms: true,
+//                             brandData: true,
+//                             countryData: true,
+//                             stateData: true,
+//                             cityData: true,
+//                         },
+//                     });
+//                     if (!user) return null;
+//                     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+//                     const { password: _, ...userData } = user;
+//                     return {
+//                         user: {
+//                             ...userData,
+//                             categories: userCategoriesWithSubcategories,
+//                             countryName: user?.countryData?.name ?? null,
+//                             stateName: user?.stateData?.name ?? null,
+//                             cityName: user?.cityData?.name ?? null,
+//                         },
+//                         earningAmount: entry.earningAmount,
+//                         orderAmount: entry.amount,
+//                         type: 'earning'
+//                     };
+//                 })
+//             );
+
+//             const detailedExpenses = await Promise.all(
+//                 expensesData.map(async (entry) => {
+//                     const user = await prisma.user.findUnique({
+//                         where: { id: entry.userId },
+//                         include: {
+//                             socialMediaPlatforms: true,
+//                             brandData: true,
+//                             countryData: true,
+//                             stateData: true,
+//                             cityData: true,
+//                         },
+//                     });
+//                     if (!user) return null;
+//                     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+//                     const { password: _, ...userData } = user;
+//                     return {
+//                         user: {
+//                             ...userData,
+//                             categories: userCategoriesWithSubcategories,
+//                             countryName: user?.countryData?.name ?? null,
+//                             stateName: user?.stateData?.name ?? null,
+//                             cityName: user?.cityData?.name ?? null,
+//                         },
+//                         expenseAmount: entry.expenseAmount,
+//                         orderAmount: entry.amount,
+//                         type: 'expense'
+//                     };
+//                 })
+//             );
+
+//             return response.success(res, 'Order status updated and earnings/expenses distributed successfully', {
+//                 ...order,
+//                 groupOrderData: formattedGroup,
+//                 earnings: detailedEarnings.filter(Boolean),
+//                 expenses: detailedExpenses.filter(Boolean),
+//             });
+//         }
+
+//         // Non-completed order return
+//         return response.success(res, 'Order status updated successfully', {
+//             ...order,
+//             groupOrderData: formattedGroup,
+//         });
+
+//     // } catch (error: any) {
+//     //     console.error('Update order status failed:', error);
+//     //     return response.error(res, error.message || 'Something went wrong');
+//     // }
+// };
 
 
 

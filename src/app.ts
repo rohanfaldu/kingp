@@ -17,6 +17,8 @@ import VersionControleRoutes from './routes/versionControl.routes';
 import BadgesRoutes from './routes/badges.routes';
 import OrderRoutes from './routes/order.routes';
 import MediaRoutes from './routes/media.routes';
+import DashboardRoutes from './routes/dashboard.routes';
+
 
 
 import path from 'path';
@@ -67,6 +69,7 @@ app.use('/api/app-data', VersionControleRoutes);
 app.use('/api/badges', BadgesRoutes);
 app.use('/api/order', OrderRoutes);
 app.use('/api/media', MediaRoutes);
+app.use('/api/dashboard', DashboardRoutes);
 
 
 app.use('/api/mail', authRoutes);
