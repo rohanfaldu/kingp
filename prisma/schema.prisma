@@ -63,6 +63,8 @@ model User {
   businessPaymentData      Earnings[]       @relation("businessPaymentInfo")
   userWithdrawal           Withdraw[]
   userStatsData            UserStats[]
+  recentViewLoginUser      RecentView[]      @relation("recentViewLoginUserData")
+  recentViewUser           RecentView[]      @relation("recentViewUserData")
 
 }
 
@@ -345,6 +347,17 @@ model UserStats {
   totalExpenses            Decimal?     @db.Decimal
 
   userStatsData           User?         @relation(fields: [userId], references: [id])
+}
+
+model RecentView {
+  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loginUserId              String?         @db.Uuid
+  recentViewUserId         String?         @db.Uuid
+  createdAt                DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?       @default(now()) @db.Timestamp(6)
+
+  recentViewLoginUser      User?         @relation("recentViewLoginUserData", fields: [loginUserId], references: [id])
+  recentViewUser           User?         @relation("recentViewUserData", fields: [recentViewUserId], references: [id])
 }
 
 enum Role {

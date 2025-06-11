@@ -410,27 +410,100 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
 //         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-//         const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
-//         const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
-//         const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+//         const country = user.countryId
+//             ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } })
+//             : null;
+//         const state = user.stateId
+//             ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } })
+//             : null;
+//         const city = user.cityId
+//             ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } })
+//             : null;
+
+//         // Fetch user stats
+//         const userStats = await prisma.userStats.findFirst({
+//             where: { userId: user.id },
+//             select: {
+//                 totalEarnings: true,
+//                 totalExpenses: true,
+//                 totalWithdraw: true,
+//                 totalDeals: true,
+//                 averageValue: true,
+//                 repeatClient: true,
+//                 level: true,
+//                 onTimeDelivery: true,
+//             },
+//         });
+//         console.log(userStats, '>>>>>>>>>> userStats');
+//         const formattedUserStats = userStats
+//             ? {
+//                 ...userStats,
+//                 totalEarnings: userStats.totalEarnings
+//                     ? Number(userStats.totalEarnings).toFixed(2)
+//                     : "0.00",
+//                 totalExpenses: userStats.totalExpenses
+//                     ? Number(userStats.totalExpenses).toFixed(2)
+//                     : "0.00",
+//                 totalWithdraw: userStats.totalWithdraw
+//                     ? Number(userStats.totalWithdraw).toFixed(2)
+//                     : "0.00",
+//                 totalDeals: userStats.totalDeals
+//                     ? Number(userStats.totalDeals).toFixed(2)
+//                     : "0.00",
+//                 averageValue: userStats.averageValue
+//                     ? Number(userStats.averageValue).toFixed(2)
+//                     : "0.00",
+//                 repeatClient: userStats.repeatClient
+//                     ? Number(userStats.repeatClient).toFixed(2)
+//                     : "0.00",
+//                 level: userStats.level
+//                     ? Number(userStats.level).toFixed(2)
+//                     : "0.00",
+//                 onTimeDelivery: userStats.onTimeDelivery
+//                     ? Number(userStats.onTimeDelivery).toFixed(2)
+//                     : "0.00",
+//                 netEarning: (
+//                     (userStats.totalEarnings?.toNumber?.() ?? 0) -
+//                     (userStats.totalWithdraw?.toNumber?.() ?? 0)
+//                 ).toFixed(2),
+//             }
+//             :
+//             {
+//                 totalEarnings: "0.00",
+//                 totalExpenses: "0.00",
+//                 totalWithdraw: "0.00",
+//                 totalDeals: "0.00",
+//                 averageValue: "0.00",
+//                 repeatClient: "0.00",
+//                 level: "0.00",
+//                 onTimeDelivery: "0.00",
+//                 netEarning: "0.00"
+//             };
+
+
 
 //         const { password: _, socialMediaPlatform: __, ...users } = user as any;
+
 //         const responseUser = {
 //             ...users,
 //             categories: userCategoriesWithSubcategories,
 //             countryName: country?.name ?? null,
 //             stateName: state?.name ?? null,
 //             cityName: city?.name ?? null,
+//             userStats: formattedUserStats, // ✅ add userStats here
 //         };
+
 //         const token = jwt.sign(
 //             { userId: user.id, email: user.emailAddress },
 //             JWT_SECRET,
 //             { expiresIn: '7d' }
 //         );
+
 //         return response.success(res, 'User fetched successfully!', {
 //             user: responseUser,
 //             token,
 //         });
+
 //     } catch (error: any) {
 //         return response.error(res, error.message);
 //     }
@@ -440,9 +513,37 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 export const getByIdUser = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
+        const loginUserId = req.user?.userId; // Assuming you have the logged-in user's ID in req.user
 
         if (!isUuid(id)) {
             return response.error(res, 'Invalid UUID format');
+        }
+
+        // Check if the viewed user is different from the logged-in user
+        if (loginUserId && loginUserId !== id) {
+            // Check if there's an existing recent view entry
+            const existingView = await prisma.recentView.findFirst({
+                where: {
+                    loginUserId,
+                    recentViewUserId: id
+                }
+            });
+
+            if (existingView) {
+                // Update the existing entry's timestamp
+                await prisma.recentView.update({
+                    where: { id: existingView.id },
+                    data: { updatedAt: new Date() }
+                });
+            } else {
+                // Create a new recent view entry
+                await prisma.recentView.create({
+                    data: {
+                        loginUserId,
+                        recentViewUserId: id
+                    }
+                });
+            }
         }
 
         const user = await prisma.user.findUnique({
@@ -486,7 +587,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 onTimeDelivery: true,
             },
         });
-        console.log(userStats, '>>>>>>>>>> userStats');
+
         const formattedUserStats = userStats
             ? {
                 ...userStats,
@@ -532,8 +633,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 netEarning: "0.00"
             };
 
-
-
         const { password: _, socialMediaPlatform: __, ...users } = user as any;
 
         const responseUser = {
@@ -542,7 +641,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,
-            userStats: formattedUserStats, // ✅ add userStats here
+            userStats: formattedUserStats,
         };
 
         const token = jwt.sign(
@@ -560,6 +659,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message);
     }
 };
+
 
 
 
