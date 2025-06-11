@@ -273,7 +273,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
         const statusEnumValue = getStatusName(status ?? 0);
 
-    
+
         // Handle COMPLETED status - update totalDeals, averageValue, onTimeDelivery, and repeatClient
         if (statusEnumValue === OfferStatus.COMPLETED) {
             const currentOrder = await prisma.orders.findUnique({
@@ -342,9 +342,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                 {
                                     groupId: {
                                         in: await prisma.groupUsersList.findMany({
-                                            where: { 
-                                                invitedUserId: userId, 
-                                                requestAccept: 'ACCEPTED' 
+                                            where: {
+                                                invitedUserId: userId,
+                                                requestAccept: 'ACCEPTED'
                                             },
                                             select: { groupId: true }
                                         }).then(results => results.map(r => r.groupId).filter(Boolean))
@@ -724,7 +724,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
 //         const statusEnumValue = getStatusName(status ?? 0);
 
-    
+
 //         // Handle COMPLETED status - update totalDeals, averageValue, onTimeDelivery, and repeatClient
 //         if (statusEnumValue === OfferStatus.COMPLETED) {
 //             const currentOrder = await prisma.orders.findUnique({
@@ -1106,7 +1106,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 //                     // Update existing business UserStats record
 //                     const currentExpenses = businessUserStats.totalExpenses ?? 0;
 //                     const updatedExpenses = Number(currentExpenses) + Number(amount);
-                    
+
 //                     console.log(currentExpenses, ">>>> currentBusinessExpenses");
 //                     console.log(updatedExpenses.toFixed(2), ">>>> updatedBusinessExpenses");
 
@@ -1205,7 +1205,18 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
         let whereCondition;
         if (existingUser.type === UserType.INFLUENCER) {
             whereCondition = {
-                influencerId: currentUserId
+                OR: [
+                    {
+                        groupOrderData: {
+                            groupUsersList: {
+                                some: {
+                                    invitedUserId: currentUserId,
+                                },
+                            }
+                        }
+                    },
+                    { influencerId: currentUserId },
+                ],
             };
         } else {
             whereCondition = {

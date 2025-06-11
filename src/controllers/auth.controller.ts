@@ -884,7 +884,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         //const currentUserId = '016fe38e-fe2a-4080-85b5-a3aa14b86717';
         const currentUserId = req.user?.userId;
 
-        console.log(req.user, '>>>>>>>>>>>>>>>currentUserId');
+        // console.log(req.user, '>>>>>>>>>>>>>>>currentUserId');
         const currentPage = parseInt(page.toString()) || 1;
         const itemsPerPage = parseInt(limit.toString()) || 10;
         const skip = (currentPage - 1) * itemsPerPage;
@@ -1164,12 +1164,12 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
             // Exclude groups where current user is admin
             if (currentUserId) {
-                // groupWhereFilter.groupData = {
-                //     none: {
-                //         adminUserId: currentUserId,
+                groupWhereFilter.groupData = {
+                    // none: {
+                    //     adminUserId: currentUserId,
 
-                //     }
-                // };
+                    // }
+                };
             }
 
             const matchedGroupIds = await prisma.groupUsersList.findMany({
@@ -1184,7 +1184,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
             const matchedGroupIdSet = [...new Set(matchedGroupIds.map(e => e.groupId))];
 
-            // console.log(search, '>>>>>>>>> search');
+            console.log(subCategoryId, '>>>>>>>>> subCategoryId');
             // Combine search filters with current user exclusion
             const finalGroupFilter = {
                 AND: [
@@ -1193,15 +1193,15 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         OR: [
                             { groupName: { contains: search || '', mode: 'insensitive' } },
                             { groupBio: { contains: search || '', mode: 'insensitive' } },
-                            // { subCategoryId: { contains: search || '', mode: 'insensitive'}},
-                            // search
-                            //     ? { subCategoryId: { has: search.toLowerCase() } } // assuming lowercase match
-                            //     : undefined,
                             { id: { in: matchedGroupIdSet } }
                         ]
-                    }
+                    },
+                    subCategoryId?.length
+                        ? { subCategoryId: { hasSome: subCategoryId } }
+                        : undefined,
                 ]
             };
+
 
             groupsResult = await Promise.all([
                 prisma.group.findMany({
@@ -1272,9 +1272,9 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         distinct: ['invitedUserId']  // Avoid duplicates
                     });
 
-                    console.log(acceptedInvites, '> acceptedInvites');
+                    // console.log(acceptedInvites, '> acceptedInvites');
                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
-                    console.log('44 >>>>>>>>>', acceptedInvitedUserIds);
+                    // console.log('44 >>>>>>>>>', acceptedInvitedUserIds);
                     const invitedUsers = acceptedInvitedUserIds.length > 0
                         ? await prisma.user.findMany({
                             where: { id: { in: acceptedInvitedUserIds } },
