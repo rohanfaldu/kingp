@@ -273,6 +273,140 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
         const statusEnumValue = getStatusName(status ?? 0);
 
+    
+        // Handle COMPLETED status - update totalDeals, averageValue, onTimeDelivery, and repeatClient
+        if (statusEnumValue === OfferStatus.COMPLETED) {
+            const currentOrder = await prisma.orders.findUnique({
+                where: { id },
+                select: {
+                    influencerId: true,
+                    groupId: true,
+                    completionDate: true,
+                    businessId: true
+                }
+            });
+
+            if (!currentOrder) return response.error(res, 'Order not found');
+
+            const eligibleUserIds: string[] = [];
+
+            if (currentOrder.influencerId) {
+                eligibleUserIds.push(currentOrder.influencerId);
+            }
+
+            if (currentOrder.groupId) {
+                // Get accepted users from group
+                const acceptedUsers = await prisma.groupUsersList.findMany({
+                    where: { groupId: currentOrder.groupId, requestAccept: 'ACCEPTED' },
+                    select: { invitedUserId: true },
+                });
+                acceptedUsers.forEach(({ invitedUserId }) => {
+                    if (invitedUserId) eligibleUserIds.push(invitedUserId);
+                });
+
+                // Get group admins
+                const groupAdmins = await prisma.groupUsers.findMany({
+                    where: { groupId: currentOrder.groupId },
+                    select: { userId: true },
+                });
+                groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
+            }
+
+            // Update UserStats for each eligible user
+            for (const userId of eligibleUserIds) {
+                const existingUserStats = await prisma.userStats.findFirst({
+                    where: { userId },
+                    select: {
+                        id: true,
+                        totalDeals: true,
+                        onTimeDelivery: true,
+                        totalEarnings: true,
+                        repeatClient: true
+                    },
+                });
+
+                // Check if delivery is on time (completionDate should be within the order completion timeline)
+                const isOnTime = currentOrder.completionDate ?
+                    new Date(currentOrder.completionDate) >= new Date() : true;
+
+                // Check for repeat client - check if this is the first time working with this business
+                let isNewRepeatBusiness = false;
+                if (currentOrder.businessId) {
+                    const previousOrdersCount = await prisma.orders.count({
+                        where: {
+                            businessId: currentOrder.businessId,
+                            status: OfferStatus.COMPLETED,
+                            id: { not: id }, // Exclude current order
+                            OR: [
+                                { influencerId: userId },
+                                {
+                                    groupId: {
+                                        in: await prisma.groupUsersList.findMany({
+                                            where: { 
+                                                invitedUserId: userId, 
+                                                requestAccept: 'ACCEPTED' 
+                                            },
+                                            select: { groupId: true }
+                                        }).then(results => results.map(r => r.groupId).filter(Boolean))
+                                    }
+                                },
+                                {
+                                    groupId: {
+                                        in: await prisma.groupUsers.findMany({
+                                            where: { userId },
+                                            select: { groupId: true }
+                                        }).then(results => results.map(r => r.groupId))
+                                    }
+                                }
+                            ]
+                        }
+                    });
+
+                    // This is a new repeat business if there's exactly 1 previous order (making this the 2nd order)
+                    isNewRepeatBusiness = previousOrdersCount === 1;
+                }
+
+                if (existingUserStats) {
+                    // Update existing UserStats record
+                    const currentDeals = existingUserStats.totalDeals ?? 0;
+                    const currentOnTime = existingUserStats.onTimeDelivery ?? 0;
+                    const totalEarnings = existingUserStats.totalEarnings ?? 0;
+                    const currentRepeatClient = existingUserStats.repeatClient ?? 0;
+
+                    console.log(currentDeals, '>>>>>>>>>>>> currentDeals');
+                    console.log(totalEarnings, '>>>>>>>>>>>> totalEarnings');
+                    console.log(isNewRepeatBusiness, '>>>>>>>>>>>> isNewRepeatBusiness');
+
+                    // Calculate average value after incrementing totalDeals
+                    const newTotalDeals = currentDeals;
+                    const averageValue = newTotalDeals > 0
+                        ? Math.floor(totalEarnings / newTotalDeals)
+                        : 0;
+
+                    await prisma.userStats.update({
+                        where: { id: existingUserStats.id },
+                        data: {
+                            totalDeals: newTotalDeals + 1,
+                            onTimeDelivery: isOnTime ? currentOnTime + 1 : currentOnTime,
+                            repeatClient: isNewRepeatBusiness ? currentRepeatClient + 1 : currentRepeatClient,
+                            averageValue,
+                        },
+                    });
+                } else {
+                    // Create new UserStats record if it doesn't exist
+                    await prisma.userStats.create({
+                        data: {
+                            userId,
+                            totalDeals: 1,
+                            onTimeDelivery: isOnTime ? 1 : 0,
+                            repeatClient: 0, // First order with any business, so no repeat clients yet
+                            averageValue: 0, // No earnings yet, so average is 0
+                        },
+                    });
+                }
+            }
+        }
+
         if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
             const currentOrder = await prisma.orders.findUnique({ where: { id }, select: { status: true } });
             if (!currentOrder) return response.error(res, 'Order not found');
@@ -471,74 +605,47 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
             await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
 
-            // Update each user's totalEarnings
+            // Update each user's totalEarnings in UserStats table
             for (const entry of earningsData) {
-                const existingUser = await prisma.userStats.findUnique({
-                    where: { id: entry.userId },
-                    select: { totalEarnings: true },
-                });
 
-                const currentTotal = existingUser?.totalEarnings ?? 0;
-                const updatedTotal = currentTotal + Number(entry.earningAmount ?? 0);
-
-                await prisma.userStats.create({
-                    // data: { totalEarnings: updatedTotal },
-                    data: {
-                        totalEarnings: updatedTotal,
-                        user: {
-                            connect: { id: userId } // Connect to an existing user
-                        }
-                    }
-                });
-            }
-
-            // Update each user's totalEarnings, totalDeals, averageValue, and onTimeDelivery (if on time)
-            for (const entry of earningsData) {
-                const userStats = await prisma.userStats.findUnique({
+                // Find existing UserStats record for the user
+                const existingUserStats = await prisma.userStats.findFirst({
                     where: { userId: entry.userId },
-                    select: {
-                        totalEarnings: true,
-                        totalDeals: true,
-                        onTimeDelivery: true,
-                    },
+                    select: { id: true, totalEarnings: true, totalDeals: true },
                 });
+                console.log(existingUserStats, ">>>> existingUserStats");
 
-                const currentEarnings = userStats?.totalEarnings ?? 0;
-                const currentDeals = userStats?.totalDeals ?? 0;
-                const currentOnTimeDelivery = userStats?.onTimeDelivery ?? 0;
+                if (existingUserStats) {
+                    // Update existing UserStats record
+                    const currentTotal = existingUserStats.totalEarnings ?? 0;
+                    const currentTotalDeals = existingUserStats.totalDeals ?? 0;
+                    console.log(currentTotal, ">>>> currentTotal");
+                    console.log(currentTotalDeals, ">>>> currentTotalDeals");
 
-                const updatedEarnings = currentEarnings + Number(entry.earningAmount ?? 0);
-                const updatedDeals = currentDeals + 1;
-                const updatedAverageValue = Math.floor(updatedEarnings / updatedDeals);
+                    const updatedTotal = Number(currentTotal) + Number(entry.earningAmount);
+                    console.log(updatedTotal.toFixed(2), ">>>> updatedTotal");
 
-                let updatedOnTimeDelivery = currentOnTimeDelivery;
+                    const avarageAmount = (updatedTotal / currentTotalDeals);
+                    console.log(avarageAmount.toFixed(2), ">>>> avarageValue");
+                    //const updatedTotal = currentTotal + Number(entry.earningAmount ?? 0);
 
-                if (
-                    updated.completionDate &&
-                    updated.deliveryDate &&
-                    new Date(updated.completionDate) <= new Date(updated.deliveryDate)
-                ) {
-                    updatedOnTimeDelivery += 1;
+                    await prisma.userStats.update({
+                        where: { id: existingUserStats.id },
+                        data: {
+                            totalEarnings: updatedTotal,
+                            averageValue: avarageAmount
+                        },
+                    });
+                } else {
+                    // Create new UserStats record if it doesn't exist
+                    await prisma.userStats.create({
+                        data: {
+                            userId: entry.userId,
+                            totalEarnings: Number(entry.earningAmount ?? 0),
+                        },
+                    });
                 }
-
-                await prisma.userStats.upsert({
-                    where: { userId: entry.userId },
-                    update: {
-                        totalEarnings: updatedEarnings,
-                        totalDeals: updatedDeals,
-                        averageValue: updatedAverageValue,
-                        onTimeDelivery: updatedOnTimeDelivery,
-                    },
-                    create: {
-                        userId: entry.userId,
-                        totalEarnings: updatedEarnings,
-                        totalDeals: updatedDeals,
-                        averageValue: updatedAverageValue,
-                        onTimeDelivery: updatedOnTimeDelivery,
-                    },
-                });
             }
-
 
             const detailedEarnings = await Promise.all(
                 earningsData.map(async (entry) => {
@@ -576,6 +683,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             });
         }
 
+
+
         // Non-completed order return
         return response.success(res, 'Order status updated successfully', {
             ...order,
@@ -592,53 +701,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
 
 
-// export const getAllOrderList = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { status } = req.body;
-
-//         const currentUserId = req.user?.id || req.userId;
-
-//         if (status === "" || status === undefined || status === null) {
-//             return response.error(res, 'Status is required');
-//         }
-
-//         const statusEnumValue = getStatusName(status);
-//         const getOrder = await prisma.orders.findMany({
-//             where: {
-//                 status: statusEnumValue,
-//                 NOT: {
-//                     userId: currentUserId
-//                 }
-//             },
-//             include: {
-//                 groupOrderData: {},
-//                 influencerOrderData: {
-//                     include: {
-//                         socialMediaPlatforms: true,
-//                         brandData: true,
-//                         countryData: true,
-//                         stateData: true,
-//                         cityData: true,
-//                     }
-//                 },
-//                 businessOrderData: {
-//                     include: {
-//                         socialMediaPlatforms: true,
-//                         brandData: true,
-//                         countryData: true,
-//                         stateData: true,
-//                         cityData: true,
-//                     }
-//                 }
-//             }
-//         });
-//         return response.success(res, 'Get All order List', getOrder);
-
-//     } catch (error: any) {
-//         return response.error(res, error.message || 'Something went wrong');
-//     }
-// };
-
 
 
 export const getAllOrderList = async (req: Request, res: Response): Promise<any> => {
@@ -653,16 +715,16 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
 
         const statusEnumValue = getStatusName(status);
         let whereStatus;
-        if(status === 3){
+        if (status === 3) {
             const completedEnumValue = getStatusName(4);
             whereStatus = [statusEnumValue, completedEnumValue];
-        }else{
+        } else {
             whereStatus = [statusEnumValue];
         }
 
         console.log(whereStatus, " >>>>>>> whereStatus");
         const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
-      //  console.log(existingUser, ">>>>>>>>>>> existingUser");
+        //  console.log(existingUser, ">>>>>>>>>>> existingUser");
         let whereCondition;
         if (existingUser.type === UserType.INFLUENCER) {
             whereCondition = {
@@ -964,16 +1026,29 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             return response.error(res, 'userId and withdrawAmount are required');
         }
 
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return response.error(res, 'User not found');
+        // Find UserStats by userId (not by id)
+        const user = await prisma.userStats.findFirst({ where: { userId } });
+        if (!user) return response.error(res, 'User stats not found');
 
         const currentEarnings = user.totalEarnings ?? 0;
         const currentWithdrawals = user.totalWithdraw ?? 0;
 
-        if (withdrawAmount > currentEarnings) {
+        // Convert decimals to numbers safely
+        const earningsNumber =
+            currentEarnings instanceof Prisma.Decimal
+                ? currentEarnings.toNumber()
+                : currentEarnings;
+
+        const withdrawalsNumber =
+            currentWithdrawals instanceof Prisma.Decimal
+                ? currentWithdrawals.toNumber()
+                : currentWithdrawals;
+
+        if (withdrawAmount > earningsNumber) {
             return response.error(res, 'Insufficient balance for withdrawal');
         }
 
+        // Create withdrawal record
         const newWithdraw = await prisma.withdraw.create({
             data: {
                 userId,
@@ -983,18 +1058,18 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             },
         });
 
-        // Update user's earnings and withdrawals
-        await prisma.user.update({
-            where: { id: userId },
+        // Update user's withdrawals
+        await prisma.userStats.update({
+            where: { id: user.id },
             data: {
-                // totalEarnings: currentEarnings - withdrawAmount,
-                totalWithdraw: currentWithdrawals + withdrawAmount,
+                totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
+                totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
             },
         });
 
         return response.success(res, 'Withdrawal successful', {
             withdraw: newWithdraw,
-            updatedBalance: currentEarnings - withdrawAmount,
+            updatedBalance: earningsNumber - withdrawAmount,
         });
 
     } catch (error: any) {
@@ -1002,6 +1077,8 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
         return response.error(res, error.message || 'Something went wrong');
     }
 };
+
+
 
 
 

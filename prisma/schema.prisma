@@ -323,7 +323,7 @@ model Earnings {
 model Withdraw {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId                  String?         @db.Uuid
-  withdrawAmount          Int?            @default(0)
+  withdrawAmount          Decimal?        @db.Decimal
   withdrawalType          Int?            @default(0)
   transactionType         TransactionType? @default(DEBIT)
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
@@ -335,10 +335,10 @@ model Withdraw {
 model UserStats {
   id                       String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId                   String?      @db.Uuid
-  totalEarnings            Int?         @default(0)
-  totalWithdraw            Int?         @default(0)
+  totalEarnings            Decimal?      @db.Decimal
+  totalWithdraw            Decimal?      @db.Decimal
   totalDeals               Int?         @default(0)
-  averageValue             Int?         @default(0)
+  averageValue             Decimal?      @db.Decimal
   repeatClient             Int?         @default(0)
   level                    Int?         @default(0)
   onTimeDelivery           Int?         @default(0)
