@@ -770,20 +770,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             }
         });
         console.log(getOrder, " >>>>>>>> getOrder")
-        // Option 2: Filter out orders where current user appears in related data
-        // const filteredOrders = getOrder.filter(order => {
-        //     // Check if current user is the influencer in the order
-        //     const isInfluencer = order.influencerOrderData?.id === currentUserId;
 
-        //     // Check if current user is the business in the order
-        //     const isBusiness = order.businessOrderData?.id === currentUserId;
-
-        //     // Check if current user is part of group order (if applicable)
-        //     // Add your group logic here if needed
-
-        //     // Return false to exclude, true to include
-        //     return !isInfluencer && !isBusiness;
-        // });
 
         return response.success(res, 'Get All order List', getOrder);
 
