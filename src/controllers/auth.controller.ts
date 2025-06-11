@@ -472,11 +472,12 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } })
             : null;
 
-        // ✅ Fetch user stats
+        // Fetch user stats
         const userStats = await prisma.userStats.findFirst({
             where: { userId: user.id },
             select: {
                 totalEarnings: true,
+                totalExpenses: true,
                 totalWithdraw: true,
                 totalDeals: true,
                 averageValue: true,
@@ -492,11 +493,17 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 totalEarnings: userStats.totalEarnings
                     ? Number(userStats.totalEarnings).toFixed(2)
                     : "0.00",
+                totalExpenses: userStats.totalExpenses
+                    ? Number(userStats.totalExpenses).toFixed(2)
+                    : "0.00",
                 totalWithdraw: userStats.totalWithdraw
                     ? Number(userStats.totalWithdraw).toFixed(2)
                     : "0.00",
                 totalDeals: userStats.totalDeals
                     ? Number(userStats.totalDeals).toFixed(2)
+                    : "0.00",
+                averageValue: userStats.averageValue
+                    ? Number(userStats.averageValue).toFixed(2)
                     : "0.00",
                 repeatClient: userStats.repeatClient
                     ? Number(userStats.repeatClient).toFixed(2)
@@ -515,6 +522,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             :
             {
                 totalEarnings: "0.00",
+                totalExpenses: "0.00",
                 totalWithdraw: "0.00",
                 totalDeals: "0.00",
                 averageValue: "0.00",
