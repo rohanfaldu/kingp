@@ -134,12 +134,12 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
         // Fetch app settings
         const bannerData = await prisma.appSetting.findMany({
             where: {
-                id: {
+                slug: {
                     in: [
-                        'ee7bf8a9-4781-4055-8941-ee9f97e283dd',
-                        '2162374d-59b0-49a0-a5a2-87dec303035b',
-                        'b86e1869-5e04-4ca7-92ea-9ca2faf9b419',
-                        'a1418dda-d324-4028-b11c-a537b56b8552',
+                        'banner-image',
+                        'banner-title',
+                        'banner-button-text',
+                        'banner-button-link',
                     ],
                 },
             },
@@ -203,7 +203,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                 orderBy: {
                     updatedAt: 'desc',
                 },
-                take: 5, 
+                take: 5,
             });
 
             recentViews = await Promise.all(
