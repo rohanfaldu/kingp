@@ -1192,7 +1192,10 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         OR: [
                             { groupName: { contains: search || '', mode: 'insensitive' } },
                             { groupBio: { contains: search || '', mode: 'insensitive' } },
-                            { subCategoryId: { contains: search || '', mode: 'insensitive'}},
+                            // { subCategoryId: { contains: search || '', mode: 'insensitive'}},
+                            search
+                                ? { subCategoryId: { has: search.toLowerCase() } } // assuming lowercase match
+                                : undefined,
                             { id: { in: matchedGroupIdSet } }
                         ]
                     }
