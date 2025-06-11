@@ -1184,6 +1184,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
             const matchedGroupIdSet = [...new Set(matchedGroupIds.map(e => e.groupId))];
 
+            // console.log(search, '>>>>>>>>> search');
             // Combine search filters with current user exclusion
             const finalGroupFilter = {
                 AND: [
@@ -1193,9 +1194,9 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                             { groupName: { contains: search || '', mode: 'insensitive' } },
                             { groupBio: { contains: search || '', mode: 'insensitive' } },
                             // { subCategoryId: { contains: search || '', mode: 'insensitive'}},
-                            search
-                                ? { subCategoryId: { has: search.toLowerCase() } } // assuming lowercase match
-                                : undefined,
+                            // search
+                            //     ? { subCategoryId: { has: search.toLowerCase() } } // assuming lowercase match
+                            //     : undefined,
                             { id: { in: matchedGroupIdSet } }
                         ]
                     }
