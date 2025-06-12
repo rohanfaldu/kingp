@@ -65,7 +65,7 @@ model User {
   userStatsData            UserStats[]
   recentViewLoginUser      RecentView[]      @relation("recentViewLoginUserData")
   recentViewUser           RecentView[]      @relation("recentViewUserData")
-
+  
 }
 
 model Category {
@@ -277,6 +277,7 @@ model Orders {
   finalAmount             Decimal?        @db.Decimal
   paymentStatus           PaymentStatus   @default(PENDING)
   submittedDescription    String?         @db.VarChar
+  submittedAttachment     String?         @db.VarChar
   socialMediaLink         String?         @db.VarChar
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
@@ -429,4 +430,10 @@ enum PaymentStatus {
 enum TransactionType {
   CREDIT
   DEBIT
+}
+
+enum RatingType {
+  INFLUENCER
+  BUSINESS
+  GROUP
 }

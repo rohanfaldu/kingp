@@ -891,7 +891,7 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
 
 export const orderSubmit = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { id, submittedDescription, socialMediaLink, attachment, } = req.body;
+        const { id, submittedDescription, socialMediaLink, submittedAttachment, } = req.body;
         if (!id || typeof id !== 'string') {
             return response.error(res, 'Order ID is required and must be a string');
         }
@@ -902,7 +902,7 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
             data: {
                 submittedDescription,
                 socialMediaLink,
-                attachment,
+                submittedAttachment,
                 status: OfferStatus.ORDERSUBMITTED,
             },
         });
