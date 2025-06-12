@@ -1307,7 +1307,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                     subCategoryId?.length
                         ? { subCategoryId: { hasSome: subCategoryId } }
                         : undefined,
-                ]
+                ].filter(Boolean)
             };
 
 
