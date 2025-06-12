@@ -4,7 +4,6 @@ import response from '../utils/response';
 import { getStatusName } from '../utils/commonFunction'
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
 import { IOrder, EditIOrder } from './../interfaces/order.interface';
-// import { PaymentStatus, OfferStatus } from '../enums/userType.enum';
 import { addDays } from 'date-fns';
 import { OfferStatus, PaymentStatus, RequestStatus, Role } from '@prisma/client';
 import { formatEarningToTransaction, formatWithdrawToTransaction, TransactionHistoryItem } from './../interfaces/responseInterface/history.interface';
@@ -1228,6 +1227,7 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
         return response.error(res, error.message || 'Something went wrong');
     }
 };
+
 
 
 

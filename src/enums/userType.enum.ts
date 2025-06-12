@@ -58,3 +58,9 @@ export enum TransactionType {
   CREDIT = 'CREDIT',
   DEBIT = 'DEBIT',
 }
+
+export enum RatingType {
+  INFLUENCER = 'INFLUENCER',
+  BUSINESS = 'BUSINESS',
+  GROUP = 'GROUP',
+}

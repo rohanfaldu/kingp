@@ -33,7 +33,7 @@ model User {
   sampleWorkLink           String?      @db.VarChar
   aboutYou                 String?      @db.VarChar
   bio                      String?      @db.VarChar
-  ratings                  Int? 
+  ratings                  Decimal? 
   influencerType           InfluencerType?
   loginType                LoginType?
   availability             AvailabilityType?
@@ -65,7 +65,7 @@ model User {
   userStatsData            UserStats[]
   recentViewLoginUser      RecentView[]      @relation("recentViewLoginUserData")
   recentViewUser           RecentView[]      @relation("recentViewUserData")
-  
+  ratedByUserData          Ratings[]         @relation("ratedByUserInfo")
 }
 
 model Category {
@@ -208,6 +208,7 @@ model Group {
   groupUsersList           GroupUsersList[] @relation("GroupToGroupUsersList")
   groupOrderData           Orders[]
   groupEarningData         Earnings[]
+  groupRatings             Ratings[]
 }
 
 model GroupUsers {
@@ -287,6 +288,7 @@ model Orders {
   influencerOrderData     User?           @relation("influencerOrderInfo", fields: [influencerId], references: [id])
   businessOrderData       User?            @relation("businessOrderInfo", fields: [businessId], references: [id])
   mediaOrderData          Media[]         @relation("mediaOrderInfo")
+  orderRatings            Ratings[]
 }
 
 model Media {
@@ -360,6 +362,24 @@ model RecentView {
   recentViewLoginUser      User?         @relation("recentViewLoginUserData", fields: [loginUserId], references: [id])
   recentViewUser           User?         @relation("recentViewUserData", fields: [recentViewUserId], references: [id])
 }
+
+model Ratings {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId            String?   @db.Uuid
+  ratedByUserId      String?   @db.Uuid  
+  groupId            String?   @db.Uuid
+  ratedToUserId      String?   @db.VarChar
+  rating             Decimal?  @default(0)
+  review             String?   @db.VarChar 
+  typeToUser         RatingType
+  createdAt          DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime? @default(now()) @db.Timestamp(6)
+
+  orderRatings       Orders?   @relation(fields: [orderId], references: [id])
+  groupRatings       Group?   @relation(fields: [groupId], references: [id])
+  ratedByUserData    User?     @relation(name: "ratedByUserInfo", fields: [ratedByUserId], references: [id])
+}
+
 
 enum Role {
   BUSINESS

@@ -18,6 +18,8 @@ import BadgesRoutes from './routes/badges.routes';
 import OrderRoutes from './routes/order.routes';
 import MediaRoutes from './routes/media.routes';
 import DashboardRoutes from './routes/dashboard.routes';
+import RatingsRoutes from './routes/rating.routes';
+
 
 
 
@@ -70,6 +72,8 @@ app.use('/api/badges', BadgesRoutes);
 app.use('/api/order', OrderRoutes);
 app.use('/api/media', MediaRoutes);
 app.use('/api/dashboard', DashboardRoutes);
+app.use('/api/ratings', RatingsRoutes);
+
 
 
 app.use('/api/mail', authRoutes);
