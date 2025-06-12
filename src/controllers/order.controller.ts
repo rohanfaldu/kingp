@@ -728,94 +728,107 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
 
 export const getAllOrderList = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const { status } = req.body;
+    // try {
+    const { status } = req.body;
 
-        const currentUserId = req.user?.userId;
+    const currentUserId = req.user?.userId;
 
-        if (status === "" || status === undefined || status === null) {
-            return response.error(res, 'Status is required');
-        }
+    if (status === "" || status === undefined || status === null) {
+        return response.error(res, 'Status is required');
+    }
 
-        const statusEnumValue = getStatusName(status);
-        let whereStatus;
-        if (status === 3) {
-            const completedEnumValue = getStatusName(4);
-            whereStatus = [statusEnumValue, completedEnumValue];
-        } else {
-            whereStatus = [statusEnumValue];
-        }
+    const statusEnumValue = getStatusName(status);
+    let whereStatus;
+    if (status === 3) {
+        const completedEnumValue = getStatusName(4);
+        whereStatus = [statusEnumValue, completedEnumValue];
+    } else {
+        whereStatus = [statusEnumValue];
+    }
 
-        console.log(whereStatus, " >>>>>>> whereStatus");
-        const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
-        //  console.log(existingUser, ">>>>>>>>>>> existingUser");
-        let whereCondition;
-        if (existingUser.type === UserType.INFLUENCER) {
-            whereCondition = {
-                OR: [
-                    {
-                        groupOrderData: {
-                            groupUsersList: {
-                                some: {
-                                    OR: [
-                                        { adminUserId: currentUserId },
-                                        { invitedUserId: currentUserId },
-                                    ],
-                                },
+    // console.log(whereStatus, " >>>>>>> whereStatus");
+    const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
+    //  console.log(existingUser, ">>>>>>>>>>> existingUser");
+    if (!existingUser) {
+        return response.error(res, 'User not found');
+    }
+
+    let whereCondition;
+    if (existingUser.type === UserType.INFLUENCER) {
+        whereCondition = {
+            OR: [
+                {
+                    groupOrderData: {
+                        groupUsersList: {
+                            some: {
+                                OR: [
+                                    { adminUserId: currentUserId },
+                                    { invitedUserId: currentUserId },
+                                ],
                             },
                         },
                     },
-                    { influencerId: currentUserId },
-                ],
-            };
-        } else {
-            whereCondition = {
-                businessId: currentUserId
-            };
-        }
+                },
+                { influencerId: currentUserId },
+            ],
+        };
+    } else {
+        whereCondition = {
+            businessId: currentUserId
+        };
+    }
 
-        // Option 1: Simple approach - exclude only userId (your original approach)
-        const getOrder = await prisma.orders.findMany({
-            where: {
-                status: {
-                    in: whereStatus
-                },
-                ...whereCondition
+
+    // Option 1: Simple approach - exclude only userId (your original approach)
+    const getOrder = await prisma.orders.findMany({
+        where: {
+            status: {
+                in: whereStatus
             },
-            include: {
-                groupOrderData: {},
-                influencerOrderData: {
-                    include: {
-                        socialMediaPlatforms: true,
-                        brandData: true,
-                        countryData: true,
-                        stateData: true,
-                        cityData: true,
-                    }
-                },
-                businessOrderData: {
-                    include: {
-                        socialMediaPlatforms: true,
-                        brandData: true,
-                        countryData: true,
-                        stateData: true,
-                        cityData: true,
-                    }
+            ...whereCondition
+        },
+        include: {
+            // groupOrderData: {},
+            groupOrderData: {
+                include: {
+                    groupUsersList: true // Include related data if needed
                 }
             },
-            orderBy: {
-                createdAt: 'desc'
+            influencerOrderData: {
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
+                }
+            },
+            businessOrderData: {
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
+                }
             }
-        });
-        console.log(getOrder, " >>>>>>>> getOrder")
+        },
+        orderBy: {
+            createdAt: 'desc'
+        }
+    });
+    console.log(getOrder, " >>>>>>>> getOrder")
 
 
-        return response.success(res, 'Get All order List', getOrder);
+    return response.success(res, 'Get All order List', getOrder);
 
-    } catch (error: any) {
-        return response.error(res, error.message || 'Something went wrong');
-    }
+    // } catch (error: any) {
+    //     return response.error(res, error.message || 'Something went wrong');
+    // }
 };
+
+
+
 
 // Alternative approach - if you know the exact field names
 export const getAllOrderListAlternative = async (req: Request, res: Response): Promise<any> => {
