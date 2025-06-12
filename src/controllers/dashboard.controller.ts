@@ -136,10 +136,10 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             where: {
                 slug: {
                     in: [
-                        'banner-image',
-                        'banner-title',
-                        'banner-button-text',
-                        'banner-button-link',
+                        'banner-1',
+                        'banner-2',
+                        'banner-3',
+                        'banner-4',
                     ],
                 },
             },
