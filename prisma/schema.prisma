@@ -66,6 +66,7 @@ model User {
   recentViewLoginUser      RecentView[]      @relation("recentViewLoginUserData")
   recentViewUser           RecentView[]      @relation("recentViewUserData")
   ratedByUserData          Ratings[]         @relation("ratedByUserInfo")
+  UserNotification         Notification[]
 }
 
 model Category {
@@ -380,6 +381,19 @@ model Ratings {
   orderRatings       Orders?   @relation(fields: [orderId], references: [id])
   groupRatings       Group?   @relation(fields: [groupId], references: [id])
   ratedByUserData    User?     @relation(name: "ratedByUserInfo", fields: [ratedByUserId], references: [id])
+}
+
+model Notification {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String?   @db.Uuid
+  title                 String?
+  message               String?
+  type                  String?   @default("INFO")
+  status                String    @default("SENT")
+  error                 String?
+  createdAt             DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt             DateTime? @default(now()) @db.Timestamp(6)
+  UserNotification      User?     @relation(fields: [userId], references: [id])
 }
 
 

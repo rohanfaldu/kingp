@@ -4,6 +4,7 @@ import response from '../utils/response';
 import { getStatusName, getCommonStatusName } from '../utils/commonFunction'
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
 import { IMediaType } from './../interfaces/media.interface';
+import { sendFCMNotificationToUsers } from '../utils/notification';
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,59 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                 },
             });
 
+            // ✅ Fetch the related order to find businessId
+            const order = await prisma.orders.findUnique({
+                where: { id: mediaData.orderId },
+                select: { businessId: true, title: true }
+            });
+
+            if (order?.businessId) {
+                const businessUser = await prisma.user.findUnique({
+                    where: { id: order.businessId },
+                    select: { id: true, fcmToken: true, name: true }
+                });
+
+                const notifTitle = 'New Media Uploaded!';
+                const notifMessage = `New media has been uploaded for order: ${order?.title || mediaData.orderId}`;
+                const notifType = 'MEDIA_CREATED';
+
+                try {
+                    // Store notification record
+                    await prisma.notification.create({
+                        data: {
+                            userId: businessUser?.id || null,
+                            title: notifTitle,
+                            message: notifMessage,
+                            type: notifType,
+                            status: businessUser?.fcmToken ? 'SENT' : 'ERROR',
+                            error: businessUser?.fcmToken ? null : 'No FCM token found',
+                        },
+                    });
+
+                    // Send push notification
+                    if (businessUser?.fcmToken) {
+                        await sendFCMNotificationToUsers(
+                            [businessUser],
+                            notifTitle,
+                            notifMessage,
+                            notifType
+                        );
+                    }
+                } catch (error: any) {
+                    console.error(`Failed to notify business user ${order.businessId}:`, error);
+                    await prisma.notification.create({
+                        data: {
+                            userId: businessUser?.id || null,
+                            title: notifTitle,
+                            message: notifMessage,
+                            type: notifType,
+                            status: 'ERROR',
+                            error: error.message || 'FCM failed',
+                        },
+                    });
+                }
+            }
+
             return response.success(res, 'Media created successfully!', createMedia);
         } catch (error: any) {
             return response.error(res, error.message);
@@ -40,6 +94,8 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message);
     }
 };
+
+
 
 export const getByIdMedia = async (req: Request, res: Response): Promise<any> => {
     try {

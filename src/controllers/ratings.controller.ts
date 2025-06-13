@@ -2,18 +2,14 @@ import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import response from "../utils/response";
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
-
 import { IRating } from "../interfaces/ratings.interface";
 import { paginate } from '../utils/pagination';
 import { RatingType } from '../enums/userType.enum';
+import { sendFCMNotificationToUsers } from '../utils/notification';
+
 
 
 const prisma = new PrismaClient();
-
-
-
-
-
 
 // creating a rating
 export const createRating = async (req: Request, res: Response): Promise<any> => {
@@ -27,13 +23,27 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
             return response.error(res, "Rating must be a number between 1 and 5");
 
         const createdRatings: any[] = [];
+        const usersToNotify: any[] = [];
+
+        const order = await prisma.orders.findUnique({
+            where: { id: orderId },
+            select: {
+                id: true,
+                status: true,
+                influencerId: true,
+                businessId: true,
+                groupId: true,
+            },
+        });
+
+        if (!order) return response.error(res, "Order not found.");
+        if (order.status !== "COMPLETED") return response.error(res, "You can only rate after the order is completed.");
 
         const createRatingIfNotExists = async (
             toUserId: string | null,
             groupId: string | null,
             typeToUser: "GROUP" | "INFLUENCER" | "BUSINESS"
         ) => {
-            // ❌ Prevent rating to self
             if (toUserId && toUserId === ratedByUserId) return;
 
             const alreadyRated = await prisma.ratings.findFirst({
@@ -66,17 +76,26 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                         },
                     },
                 });
+
                 createdRatings.push(newRating);
+
+                if (toUserId) {
+                    const userToNotify = await prisma.user.findUnique({
+                        where: { id: toUserId },
+                        select: { id: true, fcmToken: true },
+                    });
+
+                    if (userToNotify?.fcmToken) {
+                        usersToNotify.push(userToNotify);
+                    }
+                }
             }
         };
 
         if (groupId) {
-            const order = await prisma.orders.findFirst({
-                where: { id: orderId, groupId },
-            });
-
-            if (!order) {
-                return response.error(res, "Invalid orderId: It does not belong to the specified groupId.");
+            // Validate group belongs to this order
+            if (order.groupId !== groupId) {
+                return response.error(res, "This order is not related to the specified group.");
             }
 
             const existingGroupRating = await prisma.ratings.findFirst({
@@ -101,7 +120,7 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                         include: {
                             groupUsersList: {
                                 where: { requestAccept: 'ACCEPTED' },
-                                include: { invitedUser: true },
+                                include: { invitedUser: { select: { id: true, fcmToken: true } } },
                             },
                         },
                     },
@@ -109,7 +128,7 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
             });
 
             if (!groupOrder?.groupOrderData) {
-                return response.error(res, "Group order not found or groupId/orderId mismatch");
+                return response.error(res, "Group order data not found.");
             }
 
             const groupAdmin = await prisma.groupUsers.findFirst({
@@ -123,71 +142,74 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                 await createRatingIfNotExists(adminUserId, null, "INFLUENCER");
             }
 
-            const groupUsers = groupOrder.groupOrderData.groupUsersList || [];
-            for (const member of groupUsers) {
-                if (member.invitedUserId && member.invitedUserId !== adminUserId && member.invitedUserId !== ratedByUserId) {
+            for (const member of groupOrder.groupOrderData.groupUsersList) {
+                if (
+                    member.invitedUserId &&
+                    member.invitedUserId !== adminUserId &&
+                    member.invitedUserId !== ratedByUserId
+                ) {
                     await createRatingIfNotExists(member.invitedUserId, null, "INFLUENCER");
                 }
             }
         } else if (ratedToUserId) {
-            if (ratedToUserId === ratedByUserId) {
-                return response.error(res, "You cannot rate yourself.");
-            }
+            // Validate user was part of the order (either influencer or business)
+            let typeToUser: "INFLUENCER" | "BUSINESS" | null = null;
 
-            const orderAsInfluencer = await prisma.orders.findFirst({
-                where: {
-                    id: orderId,
-                    influencerId: ratedToUserId,
-                },
-            });
-
-            if (orderAsInfluencer) {
-                await createRatingIfNotExists(ratedToUserId, null, "INFLUENCER");
+            if (order.influencerId === ratedToUserId && order.businessId === ratedByUserId) {
+                typeToUser = "INFLUENCER";
+            } else if (order.businessId === ratedToUserId && order.influencerId === ratedByUserId) {
+                typeToUser = "BUSINESS";
             } else {
-                const orderAsBusiness = await prisma.orders.findFirst({
-                    where: {
-                        id: orderId,
-                        businessId: ratedToUserId,
-                    },
-                });
-
-                if (!orderAsBusiness) {
-                    return response.error(res, "Invalid orderId: It does not belong to the specified ratedToUserId.");
-                }
-
-                if (ratedToUserId === ratedByUserId) {
-                    return response.error(res, "Business cannot rate itself.");
-                }
-
-                await createRatingIfNotExists(ratedToUserId, null, "BUSINESS");
+                return response.error(res, "You can only rate a user that participated in this order.");
             }
+
+            await createRatingIfNotExists(ratedToUserId, null, typeToUser);
         } else {
-            return response.error(res, "Either groupId or ratedToUserId is required.");
+            return response.error(res, "Either ratedToUserId or groupId must be provided.");
         }
 
-        // ✅ Update review status in orders table
-        const order = await prisma.orders.findUnique({
-            where: { id: orderId },
-            select: { influencerId: true, businessId: true },
-        });
+        // Update review status in order
+        const updateData: any = {};
 
-        if (order) {
-            const updateData: any = {};
+        if (ratedByUserId === order.businessId) {
+            updateData.businessReviewStatus = true;
+        }
 
-            if (ratedByUserId === order.businessId) {
-                updateData.businessReviewStatus = true;
-            }
+        if (ratedByUserId === order.influencerId) {
+            updateData.influencerReviewStatus = true;
+        }
 
-            if (ratedByUserId === order.influencerId) {
-                updateData.influencerReviewStatus = true;
-            }
+        if (Object.keys(updateData).length > 0) {
+            await prisma.orders.update({
+                where: { id: orderId },
+                data: updateData,
+            });
+        }
 
-            if (Object.keys(updateData).length > 0) {
-                await prisma.orders.update({
-                    where: { id: orderId },
-                    data: updateData,
-                });
-            }
+        // FCM Notifications
+        if (usersToNotify.length > 0) {
+            const sender = await prisma.user.findUnique({
+                where: { id: ratedByUserId },
+                select: { name: true },
+            });
+
+            const title = 'You received a new rating!';
+            const message = `${sender?.name || 'Someone'} rated you for a recent order.`;
+
+            await sendFCMNotificationToUsers(usersToNotify, title, message, 'NEW_RATING');
+
+            const notificationEntries = usersToNotify.map((user) => ({
+                userId: user.id,
+                title,
+                message,
+                type: 'NEW_RATING',
+                status: 'SENT',
+            }));
+
+            await prisma.notification.createMany({
+                data: notificationEntries,
+                skipDuplicates: true,
+            });
         }
 
         return response.success(res, "Rating(s) created successfully!", createdRatings);
@@ -432,8 +454,6 @@ export const getUserRatings = async (req: Request, res: Response): Promise<any> 
         return response.error(res, error.message || "Something went wrong");
     }
 };
-
-
 
 
 
