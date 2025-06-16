@@ -15,6 +15,7 @@ import { Resend } from 'resend';
 import { Role } from '@prisma/client';
 import { RequestStatus } from '@prisma/client';
 import { contains } from "class-validator/types";
+import { generateUniqueReferralCode } from '../utils/referral'; 
 
 
 
@@ -56,6 +57,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         birthDate,
         loginType = LoginType.NONE,
         availability = AvailabilityType,
+        referralCode,
         subcategoriesId = [],
         ...userFields
     } = req.body;
@@ -119,6 +121,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             availability,
             profileCompletion: calculatedProfileCompletion,
             type: userFields.type ?? UserType.BUSINESS,
+            referralCode: generateUniqueReferralCode(),
             ...(countryId && { countryData: { connect: { id: countryId } } }),
             ...(stateId && { stateData: { connect: { id: stateId } } }),
             ...(cityId && { cityData: { connect: { id: cityId } } }),
@@ -169,6 +172,38 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             })),
             skipDuplicates: true,
         });
+    }
+
+    // 👉 Create Signup Reward (LOCKED)
+    await prisma.coinTransaction.create({
+        data: {
+            userId: newUser.id,
+            amount: 50,
+            type: 'SIGNUP',
+            status: 'LOCKED', // Unlocked after first successful deal
+        },
+    });
+
+    // 👉 If referred, store referral record
+    if (referralCode) {
+        const referrer = await prisma.user.findFirst({ where: { referralCode } });
+        if (referrer) {
+            await prisma.referral.create({
+                data: {
+                    referrerId: referrer.id,
+                    referredUserId: newUser.id,
+                },
+            });
+            // 👇 Create locked reward for referrer (released later after referred user's first deal)
+            await prisma.coinTransaction.create({
+                data: {
+                    userId: referrer.id,
+                    amount: 50,
+                    type: 'REFERRAL',
+                    status: 'LOCKED',
+                },
+            });
+        }
     }
 
     const token = jwt.sign(

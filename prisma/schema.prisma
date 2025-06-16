@@ -67,6 +67,9 @@ model User {
   recentViewUser           RecentView[]      @relation("recentViewUserData")
   ratedByUserData          Ratings[]         @relation("ratedByUserInfo")
   UserNotification         Notification[]
+  referrer                 Referral[]        @relation("Referrer")
+  referredUser             Referral[]        @relation("ReferredUser")
+  userRefferalCoin         CoinTransaction[]      
 }
 
 model Category {
@@ -396,6 +399,28 @@ model Notification {
   UserNotification      User?     @relation(fields: [userId], references: [id])
 }
 
+model Referral {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referrerId      String   @db.Uuid
+  referredUserId  String   @unique @db.Uuid
+  coinIssued      Boolean  @default(false)
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+
+  referrer        User?     @relation("Referrer", fields: [referrerId], references: [id])
+  referredUser    User?     @relation("ReferredUser", fields: [referredUserId], references: [id])
+}
+
+model CoinTransaction  {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String     @db.Uuid
+  type      CoinType
+  amount    Int        @default(50)
+  source    String?    // OrderId or action description
+  status    CoinStatus @default(LOCKED)
+  createdAt DateTime   @default(now()) @db.Timestamp(6)
+
+  userRefferalCoin      User?       @relation(fields: [userId], references: [id])
+}
 
 enum Role {
   BUSINESS
@@ -472,4 +497,18 @@ enum RatingType {
   INFLUENCER
   BUSINESS
   GROUP
+}
+
+enum CoinType {
+  SIGNUP
+  PROFILE_COMPLETION
+  SOCIAL_POST
+  REFERRAL
+  ONGOING
+}
+
+enum CoinStatus {
+  LOCKED
+  UNLOCKED
+  WITHDRAWN
 }

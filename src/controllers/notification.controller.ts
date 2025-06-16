@@ -7,8 +7,6 @@ import response from '../utils/response';
 
 
 
-dotenv.config(); // Load .env variables
-
 // Initialize Firebase Admin only once
 if (!admin.apps.length) {
     admin.initializeApp({
