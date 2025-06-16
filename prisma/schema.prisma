@@ -69,7 +69,8 @@ model User {
   UserNotification         Notification[]
   referrer                 Referral[]        @relation("Referrer")
   referredUser             Referral[]        @relation("ReferredUser")
-  userRefferalCoin         CoinTransaction[]      
+  userRefferalCoin         CoinTransaction[]  
+  userReferralCoinSummary  ReferralCoinSummary[]    
 }
 
 model Category {
@@ -415,12 +416,27 @@ model CoinTransaction  {
   userId    String     @db.Uuid
   type      CoinType
   amount    Int        @default(50)
-  source    String?    // OrderId or action description
+  source    String?    
   status    CoinStatus @default(LOCKED)
   createdAt DateTime   @default(now()) @db.Timestamp(6)
 
   userRefferalCoin      User?       @relation(fields: [userId], references: [id])
 }
+
+model ReferralCoinSummary {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String        @unique @db.Uuid
+  totalAmount         Decimal?      @db.Decimal
+  unlocked            Boolean       @default(false)  
+  withdrawAmount      Decimal?      @db.Decimal
+  netAmount           Decimal?      @db.Decimal
+  unlockedAt          DateTime?
+  createdAt           DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime      @updatedAt @db.Timestamp(6)
+
+  userReferralCoinSummary                User?         @relation(fields: [userId], references: [id])
+}
+
 
 enum Role {
   BUSINESS
@@ -504,6 +520,7 @@ enum CoinType {
   PROFILE_COMPLETION
   SOCIAL_POST
   REFERRAL
+  FIRST_DEAL_REFFERAL
   ONGOING
 }
 

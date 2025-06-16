@@ -10,6 +10,7 @@ import { formatEarningToTransaction, formatWithdrawToTransaction, TransactionHis
 import { formatBirthDate } from '../controllers/auth.controller'
 import { UserType } from '../enums/userType.enum';
 import { sendFCMNotificationToUsers } from '../utils/notification';
+import { CoinType } from '@prisma/client';
 
 
 
@@ -471,9 +472,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 if (currentOrder.groupId) {
                     // Get accepted users from group
                     const acceptedUsers = await prisma.groupUsersList.findMany({
-                        where: { 
-                            groupId: currentOrder.groupId, 
-                            requestAccept: 'ACCEPTED' 
+                        where: {
+                            groupId: currentOrder.groupId,
+                            requestAccept: 'ACCEPTED'
                         },
                         include: {
                             invitedUser: {
@@ -795,34 +796,155 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
             // Update business totalExpenses
             if (updated.businessId) {
-                const businessUserStats = await prisma.userStats.findFirst({
-                    where: { userId: updated.businessId },
-                    select: { id: true, totalExpenses: true, totalDeals: true, averageValue: true },
-                });
+                // const businessUserStats = await prisma.userStats.findFirst({
+                //     where: { userId: updated.businessId },
+                //     select: { id: true, totalExpenses: true, totalDeals: true, averageValue: true },
+                // });
 
-                if (businessUserStats) {
-                    // Update existing business UserStats record
-                    const currentExpenses = businessUserStats.totalExpenses ?? 0;
-                    const updatedExpenses = Number(currentExpenses) + Number(amount);
-                    const updatedTotalDeals = Number(businessUserStats.totalDeals) + Number(1);
-                    const updatedAverageValue = updatedExpenses / updatedTotalDeals;
+                // if (businessUserStats) {
+                //     // Update existing business UserStats record
+                //     const currentExpenses = businessUserStats.totalExpenses ?? 0;
+                //     const updatedExpenses = Number(currentExpenses) + Number(amount);
+                //     const updatedTotalDeals = Number(businessUserStats.totalDeals) + Number(1);
+                //     const updatedAverageValue = updatedExpenses / updatedTotalDeals;
 
-                    await prisma.userStats.update({
-                        where: { id: businessUserStats.id },
-                        data: {
-                            totalExpenses: updatedExpenses,
-                            totalDeals: updatedTotalDeals,
-                            averageValue: updatedAverageValue,
-                        },
-                    });
-                } else {
-                    await prisma.userStats.create({
+                //     await prisma.userStats.update({
+                //         where: { id: businessUserStats.id },
+                //         data: {
+                //             totalExpenses: updatedExpenses,
+                //             totalDeals: updatedTotalDeals,
+                //             averageValue: updatedAverageValue,
+                //         },
+                //     });
+                // } else {
+                //     await prisma.userStats.create({
+                //         data: {
+                //             userId: updated.businessId,
+                //             totalExpenses: Number(amount),
+                //             totalDeals: 1
+                //         },
+                //     });
+                // }
+
+                // 🎁 Reward business user with KringP Coins for spending
+                const kringPCoins = Math.floor(Number(amount) / 100);
+                if (kringPCoins > 0) {
+                    const coinSource = `Spending reward for ₹${amount}`;
+
+                    // Create coin transaction
+                    await prisma.coinTransaction.create({
                         data: {
                             userId: updated.businessId,
-                            totalExpenses: Number(amount),
-                            totalDeals: 1
+                            amount: kringPCoins,
+                            type: 'ONGOING',
+                            status: 'UNLOCKED',
+                            source: coinSource,
                         },
                     });
+
+                    // Update or create ReferralCoinSummary for business user
+                    const existingSummary = await prisma.referralCoinSummary.findUnique({
+                        where: { userId: updated.businessId },
+                    });
+
+                    if (existingSummary) {
+                        await prisma.referralCoinSummary.update({
+                            where: { userId: updated.businessId },
+                            data: {
+                                totalAmount: (existingSummary.totalAmount ?? 0) + kringPCoins,
+                                NetAmount: new Prisma.Decimal(existingSummary.NetAmount ?? 0).plus(kringPCoins),
+                                unlocked: true,
+                                unlockedAt: new Date(),
+                            },
+                        });
+                    } else {
+                        await prisma.referralCoinSummary.create({
+                            data: {
+                                userId: updated.businessId,
+                                totalAmount: kringPCoins,
+                                NetAmount: kringPCoins,
+                                unlocked: true,
+                                unlockedAt: new Date(),
+                            },
+                        });
+                    }
+                }
+
+            }
+
+            // PERFECT REFERRAL REWARD LOGIC
+            if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
+                const userRoles = [
+                    { key: 'businessId', id: updated.businessId },
+                    { key: 'influencerId', id: updated.influencerId }
+                ];
+
+                for (const { key, id: referredUserId } of userRoles) {
+                    if (!referredUserId) continue;
+
+                    // Count all COMPLETED orders for that user role
+                    const completedOrderCount = await prisma.orders.count({
+                        where: {
+                            status: 'COMPLETED',
+                            [key]: referredUserId
+                        }
+                    });
+
+                    // Only proceed if this is the FIRST completed order
+                    if (completedOrderCount === 1) {
+                        const referral = await prisma.referral.findFirst({
+                            where: {
+                                referredUserId: referredUserId,
+                                coinIssued: false
+                            }
+                        });
+
+                        if (referral && referral.referrerId) {
+                            //  Reward 50 UNLOCKED coins to referrer
+                            await prisma.coinTransaction.create({
+                                data: {
+                                    userId: referral.referrerId,
+                                    type: CoinType.FIRST_DEAL_REFFERAL,
+                                    amount: 50,
+                                    status: 'UNLOCKED',
+                                    source: `Referral reward for ${key} ${referredUserId}`
+                                }
+                            });
+
+                            // Update or create ReferralCoinSummary for referrer, set unlocked true + unlockedAt
+                            const now = new Date();
+
+                            const summary = await prisma.referralCoinSummary.findUnique({
+                                where: { userId: referral.referrerId }
+                            });
+
+                            if (summary) {
+                                await prisma.referralCoinSummary.update({
+                                    where: { userId: referral.referrerId },
+                                    data: {
+                                        totalAmount: (summary.totalAmount ?? 0) + 50,
+                                        unlocked: true,
+                                        unlockedAt: now
+                                    }
+                                });
+                            } else {
+                                await prisma.referralCoinSummary.create({
+                                    data: {
+                                        userId: referral.referrerId,
+                                        totalAmount: 50,
+                                        unlocked: true,
+                                        unlockedAt: now
+                                    }
+                                });
+                            }
+
+                            // Mark referral as rewarded
+                            await prisma.referral.update({
+                                where: { id: referral.id },
+                                data: { coinIssued: true }
+                            });
+                        }
+                    }
                 }
             }
 
@@ -1243,6 +1365,65 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
 
 
 
+// export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { userId, withdrawAmount, withdrawalType } = req.body;
+
+//         if (!userId || typeof withdrawAmount !== 'number') {
+//             return response.error(res, 'userId and withdrawAmount are required');
+//         }
+
+//         // Find UserStats by userId (not by id)
+//         const user = await prisma.userStats.findFirst({ where: { userId } });
+//         if (!user) return response.error(res, 'User stats not found');
+
+//         const currentEarnings = user.totalEarnings ?? 0;
+//         const currentWithdrawals = user.totalWithdraw ?? 0;
+
+//         // Convert decimals to numbers safely
+//         const earningsNumber =
+//             currentEarnings instanceof Prisma.Decimal
+//                 ? currentEarnings.toNumber()
+//                 : currentEarnings;
+
+//         const withdrawalsNumber =
+//             currentWithdrawals instanceof Prisma.Decimal
+//                 ? currentWithdrawals.toNumber()
+//                 : currentWithdrawals;
+
+//         if (withdrawAmount > earningsNumber) {
+//             return response.error(res, 'Insufficient balance for withdrawal');
+//         }
+
+//         // Create withdrawal record
+//         const newWithdraw = await prisma.withdraw.create({
+//             data: {
+//                 userId,
+//                 withdrawAmount,
+//                 withdrawalType,
+//                 transactionType: 'DEBIT',
+//             },
+//         });
+
+//         // Update user's withdrawals
+//         await prisma.userStats.update({
+//             where: { id: user.id },
+//             data: {
+//                 totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
+//                 totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
+//             },
+//         });
+
+//         return response.success(res, 'Withdrawal successful', {
+//             withdraw: newWithdraw,
+//             updatedBalance: earningsNumber - withdrawAmount,
+//         });
+
+//     } catch (error: any) {
+//         console.error('Withdraw API error:', error);
+//         return response.error(res, error.message || 'Something went wrong');
+//     }
+// };
 
 
 export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
@@ -1253,29 +1434,26 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             return response.error(res, 'userId and withdrawAmount are required');
         }
 
-        // Find UserStats by userId (not by id)
+        // 1. Fetch user stats
         const user = await prisma.userStats.findFirst({ where: { userId } });
         if (!user) return response.error(res, 'User stats not found');
 
         const currentEarnings = user.totalEarnings ?? 0;
         const currentWithdrawals = user.totalWithdraw ?? 0;
 
-        // Convert decimals to numbers safely
-        const earningsNumber =
-            currentEarnings instanceof Prisma.Decimal
-                ? currentEarnings.toNumber()
-                : currentEarnings;
+        const earningsNumber = currentEarnings instanceof Prisma.Decimal
+            ? currentEarnings.toNumber()
+            : currentEarnings;
 
-        const withdrawalsNumber =
-            currentWithdrawals instanceof Prisma.Decimal
-                ? currentWithdrawals.toNumber()
-                : currentWithdrawals;
+        const withdrawalsNumber = currentWithdrawals instanceof Prisma.Decimal
+            ? currentWithdrawals.toNumber()
+            : currentWithdrawals;
 
         if (withdrawAmount > earningsNumber) {
             return response.error(res, 'Insufficient balance for withdrawal');
         }
 
-        // Create withdrawal record
+        // 2. Create withdrawal record
         const newWithdraw = await prisma.withdraw.create({
             data: {
                 userId,
@@ -1285,7 +1463,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             },
         });
 
-        // Update user's withdrawals
+        // 3. Update UserStats
         await prisma.userStats.update({
             where: { id: user.id },
             data: {
@@ -1294,9 +1472,54 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             },
         });
 
+        // 4. KringP Coins reward calculation
+        const kringPCoins = Math.floor(withdrawAmount / 100);
+        const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
+
+        if (kringPCoins > 0) {
+            // 4.1 Add CoinTransaction entry
+            await prisma.coinTransaction.create({
+                data: {
+                    userId,
+                    amount: kringPCoins,
+                    type: 'ONGOING',
+                    status: 'UNLOCKED',
+                    source: sourceNote,
+                },
+            });
+
+            // 4.2 Update or Create ReferralCoinSummary
+            const existingSummary = await prisma.referralCoinSummary.findUnique({
+                where: { userId },
+            });
+
+            if (existingSummary) {
+                await prisma.referralCoinSummary.update({
+                    where: { userId },
+                    data: {
+                        totalAmount: (existingSummary.totalAmount ?? 0) + kringPCoins,
+                        NetAmount: new Prisma.Decimal(existingSummary.NetAmount ?? 0).plus(kringPCoins),
+                        unlocked: true,
+                        unlockedAt: new Date(),
+                    },
+                });
+            } else {
+                await prisma.referralCoinSummary.create({
+                    data: {
+                        userId,
+                        totalAmount: kringPCoins,
+                        NetAmount: kringPCoins,
+                        unlocked: true,
+                        unlockedAt: new Date(),
+                    },
+                });
+            }
+        }
+
         return response.success(res, 'Withdrawal successful', {
             withdraw: newWithdraw,
             updatedBalance: earningsNumber - withdrawAmount,
+            kringPCoinsIssued: kringPCoins,
         });
 
     } catch (error: any) {
@@ -1304,8 +1527,6 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
         return response.error(res, error.message || 'Something went wrong');
     }
 };
-
-
 
 
 
@@ -1419,6 +1640,129 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
 };
 
 
+
+export const withdrawCoins = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { userId, withdrawAmount } = req.body;
+
+        if (!userId || typeof withdrawAmount !== 'number') {
+            return response.error(res, 'userId and withdrawAmount are required');
+        }
+
+        // Fetch current referral coin summary
+        const summary = await prisma.referralCoinSummary.findUnique({
+            where: { userId },
+        });
+
+        if (!summary) {
+            return response.error(res, 'Referral coin summary not found');
+        }
+
+        if (!summary.unlocked) {
+            return response.error(res, 'Coins are not unlocked yet for withdrawal');
+        }
+
+        const currentTotal = summary.totalAmount ?? 0;
+        const currentWithdraw = summary.withdrawAmount ?? new Prisma.Decimal(0);
+
+        // Calculate new withdraw and net amounts
+        const updatedWithdraw = currentWithdraw.plus(withdrawAmount);
+        if (updatedWithdraw.gt(currentTotal)) {
+            return response.error(res, 'Withdrawal amount exceeds available coins');
+        }
+
+        const netAmount = new Prisma.Decimal(currentTotal).minus(updatedWithdraw);
+
+        // Update ReferralCoinSummary
+        const updatedSummary = await prisma.referralCoinSummary.update({
+            where: { userId },
+            data: {
+                withdrawAmount: updatedWithdraw,
+                netAmount: netAmount,
+            },
+        });
+
+        // Return updated data in response
+        return response.success(res, 'Referral coin withdrawal recorded successfully', updatedSummary);
+
+
+    } catch (error: any) {
+        console.error('Coin Withdrawal Error:', error);
+        return response.error(res, error.message || 'Something went wrong during coin withdrawal');
+    }
+};
+
+
+
+export const getUserCoinHistory = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    // Fetch coin transactions for the user (only unlocked coins)
+    const coinTransactions = await prisma.coinTransaction.findMany({
+      where: { userId, status: 'UNLOCKED' },
+      select: {
+        id: true,
+        amount: true,
+        type: true,
+        source: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    // Fetch referral coin summary to get withdrawals
+    const referralSummary = await prisma.referralCoinSummary.findUnique({
+      where: { userId },
+      select: {
+        withdrawAmount: true,
+        updatedAt: true,
+      },
+    });
+
+    // Format coin transactions as history entries
+    const history = coinTransactions.map(tx => ({
+      id: tx.id,
+      date: tx.createdAt,
+      type: tx.type,              // e.g. 'SIGNUP', 'PROFILE_COMPLETE' etc.
+      source: tx.source || null,
+      amount: tx.amount,          // integer amount
+      status: tx.status,
+      isWithdrawal: false,
+    }));
+
+    // Add withdrawal record if any withdrawal amount exists
+    if (referralSummary && referralSummary.withdrawAmount && Number(referralSummary.withdrawAmount) > 0) {
+      history.push({
+        id: 'withdrawal',  // or generate a unique id here if needed
+        date: referralSummary.updatedAt,
+        type: 'WITHDRAWAL',
+        source: null,
+        amount: Number(referralSummary.withdrawAmount), // integer
+        status: 'PROCESSED',
+        isWithdrawal: true,
+      });
+    }
+
+    // Sort all entries by date descending
+    history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return res.json({
+      success: true,
+      data: history,
+    });
+  } catch (error: any) {
+    console.error('Get User Coin History Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch user coin history',
+    });
+  }
+};
 
 
 

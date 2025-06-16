@@ -15,7 +15,8 @@ import { Resend } from 'resend';
 import { Role } from '@prisma/client';
 import { RequestStatus } from '@prisma/client';
 import { contains } from "class-validator/types";
-import { generateUniqueReferralCode } from '../utils/referral'; 
+import { generateUniqueReferralCode } from '../utils/referral';
+import { CoinType } from '@prisma/client';
 
 
 
@@ -174,17 +175,53 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         });
     }
 
-    // 👉 Create Signup Reward (LOCKED)
+    // 👉 Signup Reward: create CoinTransaction + update ReferralCoinSummary
     await prisma.coinTransaction.create({
         data: {
             userId: newUser.id,
             amount: 50,
-            type: 'SIGNUP',
-            status: 'LOCKED', // Unlocked after first successful deal
+            type: CoinType.SIGNUP,
+            status: 'LOCKED',
         },
     });
 
-    // 👉 If referred, store referral record
+    const signupSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: newUser.id } });
+    if (signupSummary) {
+        await prisma.referralCoinSummary.update({
+            where: { userId: newUser.id },
+            data: { totalAmount: (signupSummary.totalAmount ?? 0) + 50 },
+        });
+    } else {
+        await prisma.referralCoinSummary.create({
+            data: { userId: newUser.id, totalAmount: 50 },
+        });
+    }
+
+    // 👉 Profile Completion Reward if 100%
+    if (calculatedProfileCompletion === 100) {
+        await prisma.coinTransaction.create({
+            data: {
+                userId: newUser.id,
+                amount: 50,
+                type: CoinType.PROFILE_COMPLETION,
+                status: 'LOCKED',
+            },
+        });
+
+        const profileSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: newUser.id } });
+        if (profileSummary) {
+            await prisma.referralCoinSummary.update({
+                where: { userId: newUser.id },
+                data: { totalAmount: (profileSummary.totalAmount ?? 0) + 50 },
+            });
+        } else {
+            await prisma.referralCoinSummary.create({
+                data: { userId: newUser.id, totalAmount: 50 },
+            });
+        }
+    }
+
+    // 👉 Referral reward for referrer (if referralCode present)
     if (referralCode) {
         const referrer = await prisma.user.findFirst({ where: { referralCode } });
         if (referrer) {
@@ -194,17 +231,31 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                     referredUserId: newUser.id,
                 },
             });
-            // 👇 Create locked reward for referrer (released later after referred user's first deal)
+
             await prisma.coinTransaction.create({
                 data: {
                     userId: referrer.id,
                     amount: 50,
-                    type: 'REFERRAL',
+                    type: CoinType.REFERRAL,
                     status: 'LOCKED',
                 },
             });
+
+            const referralSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: referrer.id } });
+            if (referralSummary) {
+                await prisma.referralCoinSummary.update({
+                    where: { userId: referrer.id },
+                    data: { totalAmount: (referralSummary.totalAmount ?? 0) + 50 },
+                });
+            } else {
+                await prisma.referralCoinSummary.create({
+                    data: { userId: referrer.id, totalAmount: 50 },
+                });
+            }
         }
     }
+
+
 
     const token = jwt.sign(
         { userId: newUser.id, email: newUser.emailAddress },
@@ -1020,7 +1071,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const {
             platform, type, countryId, stateId, cityId, status,
             subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
-            badgeType, search, subtype, page = 1, limit = 10,
+            badgeType, search, subtype, minViewCount, maxViewCount, page = 1, limit = 10,
         } = req.body;
 
         // const currentUserId = req.user?.id || req.userId; 
@@ -1741,6 +1792,206 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
 
 
+// export const editProfile = async (req: Request, res: Response): Promise<any> => {
+//     const { id } = req.params;
+//     const userData: IUser = req.body;
+
+//     if (!id || !isUuid(id)) {
+//         return response.error(res, 'Invalid UUID format');
+//     }
+
+//     // First, fetch the existing user to preserve existing data
+//     const existingUser = await prisma.user.findUnique({
+//         where: { id },
+//         include: {
+//             socialMediaPlatforms: true,
+//             subCategories: {
+//                 include: {
+//                     subCategory: true
+//                 }
+//             }
+//         }
+//     });
+
+//     if (!existingUser) {
+//         return response.error(res, 'User not found');
+//     }
+
+//     const {
+//         emailAddress, password, subcategoriesId = [], stateId, cityId, countryId, brandTypeId, status, gender, ...updatableFields
+//     } = userData;
+
+//     // Prepare update data while preserving existing values
+//     const finalUpdateData: any = {};
+
+//     // Status handling
+//     if (status !== undefined) {
+//         finalUpdateData.status = resolveStatus(status);
+//     }
+
+//     // Gender handling
+//     if (gender !== undefined) {
+//         finalUpdateData.gender = gender as unknown as any;
+//     }
+
+//     // Location handling
+//     if (stateId) {
+//         const state = await prisma.state.findUnique({ where: { id: stateId } });
+//         if (!state) return response.error(res, 'Invalid stateId');
+//         if (countryId && state.countryId !== countryId) {
+//             return response.error(res, 'State does not belong to provided country');
+//         }
+//         finalUpdateData.stateData = { connect: { id: stateId } };
+//     }
+
+//     if (cityId) {
+//         const city = await prisma.city.findUnique({ where: { id: cityId } });
+//         if (!city) return response.error(res, 'Invalid cityId');
+//         if (stateId && city.stateId !== stateId) {
+//             return response.error(res, 'City does not belong to provided State');
+//         }
+//         finalUpdateData.cityData = { connect: { id: cityId } };
+//     }
+
+//     if (countryId) {
+//         finalUpdateData.countryData = { connect: { id: countryId } };
+//     }
+
+//     if (brandTypeId) {
+//         finalUpdateData.brandData = { connect: { id: brandTypeId } };
+//     }
+
+//     // Add other updatable fields, preserving existing values if not provided
+//     Object.keys(updatableFields).forEach(key => {
+//         if (updatableFields[key] !== undefined) {
+//             finalUpdateData[key] = updatableFields[key];
+//         }
+//     });
+
+//     // Subcategories handling
+//     let updatedSubcategories: string[] = [];
+//     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
+//         const validSubCategories = await prisma.subCategory.findMany({
+//             where: { id: { in: subcategoriesId.filter(Boolean) } },
+//             select: { id: true }
+//         });
+
+//         const validIds = validSubCategories.map(sub => sub.id);
+//         const invalidIds = subcategoriesId.filter(id => !validIds.includes(id));
+
+//         if (invalidIds.length > 0) {
+//             return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
+//         }
+
+//         updatedSubcategories = validIds;
+
+//         // Delete existing subcategories and create new ones
+//         await prisma.userSubCategory.deleteMany({
+//             where: { userId: id }
+//         });
+
+//         await prisma.userSubCategory.createMany({
+//             data: validIds.map(subCategoryId => ({
+//                 userId: id,
+//                 subCategoryId: subCategoryId
+//             })),
+//             skipDuplicates: true
+//         });
+//     } else {
+//         // If no subcategories provided, use existing ones
+//         updatedSubcategories = existingUser.subCategories.map(sc => sc.subCategory.id);
+//     }
+
+//     try {
+//         // Prepare data for profile completion calculation
+//         const profileCompletionData = {
+//             ...existingUser,
+//             ...userData,
+//             subcategoriesId: updatedSubcategories
+//         };
+
+//         // Calculate profile completion based on user type
+//         let calculatedProfileCompletion = 0;
+//         if (existingUser.type === UserType.INFLUENCER) {
+//             calculatedProfileCompletion = calculateProfileCompletion({
+//                 ...profileCompletionData,
+//                 subcategoriesId: updatedSubcategories
+//             });
+//         } else {
+//             calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
+//         }
+
+//         // Add profile completion to update data
+//         finalUpdateData.profileCompletion = calculatedProfileCompletion;
+
+//         // 👉 If profile is now 100% and reward not already given, give PROFILE_COMPLETE coins
+//         if (calculatedProfileCompletion === 100) {
+//             const existingProfileReward = await prisma.coinTransaction.findFirst({
+//                 where: {
+//                     userId: id,
+//                     type: CoinType.PROFILE_COMPLETE
+
+//                 },
+//             });
+
+//             if (!existingProfileReward) {
+//                 await prisma.coinTransaction.create({
+//                     data: {
+//                         userId: id,
+//                         amount: 50,
+//                         type: CoinType.PROFILE_COMPLETE,
+//                         status: 'LOCKED', // Will be unlocked later after successful deal
+//                     },
+//                 });
+//             }
+//         }
+
+
+//         const token = req.headers.authorization?.split(' ')[1] || req.token;
+
+//         // Perform update
+//         const editedUser = await prisma.user.update({
+//             where: { id },
+//             data: finalUpdateData,
+//             include: {
+//                 socialMediaPlatforms: true,
+//                 brandData: true,
+//                 countryData: true,
+//                 stateData: true,
+//                 cityData: true,
+//             }
+//         });
+
+
+//         // Fetch names for country, state, city
+//         const country = editedUser.countryId ? await prisma.country.findUnique({ where: { id: editedUser.countryId }, select: { name: true } }) : null;
+//         const state = editedUser.stateId ? await prisma.state.findUnique({ where: { id: editedUser.stateId }, select: { name: true } }) : null;
+//         const city = editedUser.cityId ? await prisma.city.findUnique({ where: { id: editedUser.cityId }, select: { name: true } }) : null;
+
+//         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(editedUser.id);
+
+//         const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
+//         const userResponse = {
+//             ...newUsers,
+//             categories: userCategoriesWithSubcategories,
+//             countryName: country?.name ?? null,
+//             stateName: state?.name ?? null,
+//             cityName: city?.name ?? null,
+//         };
+
+
+
+//         return response.success(res, 'User profile updated successfully!', {
+//             user: userResponse,
+//             token,
+//         });
+
+//     } catch (error: any) {
+//         return response.error(res, error.message || 'Failed to update user profile');
+//     }
+// };
+
+
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params;
     const userData: IUser = req.body;
@@ -1749,7 +2000,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, 'Invalid UUID format');
     }
 
-    // First, fetch the existing user to preserve existing data
     const existingUser = await prisma.user.findUnique({
         where: { id },
         include: {
@@ -1770,20 +2020,16 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         emailAddress, password, subcategoriesId = [], stateId, cityId, countryId, brandTypeId, status, gender, ...updatableFields
     } = userData;
 
-    // Prepare update data while preserving existing values
     const finalUpdateData: any = {};
 
-    // Status handling
     if (status !== undefined) {
         finalUpdateData.status = resolveStatus(status);
     }
 
-    // Gender handling
     if (gender !== undefined) {
         finalUpdateData.gender = gender as unknown as any;
     }
 
-    // Location handling
     if (stateId) {
         const state = await prisma.state.findUnique({ where: { id: stateId } });
         if (!state) return response.error(res, 'Invalid stateId');
@@ -1810,14 +2056,12 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         finalUpdateData.brandData = { connect: { id: brandTypeId } };
     }
 
-    // Add other updatable fields, preserving existing values if not provided
     Object.keys(updatableFields).forEach(key => {
         if (updatableFields[key] !== undefined) {
             finalUpdateData[key] = updatableFields[key];
         }
     });
 
-    // Subcategories handling
     let updatedSubcategories: string[] = [];
     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
         const validSubCategories = await prisma.subCategory.findMany({
@@ -1834,32 +2078,26 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
         updatedSubcategories = validIds;
 
-        // Delete existing subcategories and create new ones
-        await prisma.userSubCategory.deleteMany({
-            where: { userId: id }
-        });
+        await prisma.userSubCategory.deleteMany({ where: { userId: id } });
 
         await prisma.userSubCategory.createMany({
             data: validIds.map(subCategoryId => ({
                 userId: id,
-                subCategoryId: subCategoryId
+                subCategoryId
             })),
             skipDuplicates: true
         });
     } else {
-        // If no subcategories provided, use existing ones
         updatedSubcategories = existingUser.subCategories.map(sc => sc.subCategory.id);
     }
 
     try {
-        // Prepare data for profile completion calculation
         const profileCompletionData = {
             ...existingUser,
             ...userData,
             subcategoriesId: updatedSubcategories
         };
 
-        // Calculate profile completion based on user type
         let calculatedProfileCompletion = 0;
         if (existingUser.type === UserType.INFLUENCER) {
             calculatedProfileCompletion = calculateProfileCompletion({
@@ -1870,12 +2108,40 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
         }
 
-        // Add profile completion to update data
         finalUpdateData.profileCompletion = calculatedProfileCompletion;
+
+        // 👉 If profile is 100% complete, add PROFILE_COMPLETE reward (LOCKED)
+        // 👉 If profile is 100% complete, add PROFILE_COMPLETE reward (LOCKED)
+        if (calculatedProfileCompletion === 100) {
+            await prisma.coinTransaction.create({
+                data: {
+                    userId: existingUser.id,
+                    amount: 50,
+                    type: CoinType.PROFILE_COMPLETION,
+                    status: 'LOCKED',
+                },
+            });
+
+            const profileSummary = await prisma.referralCoinSummary.findUnique({
+                where: { userId: existingUser.id },
+            });
+
+            if (profileSummary) {
+                await prisma.referralCoinSummary.update({
+                    where: { userId: existingUser.id },
+                    data: { totalAmount: (profileSummary.totalAmount ?? 0) + 50 },
+                });
+            } else {
+                await prisma.referralCoinSummary.create({
+                    data: { userId: existingUser.id, totalAmount: 50 },
+                });
+            }
+        }
+
+
 
         const token = req.headers.authorization?.split(' ')[1] || req.token;
 
-        // Perform update
         const editedUser = await prisma.user.update({
             where: { id },
             data: finalUpdateData,
@@ -1888,8 +2154,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             }
         });
 
-
-        // Fetch names for country, state, city
         const country = editedUser.countryId ? await prisma.country.findUnique({ where: { id: editedUser.countryId }, select: { name: true } }) : null;
         const state = editedUser.stateId ? await prisma.state.findUnique({ where: { id: editedUser.stateId }, select: { name: true } }) : null;
         const city = editedUser.cityId ? await prisma.city.findUnique({ where: { id: editedUser.cityId }, select: { name: true } }) : null;
@@ -1905,8 +2169,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             cityName: city?.name ?? null,
         };
 
-
-
         return response.success(res, 'User profile updated successfully!', {
             user: userResponse,
             token,
@@ -1916,8 +2178,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message || 'Failed to update user profile');
     }
 };
-
-
 
 export const getUsersWithType = async (req: Request, res: Response): Promise<any> => {
     try {
