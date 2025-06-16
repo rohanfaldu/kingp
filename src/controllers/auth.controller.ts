@@ -321,7 +321,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     <p>Your OTP is: <strong>${otp}</strong></p>
     <p>This OTP is valid for a limited time. Please do not share it with anyone for security reasons.</p>
     <p>If you did not initiate this registration, please ignore this email.</p>
-    
   `;
 
     const sendEmail = await resend.emails.send({
