@@ -72,6 +72,7 @@ model User {
   userRefferalCoin         CoinTransaction[]  
   userReferralCoinSummary  ReferralCoinSummary[] 
   userAuthTokenData        UserAuthToken[]   
+  recentChatViewLoginUser  RecentChatView[]           @relation("recentChatViewLoginUserData")
 }
 
 model Category {
@@ -372,6 +373,18 @@ model RecentView {
 
   recentViewLoginUser      User?         @relation("recentViewLoginUserData", fields: [loginUserId], references: [id])
   recentViewUser           User?         @relation("recentViewUserData", fields: [recentViewUserId], references: [id])
+}
+
+model RecentChatView {
+  id                            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loginUserId                   String?         @db.Uuid
+  recentChatViewUserId          String?         @db.VarChar
+  chatCount                     Int?            @default(0)
+  createdAt                     DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt                     DateTime?       @default(now()) @db.Timestamp(6)
+
+  recentChatViewLoginUser       User?           @relation("recentChatViewLoginUserData", fields: [loginUserId], references: [id])
+  @@unique([loginUserId, recentChatViewUserId])
 }
 
 model Ratings {

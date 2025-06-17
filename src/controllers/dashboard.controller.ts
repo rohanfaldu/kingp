@@ -350,7 +350,61 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             recentViews,
         };
 
+        /******************************/
 
+        // 1. Fetch recent views
+        const recentChatViews = await prisma.recentChatView.findMany({
+            where: {
+                loginUserId: loggedInUserId, // people who viewed this user
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            select: {
+                id: true,
+                loginUserId: true,
+                chatCount: true,
+                updatedAt: true,
+                recentChatViewLoginUser: {
+                    select: {
+                        id: true,
+                        name: true,
+                        userImage: true,
+                    },
+                },
+            },
+            orderBy: {
+                updatedAt: 'desc',
+            },
+        });
+
+        // 2. Aggregate total chat view count
+        const totalChatViewCount = await prisma.recentChatView.aggregate({
+            where: {
+                loginUserId: loggedInUserId,
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            _sum: {
+                chatCount: true,
+            },
+        });
+
+        const analyticsChat = {
+            totalChatViewCount: totalChatViewCount._sum.chatCount || 0,
+            recentViews: recentChatViews.map(view => ({
+                id: view.id,
+                chatCount: view.chatCount,
+                updatedAt: view.updatedAt,
+                viewer: view.recentChatViewLoginUser, // viewer info (name, image, id)
+            })),
+        };
+
+        const analyticSummary = {
+            viewCountData: analytics,
+            chatCountData: analyticsChat,
+        };
 
         return response.success(res, "Influencer dashboard data fetched successfully", {
             profileCompletion: user.profileCompletion,
@@ -359,10 +413,56 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             suggestions: profileSuggestions,
             totalReferralCount,
             leadBoard,
-            analytics,
+            analyticSummary,
         });
     } catch (error: any) {
         return response.error(res, error.message);
+    }
+};
+
+
+
+export const chatViewCount = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const loginUserId = req.user?.userId;
+        const { recentChatViewUserId } = req.body;
+
+        if (!loginUserId || !recentChatViewUserId) {
+            throw new Error("Both loginUserId and recentChatViewUserId are required");
+        }
+
+        const chatView = await prisma.recentChatView.upsert({
+            where: {
+                loginUserId_recentChatViewUserId: {
+                    loginUserId,
+                    recentChatViewUserId,
+                },
+            },
+            update: {
+                chatCount: { increment: 1 },
+                updatedAt: new Date(),
+            },
+            create: {
+                loginUserId,
+                recentChatViewUserId,
+                chatCount: 1,
+            },
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Chat view count updated",
+            data: {
+                loginUserId,
+                recentChatViewUserId,
+                chatCount: chatView.chatCount,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
     }
 };
 

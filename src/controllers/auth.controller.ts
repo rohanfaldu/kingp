@@ -2080,4 +2080,3 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         });
     }
 };
-
