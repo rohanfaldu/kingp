@@ -26,7 +26,7 @@ export const authenticateToken = async (
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
 
-    // ✅ Check if the token matches the one in DB
+    // Check if the token matches the one in DB
     const stored = await prisma.userAuthToken.findUnique({
       where: { userId: decoded.userId },
     });

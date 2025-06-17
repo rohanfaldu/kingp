@@ -96,16 +96,33 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         if (city.stateId !== stateId) return response.error(res, 'City does not belong to provided State');
     }
 
+    // let calculatedProfileCompletion = 0;
+    // if (req.body.type === UserType.INFLUENCER) {
+    //     calculatedProfileCompletion = calculateProfileCompletion({
+    //         ...req.body,
+    //         subcategoriesId,
+    //         socialMediaPlatforms: socialMediaPlatform,
+    //     });
+    // } else {
+    //     calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
+    // }
+
     let calculatedProfileCompletion = 0;
+
     if (req.body.type === UserType.INFLUENCER) {
+        const userSubCategories = (req.body.subcategoriesId || []).map((id: string) => ({
+            subCategoryId: id
+        }));
+
         calculatedProfileCompletion = calculateProfileCompletion({
             ...req.body,
-            subcategoriesId,
+            userSubCategories,
             socialMediaPlatforms: socialMediaPlatform,
         });
     } else {
         calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
     }
+
 
     const status = resolveStatus(userFields.status);
     const gender = (userFields.gender ?? Gender.MALE) as any;
@@ -480,131 +497,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
 
 
-// export const getByIdUser = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { id } = req.body;
-
-//         if (!isUuid(id)) {
-//             return response.error(res, 'Invalid UUID format');
-//         }
-
-//         const user = await prisma.user.findUnique({
-//             where: { id },
-//             include: {
-//                 socialMediaPlatforms: true,
-//                 brandData: true,
-//                 countryData: true,
-//                 stateData: true,
-//                 cityData: true,
-//             },
-//         });
-
-//         if (!user) {
-//             return response.error(res, 'User not found');
-//         }
-
-//         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
-//         const country = user.countryId
-//             ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } })
-//             : null;
-//         const state = user.stateId
-//             ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } })
-//             : null;
-//         const city = user.cityId
-//             ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } })
-//             : null;
-
-//         // Fetch user stats
-//         const userStats = await prisma.userStats.findFirst({
-//             where: { userId: user.id },
-//             select: {
-//                 totalEarnings: true,
-//                 totalExpenses: true,
-//                 totalWithdraw: true,
-//                 totalDeals: true,
-//                 averageValue: true,
-//                 repeatClient: true,
-//                 level: true,
-//                 onTimeDelivery: true,
-//             },
-//         });
-//         console.log(userStats, '>>>>>>>>>> userStats');
-//         const formattedUserStats = userStats
-//             ? {
-//                 ...userStats,
-//                 totalEarnings: userStats.totalEarnings
-//                     ? Number(userStats.totalEarnings).toFixed(2)
-//                     : "0.00",
-//                 totalExpenses: userStats.totalExpenses
-//                     ? Number(userStats.totalExpenses).toFixed(2)
-//                     : "0.00",
-//                 totalWithdraw: userStats.totalWithdraw
-//                     ? Number(userStats.totalWithdraw).toFixed(2)
-//                     : "0.00",
-//                 totalDeals: userStats.totalDeals
-//                     ? Number(userStats.totalDeals).toFixed(2)
-//                     : "0.00",
-//                 averageValue: userStats.averageValue
-//                     ? Number(userStats.averageValue).toFixed(2)
-//                     : "0.00",
-//                 repeatClient: userStats.repeatClient
-//                     ? Number(userStats.repeatClient).toFixed(2)
-//                     : "0.00",
-//                 level: userStats.level
-//                     ? Number(userStats.level).toFixed(2)
-//                     : "0.00",
-//                 onTimeDelivery: userStats.onTimeDelivery
-//                     ? Number(userStats.onTimeDelivery).toFixed(2)
-//                     : "0.00",
-//                 netEarning: (
-//                     (userStats.totalEarnings?.toNumber?.() ?? 0) -
-//                     (userStats.totalWithdraw?.toNumber?.() ?? 0)
-//                 ).toFixed(2),
-//             }
-//             :
-//             {
-//                 totalEarnings: "0.00",
-//                 totalExpenses: "0.00",
-//                 totalWithdraw: "0.00",
-//                 totalDeals: "0.00",
-//                 averageValue: "0.00",
-//                 repeatClient: "0.00",
-//                 level: "0.00",
-//                 onTimeDelivery: "0.00",
-//                 netEarning: "0.00"
-//             };
-
-
-
-//         const { password: _, socialMediaPlatform: __, ...users } = user as any;
-
-//         const responseUser = {
-//             ...users,
-//             categories: userCategoriesWithSubcategories,
-//             countryName: country?.name ?? null,
-//             stateName: state?.name ?? null,
-//             cityName: city?.name ?? null,
-//             userStats: formattedUserStats, // ✅ add userStats here
-//         };
-
-//         const token = jwt.sign(
-//             { userId: user.id, email: user.emailAddress },
-//             JWT_SECRET,
-//             { expiresIn: '7d' }
-//         );
-
-//         return response.success(res, 'User fetched successfully!', {
-//             user: responseUser,
-//             token,
-//         });
-
-//     } catch (error: any) {
-//         return response.error(res, error.message);
-//     }
-// };
-
-
 export const getByIdUser = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
@@ -628,14 +520,19 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 // Update the existing entry's timestamp
                 await prisma.recentView.update({
                     where: { id: existingView.id },
-                    data: { updatedAt: new Date() }
+                    // data: { updatedAt: new Date() }
+                    data: {
+                        updatedAt: new Date(),
+                        viewCount: { increment: 1 }
+                    }
                 });
             } else {
                 // Create a new recent view entry
                 await prisma.recentView.create({
                     data: {
                         loginUserId,
-                        recentViewUserId: id
+                        recentViewUserId: id,
+                        viewCount: 1,
                     }
                 });
             }
@@ -1801,206 +1698,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
 
 
-// export const editProfile = async (req: Request, res: Response): Promise<any> => {
-//     const { id } = req.params;
-//     const userData: IUser = req.body;
-
-//     if (!id || !isUuid(id)) {
-//         return response.error(res, 'Invalid UUID format');
-//     }
-
-//     // First, fetch the existing user to preserve existing data
-//     const existingUser = await prisma.user.findUnique({
-//         where: { id },
-//         include: {
-//             socialMediaPlatforms: true,
-//             subCategories: {
-//                 include: {
-//                     subCategory: true
-//                 }
-//             }
-//         }
-//     });
-
-//     if (!existingUser) {
-//         return response.error(res, 'User not found');
-//     }
-
-//     const {
-//         emailAddress, password, subcategoriesId = [], stateId, cityId, countryId, brandTypeId, status, gender, ...updatableFields
-//     } = userData;
-
-//     // Prepare update data while preserving existing values
-//     const finalUpdateData: any = {};
-
-//     // Status handling
-//     if (status !== undefined) {
-//         finalUpdateData.status = resolveStatus(status);
-//     }
-
-//     // Gender handling
-//     if (gender !== undefined) {
-//         finalUpdateData.gender = gender as unknown as any;
-//     }
-
-//     // Location handling
-//     if (stateId) {
-//         const state = await prisma.state.findUnique({ where: { id: stateId } });
-//         if (!state) return response.error(res, 'Invalid stateId');
-//         if (countryId && state.countryId !== countryId) {
-//             return response.error(res, 'State does not belong to provided country');
-//         }
-//         finalUpdateData.stateData = { connect: { id: stateId } };
-//     }
-
-//     if (cityId) {
-//         const city = await prisma.city.findUnique({ where: { id: cityId } });
-//         if (!city) return response.error(res, 'Invalid cityId');
-//         if (stateId && city.stateId !== stateId) {
-//             return response.error(res, 'City does not belong to provided State');
-//         }
-//         finalUpdateData.cityData = { connect: { id: cityId } };
-//     }
-
-//     if (countryId) {
-//         finalUpdateData.countryData = { connect: { id: countryId } };
-//     }
-
-//     if (brandTypeId) {
-//         finalUpdateData.brandData = { connect: { id: brandTypeId } };
-//     }
-
-//     // Add other updatable fields, preserving existing values if not provided
-//     Object.keys(updatableFields).forEach(key => {
-//         if (updatableFields[key] !== undefined) {
-//             finalUpdateData[key] = updatableFields[key];
-//         }
-//     });
-
-//     // Subcategories handling
-//     let updatedSubcategories: string[] = [];
-//     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
-//         const validSubCategories = await prisma.subCategory.findMany({
-//             where: { id: { in: subcategoriesId.filter(Boolean) } },
-//             select: { id: true }
-//         });
-
-//         const validIds = validSubCategories.map(sub => sub.id);
-//         const invalidIds = subcategoriesId.filter(id => !validIds.includes(id));
-
-//         if (invalidIds.length > 0) {
-//             return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
-//         }
-
-//         updatedSubcategories = validIds;
-
-//         // Delete existing subcategories and create new ones
-//         await prisma.userSubCategory.deleteMany({
-//             where: { userId: id }
-//         });
-
-//         await prisma.userSubCategory.createMany({
-//             data: validIds.map(subCategoryId => ({
-//                 userId: id,
-//                 subCategoryId: subCategoryId
-//             })),
-//             skipDuplicates: true
-//         });
-//     } else {
-//         // If no subcategories provided, use existing ones
-//         updatedSubcategories = existingUser.subCategories.map(sc => sc.subCategory.id);
-//     }
-
-//     try {
-//         // Prepare data for profile completion calculation
-//         const profileCompletionData = {
-//             ...existingUser,
-//             ...userData,
-//             subcategoriesId: updatedSubcategories
-//         };
-
-//         // Calculate profile completion based on user type
-//         let calculatedProfileCompletion = 0;
-//         if (existingUser.type === UserType.INFLUENCER) {
-//             calculatedProfileCompletion = calculateProfileCompletion({
-//                 ...profileCompletionData,
-//                 subcategoriesId: updatedSubcategories
-//             });
-//         } else {
-//             calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
-//         }
-
-//         // Add profile completion to update data
-//         finalUpdateData.profileCompletion = calculatedProfileCompletion;
-
-//         // 👉 If profile is now 100% and reward not already given, give PROFILE_COMPLETE coins
-//         if (calculatedProfileCompletion === 100) {
-//             const existingProfileReward = await prisma.coinTransaction.findFirst({
-//                 where: {
-//                     userId: id,
-//                     type: CoinType.PROFILE_COMPLETE
-
-//                 },
-//             });
-
-//             if (!existingProfileReward) {
-//                 await prisma.coinTransaction.create({
-//                     data: {
-//                         userId: id,
-//                         amount: 50,
-//                         type: CoinType.PROFILE_COMPLETE,
-//                         status: 'LOCKED', // Will be unlocked later after successful deal
-//                     },
-//                 });
-//             }
-//         }
-
-
-//         const token = req.headers.authorization?.split(' ')[1] || req.token;
-
-//         // Perform update
-//         const editedUser = await prisma.user.update({
-//             where: { id },
-//             data: finalUpdateData,
-//             include: {
-//                 socialMediaPlatforms: true,
-//                 brandData: true,
-//                 countryData: true,
-//                 stateData: true,
-//                 cityData: true,
-//             }
-//         });
-
-
-//         // Fetch names for country, state, city
-//         const country = editedUser.countryId ? await prisma.country.findUnique({ where: { id: editedUser.countryId }, select: { name: true } }) : null;
-//         const state = editedUser.stateId ? await prisma.state.findUnique({ where: { id: editedUser.stateId }, select: { name: true } }) : null;
-//         const city = editedUser.cityId ? await prisma.city.findUnique({ where: { id: editedUser.cityId }, select: { name: true } }) : null;
-
-//         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(editedUser.id);
-
-//         const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
-//         const userResponse = {
-//             ...newUsers,
-//             categories: userCategoriesWithSubcategories,
-//             countryName: country?.name ?? null,
-//             stateName: state?.name ?? null,
-//             cityName: city?.name ?? null,
-//         };
-
-
-
-//         return response.success(res, 'User profile updated successfully!', {
-//             user: userResponse,
-//             token,
-//         });
-
-//     } catch (error: any) {
-//         return response.error(res, error.message || 'Failed to update user profile');
-//     }
-// };
-
-
 export const editProfile = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params;
     const userData: IUser = req.body;
@@ -2107,15 +1804,32 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             subcategoriesId: updatedSubcategories
         };
 
+        // let calculatedProfileCompletion = 0;
+        // if (existingUser.type === UserType.INFLUENCER) {
+        //     calculatedProfileCompletion = calculateProfileCompletion({
+        //         ...profileCompletionData,
+        //         subcategoriesId: updatedSubcategories
+        //     });
+        // } else {
+        //     calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
+        // }
+
         let calculatedProfileCompletion = 0;
+
         if (existingUser.type === UserType.INFLUENCER) {
+            const userSubCategories = (updatedSubcategories || []).map((id: string) => ({
+                subCategoryId: id
+            }));
+
             calculatedProfileCompletion = calculateProfileCompletion({
                 ...profileCompletionData,
-                subcategoriesId: updatedSubcategories
+                userSubCategories,
             });
         } else {
             calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
         }
+
+
 
         finalUpdateData.profileCompletion = calculatedProfileCompletion;
 

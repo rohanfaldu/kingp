@@ -182,7 +182,7 @@ model SocialMediaPlatform {
   price                    Decimal?       @db.Decimal
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
-  updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
+  updatedAt                DateTime?      @updatedAt @db.Timestamp(6)
   user             User?          @relation(fields: [userId], references: [id]) 
   @@unique([userId, platform])
 }
@@ -341,7 +341,7 @@ model Withdraw {
   transactionType         TransactionType? @default(DEBIT)
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
-
+ 
   userWithdrawal          User?            @relation(fields: [userId], references: [id])
 }
 
@@ -356,6 +356,8 @@ model UserStats {
   level                    Int?         @default(0)
   onTimeDelivery           Int?         @default(0)
   totalExpenses            Decimal?     @db.Decimal
+  createdAt               DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime?        @updatedAt @db.Timestamp(6)
 
   userStatsData           User?         @relation(fields: [userId], references: [id])
 }
@@ -364,6 +366,7 @@ model RecentView {
   id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   loginUserId              String?         @db.Uuid
   recentViewUserId         String?         @db.Uuid
+  viewCount                Int?            @default(0)
   createdAt                DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?       @default(now()) @db.Timestamp(6)
 
@@ -458,6 +461,14 @@ model Contact {
   updatedAt           DateTime      @updatedAt @db.Timestamp(6)
 }
 
+model DailyTips {
+  id                       String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  name                     String?        @db.VarChar
+  description              String?        @db.VarChar
+  status                   Boolean        @default(true)
+  createdAt                DateTime?      @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime?      @updatedAt @db.Timestamp(6)
+}
 
 enum Role {
   BUSINESS

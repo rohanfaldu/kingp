@@ -9,7 +9,9 @@ const calculateProfileCompletion = (user: any): number => {
     if (user.countryId) completedFields++;
     if (user.stateId) completedFields++;
     if (user.cityId) completedFields++;
-    if (user.subcategoriesId && user.subcategoriesId.length > 0) completedFields++;
+    // if (user.subcategoriesId && user.subcategoriesId.length > 0) completedFields++;
+    // if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
+    if (user.UserSubCategory && user.UserSubCategory.length > 0) completedFields++;
     if (user.referralCode) completedFields++;
     if (user.userImage) completedFields++;
     if (user.contactPersonName) completedFields++;
@@ -49,3 +51,32 @@ const calculateBusinessProfileCompletion = (user: any, loginType: string): numbe
     return Math.round((completedFields / totalFields) * 100);
 };
 export { calculateBusinessProfileCompletion };
+
+
+
+export const getProfileCompletionSuggestions = (user: any): string[] => {
+    const suggestions: string[] = [];
+
+    if (!user.type) suggestions.push('Please select your user type');
+    if (!user.name) suggestions.push('Add your name for youp Profile Completion');
+    if (!user.emailAddress) suggestions.push('Add your email address for youp Profile Completion');
+    if (!user.password || user.password === 'SOCIAL_LOGIN') suggestions.push('Set a secure password');
+    if (!user.countryId) suggestions.push('Please select your country');
+    if (!user.stateId) suggestions.push('Please select your state');
+    if (!user.cityId) suggestions.push('Please select your city');
+    // if (!user.subcategoriesId || user.subcategoriesId.length === 0) suggestions.push('Choose at least one sub-category for your Profile Completion');
+    if (!user.userSubCategories || user.userSubCategories.length === 0) {
+        suggestions.push('Choose at least one sub-category');
+    }
+
+    if (!user.referralCode) suggestions.push('Add your referral code (if any)');
+    if (!user.userImage) suggestions.push('Please upload a profile image');
+    if (!user.contactPersonName) suggestions.push('Add a contact person name');
+    if (!user.socialMediaPlatforms || user.socialMediaPlatforms.length === 0) suggestions.push('Add your social media platforms for your Profile Completion');
+    if (!user.birthDate) suggestions.push('Set your birth date');
+    if (!user.gender) suggestions.push('Select your gender');
+    if (!user.sampleWorkLink) suggestions.push('Add your sample work link');
+    if (!user.aboutYou) suggestions.push('Write something about yourself for your Profile Completion');
+
+    return suggestions;
+};

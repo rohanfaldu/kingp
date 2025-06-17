@@ -2,6 +2,10 @@ import { Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import response from '../utils/response';
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
+import { RequestStatus, CoinType } from '@prisma/client';
+import { calculateProfileCompletion, getProfileCompletionSuggestions } from '../utils/calculateProfileCompletion';
+import { startOfWeek, endOfWeek } from 'date-fns';
+import { subMonths } from 'date-fns';
 
 
 const prisma = new PrismaClient();
@@ -54,76 +58,6 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
         return response.error(res, error.message);
     }
 };
-
-
-
-
-
-// export const getDashboardData = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         // Fetch app settings
-//         const bannerData = await prisma.appSetting.findMany({
-//             where: {
-//                 slug: {
-//                     in: [
-//                         'banner-image',
-//                         'banner-title',
-//                         'banner-button-text',
-//                         'banner-button-link',
-//                     ],
-//                 },
-//             },
-//             orderBy: {
-//                 createdAt: 'desc',
-//             },
-//         });
-
-
-//         // Fetch top influencers
-//         const topInfluencersRaw = await prisma.user.findMany({
-//             where: {
-//                 ratings: 5,
-//                 type: 'INFLUENCER',
-//             },
-//             include: {
-//                 socialMediaPlatforms: true,
-//                 brandData: true,
-//                 countryData: true,
-//                 stateData: true,
-//                 cityData: true,
-//             },
-//             orderBy: {
-//                 createsAt: 'desc', // double-check your column name
-//             },
-//             take: 4,
-//         });
-
-//         const topInfluencers = await Promise.all(
-//             topInfluencersRaw.map(async (user: any) => {
-//                 const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
-//                 const { password, socialMediaPlatform, ...safeUser } = user;
-
-//                 return {
-//                     ...safeUser,
-//                     categories: userCategoriesWithSubcategories,
-//                     countryName: user.countryData?.name ?? null,
-//                     stateName: user.stateData?.name ?? null,
-//                     cityName: user.cityData?.name ?? null,
-//                 };
-//             })
-//         );
-
-//         // Send combined response
-//         return response.success(res, 'Dashboard data fetched successfully!', {
-//             bannerData,
-//             topInfluencers,
-//         });
-
-//     } catch (error: any) {
-//         return response.error(res, error.message);
-//     }
-// };
 
 
 
@@ -241,3 +175,194 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
         return response.error(res, error.message);
     }
 };
+
+
+
+
+export const influencerDashboard = async (req: Request, res: Response): Promise<any> => {
+    try {
+
+        const loggedInUserId = req.user?.userId;
+
+        if (!loggedInUserId) {
+            return response.error(res, "Unauthorized: user ID missing from token");
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: loggedInUserId },
+            select: {
+                profileCompletion: true,
+            },
+        });
+
+        if (!user) {
+            return response.error(res, "User not found");
+        }
+
+        const dailyTips = await prisma.dailyTips.findMany();
+
+        const profileView = await prisma.user.findUnique({
+            where: { id: loggedInUserId },
+            select: {
+                viewCount: true,
+            },
+        });
+
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const endOfMonth = new Date(startOfMonth);
+        endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+
+        const earning = await prisma.userStats.findFirst({
+            where: {
+                userId: loggedInUserId,
+                createdAt: {
+                    gte: startOfMonth,
+                    lt: endOfMonth,
+                },
+            },
+            select: {
+                totalEarnings: true,
+            },
+        });
+        const formattedEarning = earning?.totalEarnings
+            ? parseFloat(earning.totalEarnings.toFixed(2))
+            : 0;
+
+        const collabs = await prisma.groupUsersList.findMany({
+            where: {
+                invitedUserId: loggedInUserId,
+                requestAccept: RequestStatus.PENDING,
+            },
+        });
+
+        const influencerStats = {
+            totalEarning: formattedEarning,
+            collabs,
+            profileView,
+        };
+
+        const authUser = await prisma.user.findUnique({
+            where: { id: loggedInUserId },
+            include: {
+                socialMediaPlatforms: true,
+            },
+        });
+
+        const profileSuggestions = getProfileCompletionSuggestions(authUser);
+
+        const totalReferralCount = await prisma.coinTransaction.count({
+            where: {
+                userId: loggedInUserId,
+                type: {
+                    in: [CoinType.REFERRAL, CoinType.FIRST_DEAL_REFFERAL],
+                },
+            },
+        });
+
+        const rewards = await prisma.coinTransaction.findMany({
+            where: {
+                userId: loggedInUserId,
+                type: {
+                    in: [CoinType.REFERRAL, CoinType.FIRST_DEAL_REFFERAL],
+                },
+            },
+        });
+
+
+        const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
+        const endDate = endOfWeek(new Date(), { weekStartsOn: 1 });     // Sunday
+
+        const topCreators = await prisma.referralCoinSummary.findMany({
+            where: {
+                createdAt: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+            orderBy: {
+                totalAmount: 'desc',
+            },
+            take: 5,
+            select: {
+                totalAmount: true,
+                userReferralCoinSummary: {
+                    select: {
+                        id: true,
+                        name: true,
+                        userImage: true, // optional
+                    },
+                },
+            }
+
+        });
+
+        const formattedCreators = topCreators.map(item => ({
+            totalAmount: item.totalAmount,
+            userData: item.userReferralCoinSummary,
+        }));
+
+        const leadBoard = {
+            totalReferralCount,
+            rewards,
+            topEarningCreators: formattedCreators,
+        };
+
+        const threeMonthsAgo = subMonths(new Date(), 3);
+
+        const recentViews = await prisma.recentView.findMany({
+            where: {
+                recentViewUserId: loggedInUserId,
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            select: {
+                id: true,
+                loginUserId: true,
+                viewCount: true,
+                updatedAt: true,
+                recentViewLoginUser: {
+                    select: {
+                        id: true,
+                        name: true,
+                        userImage: true,
+                    },
+                },
+            },
+        });
+        const totalViewCount = await prisma.recentView.aggregate({
+            where: {
+                recentViewUserId: loggedInUserId,
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            _sum: {
+                viewCount: true,
+            },
+        });
+
+        const analytics = {
+            totalViewCount: totalViewCount._sum.viewCount || 0,
+            recentViews,
+        };
+
+
+
+        return response.success(res, "Influencer dashboard data fetched successfully", {
+            profileCompletion: user.profileCompletion,
+            dailyTips: dailyTips,
+            earningDashboard: influencerStats,
+            suggestions: profileSuggestions,
+            totalReferralCount,
+            leadBoard,
+            analytics,
+        });
+    } catch (error: any) {
+        return response.error(res, error.message);
+    }
+};
+
