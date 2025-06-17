@@ -1935,6 +1935,7 @@ export const getUsersWithType = async (req: Request, res: Response): Promise<any
 export const incrementInfluencerClick = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
+        const loginUserId = req.user?.id;
 
         const user = await prisma.user.findUnique({
             where: { id },
@@ -1954,6 +1955,36 @@ export const incrementInfluencerClick = async (req: Request, res: Response): Pro
                 viewCount: { increment: 1 },
             },
         });
+
+        if (loginUserId && loginUserId !== id) {
+            const existingView = await prisma.recentView.findFirst({
+                where: {
+                    loginUserId,
+                    recentViewUserId: id,
+                },
+            });
+
+            if (existingView) {
+                // increment existing viewCount
+                await prisma.recentView.update({
+                    where: { id: existingView.id },
+                    data: {
+                        viewCount: { increment: 1 },
+                        updatedAt: new Date(),
+                    },
+                });
+            } else {
+                // create new RecentView
+                await prisma.recentView.create({
+                    data: {
+                        loginUserId,
+                        recentViewUserId: id,
+                        viewCount: 1,
+                    },
+                });
+            }
+        }
+
 
         return response.success(res, 'Click count updated.', { clickCount: updatedUser.viewCount });
     } catch (error: any) {
