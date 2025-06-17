@@ -446,6 +446,18 @@ model UserAuthToken {
   userAuthTokenData   User?         @relation(fields: [userId], references: [id])
 }
 
+model Contact {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String        @db.Uuid
+  name                String?       @db.VarChar
+  title               String?       @db.VarChar
+  description         String?       @db.VarChar
+  emailAddress        String?       @db.VarChar
+  contactNumber       String?       @db.VarChar
+  createdAt           DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime      @updatedAt @db.Timestamp(6)
+}
+
 
 enum Role {
   BUSINESS

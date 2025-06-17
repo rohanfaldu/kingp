@@ -20,9 +20,7 @@ import MediaRoutes from './routes/media.routes';
 import DashboardRoutes from './routes/dashboard.routes';
 import RatingsRoutes from './routes/rating.routes';
 import NotificationRoutes from './routes/notification.routes';
-
-
-
+import ContactRoutes from './routes/contact.routes';
 
 
 import path from 'path';
@@ -76,6 +74,7 @@ app.use('/api/media', MediaRoutes);
 app.use('/api/dashboard', DashboardRoutes);
 app.use('/api/ratings', RatingsRoutes);
 app.use('/api/notification', NotificationRoutes);
+app.use('/api/contact', ContactRoutes);
 
 
 
