@@ -443,6 +443,16 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             { expiresIn: '7d' }
         );
 
+        // ✅ Store token in `UserAuthToken` table (upsert = create if not exists)
+        await prisma.userAuthToken.upsert({
+            where: { userId: user.id },
+            update: { UserAuthToken: token },
+            create: {
+                userId: user.id,
+                UserAuthToken: token,
+            },
+        });
+
         // Build user response and replace IDs with names
         const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
 

@@ -45,7 +45,7 @@ model User {
   updatedBy                String?      @db.Uuid
   fcmToken                 String?
   socialId                 String?
- 
+
   countryData              Country?         @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
   userData                 OtpVerify[]
@@ -70,7 +70,8 @@ model User {
   referrer                 Referral[]        @relation("Referrer")
   referredUser             Referral[]        @relation("ReferredUser")
   userRefferalCoin         CoinTransaction[]  
-  userReferralCoinSummary  ReferralCoinSummary[]    
+  userReferralCoinSummary  ReferralCoinSummary[] 
+  userAuthTokenData        UserAuthToken[]   
 }
 
 model Category {
@@ -435,6 +436,14 @@ model ReferralCoinSummary {
   updatedAt           DateTime      @updatedAt @db.Timestamp(6)
 
   userReferralCoinSummary                User?         @relation(fields: [userId], references: [id])
+}
+
+model UserAuthToken {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String        @unique @db.Uuid
+  UserAuthToken       String?       @db.VarChar
+
+  userAuthTokenData   User?         @relation(fields: [userId], references: [id])
 }
 
 
