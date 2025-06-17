@@ -508,7 +508,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         // Check if the viewed user is different from the logged-in user
         if (loginUserId && loginUserId !== id) {
-            // Check if there's an existing recent view entry
             const existingView = await prisma.recentView.findFirst({
                 where: {
                     loginUserId,
@@ -517,26 +516,35 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             });
 
             if (existingView) {
-                // Update the existing entry's timestamp
+                // ✅ Update viewCount and updatedAt
                 await prisma.recentView.update({
                     where: { id: existingView.id },
-                    // data: { updatedAt: new Date() }
                     data: {
                         updatedAt: new Date(),
-                        viewCount: { increment: 1 }
+                        viewCount: { increment: 1 } // Will work if viewCount has a default (0)
                     }
                 });
             } else {
-                // Create a new recent view entry
+                // ✅ Create new view entry with viewCount 1
                 await prisma.recentView.create({
                     data: {
                         loginUserId,
                         recentViewUserId: id,
-                        viewCount: 1,
+                        viewCount: 1
                     }
                 });
             }
         }
+
+        // ✅ Increment total view count on user's profile
+        await prisma.user.update({
+            where: { id },
+            data: {
+                viewCount: { increment: 1 }
+            }
+        });
+
+
 
         const user = await prisma.user.findUnique({
             where: { id },

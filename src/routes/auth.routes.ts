@@ -16,7 +16,7 @@ router.delete('/user/delete', deleteUser)
 router.post('/user/edit/:id', authenticateToken, editProfile)
 
 router.post('/user/get-user-type', authenticateToken, getUsersWithType)
-router.post('/influencer/click', incrementInfluencerClick)
+router.post('/influencer/click', authenticateToken, incrementInfluencerClick)
 router.post('/social-id', socialLogin)
 
 router.post('/send', sendMail)
