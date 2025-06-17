@@ -11,6 +11,7 @@ import { formatBirthDate } from '../controllers/auth.controller'
 import { UserType } from '../enums/userType.enum';
 import { sendFCMNotificationToUsers } from '../utils/notification';
 import { CoinType } from '@prisma/client';
+import { paginate } from '../utils/pagination';
 
 
 
@@ -1695,73 +1696,87 @@ export const withdrawCoins = async (req: Request, res: Response): Promise<any> =
 
 
 export const getUserCoinHistory = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { userId } = req.body;
+    try {
+        const { userId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ success: false, message: 'User ID is required' });
+        if (!userId) {
+            return res.status(400).json({ success: false, message: 'User ID is required' });
+        }
+
+        // Fetch all unlocked coin transactions
+        const coinTransactions = await prisma.coinTransaction.findMany({
+            where: { userId, status: 'UNLOCKED' },
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                amount: true,
+                type: true,
+                source: true,
+                status: true,
+                createdAt: true,
+            },
+        });
+
+        // Get total unlocked amount
+        const totalUnlockedAmount = await prisma.coinTransaction.aggregate({
+            where: { userId, status: 'UNLOCKED' },
+            _sum: { amount: true },
+        });
+
+        // Get referral withdrawal amount
+        const referralSummary = await prisma.referralCoinSummary.findUnique({
+            where: { userId },
+            select: {
+                withdrawAmount: true,
+                updatedAt: true,
+            },
+        });
+
+        const withdrawAmount = Number(referralSummary?.withdrawAmount || 0);
+        const totalAmount = Number(totalUnlockedAmount._sum.amount || 0);
+        const netAmount = totalAmount - withdrawAmount;
+
+        // Format coin transactions
+        const history = coinTransactions.map(tx => ({
+            id: tx.id,
+            date: tx.createdAt,
+            type: tx.type,
+            source: tx.source || null,
+            amount: tx.amount,
+            status: tx.status,
+            isWithdrawal: false,
+        }));
+
+        // Add withdrawal entry if applicable
+        if (withdrawAmount > 0) {
+            history.push({
+                id: 'withdrawal',
+                date: referralSummary?.updatedAt,
+                type: 'WITHDRAWAL',
+                source: null,
+                amount: withdrawAmount,
+                status: 'PROCESSED',
+                isWithdrawal: true,
+            });
+        }
+
+        // Sort all entries by date descending
+        history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        return response.success(res, 'Referral coin history fetched successfully.', {
+            totalAmount,
+            withdrawAmount,
+            netAmount,
+            data: history,
+        });
+
+    } catch (error: any) {
+        console.error('Get User Coin History Error:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch user coin history',
+        });
     }
-
-    // Fetch coin transactions for the user (only unlocked coins)
-    const coinTransactions = await prisma.coinTransaction.findMany({
-      where: { userId, status: 'UNLOCKED' },
-      select: {
-        id: true,
-        amount: true,
-        type: true,
-        source: true,
-        status: true,
-        createdAt: true,
-      },
-    });
-
-    // Fetch referral coin summary to get withdrawals
-    const referralSummary = await prisma.referralCoinSummary.findUnique({
-      where: { userId },
-      select: {
-        withdrawAmount: true,
-        updatedAt: true,
-      },
-    });
-
-    // Format coin transactions as history entries
-    const history = coinTransactions.map(tx => ({
-      id: tx.id,
-      date: tx.createdAt,
-      type: tx.type,              // e.g. 'SIGNUP', 'PROFILE_COMPLETE' etc.
-      source: tx.source || null,
-      amount: tx.amount,          // integer amount
-      status: tx.status,
-      isWithdrawal: false,
-    }));
-
-    // Add withdrawal record if any withdrawal amount exists
-    if (referralSummary && referralSummary.withdrawAmount && Number(referralSummary.withdrawAmount) > 0) {
-      history.push({
-        id: 'withdrawal',  // or generate a unique id here if needed
-        date: referralSummary.updatedAt,
-        type: 'WITHDRAWAL',
-        source: null,
-        amount: Number(referralSummary.withdrawAmount), // integer
-        status: 'PROCESSED',
-        isWithdrawal: true,
-      });
-    }
-
-    // Sort all entries by date descending
-    history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    return res.json({
-      success: true,
-      data: history,
-    });
-  } catch (error: any) {
-    console.error('Get User Coin History Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to fetch user coin history',
-    });
-  }
 };
 
 

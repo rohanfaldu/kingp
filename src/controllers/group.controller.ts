@@ -19,7 +19,27 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
     try {
         const groupData: IGroup = req.body;
 
-        // Check duplicate group name
+        const {
+            userId, // Admin user ID
+            invitedUserId = [], // Array of invited user IDs
+            socialMediaPlatform = [],
+            subCategoryId = [],
+            ...groupFields
+        } = groupData;
+
+        // ✅ Check: Limit group creation to 5 per user
+        const userGroupCount = await prisma.groupUsers.count({
+            where: {
+                userId,
+                status: true, // Only admin-created groups
+            },
+        });
+
+        if (userGroupCount >= 5) {
+            return response.error(res, 'User can create a maximum of 5 groups only.');
+        }
+
+        // ✅ Check: Group name uniqueness
         const existingGroup = await prisma.group.findFirst({
             where: { groupName: groupData.groupName },
         });
@@ -29,35 +49,104 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
 
         const status = resolveStatus(groupData.status);
 
-        const {
-            userId, // Admin user ID
-            invitedUserId = [], // Array of invited user IDs
-            socialMediaPlatform = [],
-            subCategoryId = [],
-            ...groupFields
-        } = groupData;
+        // ✅ Check: Admin user exists
+        const adminUser = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                socialMediaPlatforms: true,
+                brandData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
+            },
+        });
 
-        // Fetch subCategory info with categories
+        if (!adminUser) {
+            return response.error(res, 'Admin user does not exist.');
+        }
+
+        // ✅ Fetch subCategories with parent category
         const subCategoriesWithCategory = await prisma.subCategory.findMany({
             where: { id: { in: subCategoryId } },
             include: { categoryInformation: true },
         });
 
-        // Helper: Convert request status to numeric code
+        // ✅ Fetch invited users
+        const invitedUsers = invitedUserId.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: invitedUserId } },
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
+                },
+            })
+            : [];
+
+        // ✅ Step 1: Create the group
+        const newGroup = await prisma.group.create({
+            data: {
+                ...groupFields,
+                subCategoryId,
+                socialMediaPlatform,
+                status,
+            },
+        });
+
+        // ✅ Step 2: Create GroupUsers entry for admin
+        const adminGroupUser = await prisma.groupUsers.create({
+            data: {
+                groupId: newGroup.id,
+                userId: userId,
+                invitedUserId: invitedUserId,
+                status: true,
+            },
+        });
+
+        // ✅ Step 3: Create GroupUsersList entries for invited users
+        await Promise.all(invitedUserId.map(async (invitedId) => {
+            await prisma.groupUsersList.create({
+                data: {
+                    groupId: newGroup.id,
+                    groupUserId: adminGroupUser.id,
+                    adminUserId: userId,
+                    invitedUserId: invitedId,
+                    status: false,
+                    requestAccept: RequestStatus.PENDING,
+                },
+            });
+        }));
+
+        // ✅ Step 4: Re-fetch GroupUsersList entries for response mapping
+        const updatedGroupUsersListEntries = await prisma.groupUsersList.findMany({
+            where: {
+                groupId: newGroup.id,
+                adminUserId: userId,
+                invitedUserId: { in: invitedUserId },
+            },
+        });
+
+        // ✅ Send FCM to invited users
+        await sendFCMNotificationToUsers(
+            invitedUsers,
+            'New group created!',
+            `You've been invited to join the group: ${newGroup.groupName}`,
+            'GROUP_INVITE'
+        );
+
+        // ✅ Helper: Numeric requestStatus
         const getNumericStatus = (requestStatus: string) => {
             switch (requestStatus) {
-                case 'PENDING':
-                    return 0;
-                case 'ACCEPTED':
-                    return 1;
-                case 'REJECTED':
-                    return 2;
-                default:
-                    return 0; // Default to pending
+                case 'PENDING': return 0;
+                case 'ACCEPTED': return 1;
+                case 'REJECTED': return 2;
+                default: return 0;
             }
         };
 
-        // Helper: Format user info with categories and location names
+        // ✅ Helper: Format user data
         const formatUserData = async (user: any) => {
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
@@ -82,86 +171,8 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             };
         };
 
-        // Fetch admin user with related info
-        const adminUser = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                socialMediaPlatforms: true,
-                brandData: true,
-                countryData: true,
-                stateData: true,
-                cityData: true,
-            },
-        });
-
-        // Fetch invited users details
-        const invitedUsers = invitedUserId.length > 0
-            ? await prisma.user.findMany({
-                where: { id: { in: invitedUserId } },
-                include: {
-                    socialMediaPlatforms: true,
-                    brandData: true,
-                    countryData: true,
-                    stateData: true,
-                    cityData: true,
-                },
-            })
-            : [];
-
-        // Step 1: Create Group
-        const newGroup = await prisma.group.create({
-            data: {
-                ...groupFields,
-                subCategoryId,
-                socialMediaPlatform,
-                status,
-            },
-        });
-
-        // Step 2: Create GroupUsers entry for admin, store invitedUserId array here
-        const adminGroupUser = await prisma.groupUsers.create({
-            data: {
-                groupId: newGroup.id,
-                userId: userId, // Admin user
-                invitedUserId: invitedUserId, // invited user IDs array
-                status: true,
-            },
-        });
-
-        // Step 3: Create GroupUsersList entry for each invited user referencing adminGroupUser
-        await Promise.all(invitedUserId.map(async (invitedId) => {
-            await prisma.groupUsersList.create({
-                data: {
-                    groupId: newGroup.id,
-                    groupUserId: adminGroupUser.id, // admin GroupUsers ID
-                    adminUserId: userId,            // admin userId
-                    invitedUserId: invitedId,       // single invited userId
-                    status: false,                  // invitation pending
-                    requestAccept: RequestStatus.PENDING,
-                },
-            });
-        }));
-
-        // Re-fetch GroupUsersList entries AFTER creating them
-        const updatedGroupUsersListEntries = await prisma.groupUsersList.findMany({
-            where: {
-                groupId: newGroup.id,
-                adminUserId: userId,
-                invitedUserId: { in: invitedUserId }
-            }
-        });
-
-
-         // ✅ Send FCM notification to each invited user
-        await sendFCMNotificationToUsers(
-            invitedUsers, // array of users with id & fcmToken
-            'New group created!',
-            `You've been invited to join the group: ${newGroup.groupName}`,
-            'GROUP_INVITE'
-        );
-
-        // Step 4: Format response data
-        const formattedAdminUser = adminUser ? await formatUserData(adminUser) : null;
+        // ✅ Format admin and invited users
+        const formattedAdminUser = await formatUserData(adminUser);
 
         const formattedInvitedUsers = await Promise.all(invitedUsers.map(async (user) => {
             const formattedUser = await formatUserData(user);
@@ -173,6 +184,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             };
         }));
 
+        // ✅ Final response
         return response.success(res, 'Group Created successfully!', {
             groupInformation: {
                 ...newGroup,
@@ -181,11 +193,13 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
                 invitedUsers: formattedInvitedUsers,
             }
         });
+
     } catch (error: any) {
         console.error('Group creation error:', error);
         return response.error(res, error.message);
     }
 };
+
 
 
 
