@@ -647,105 +647,142 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         );
 
         const threeMonthsAgo = subMonths(new Date(), 3);
-        
-                const recentViews = await prisma.recentView.findMany({
-                    where: {
-                        recentViewUserId: id,
-                        updatedAt: {
-                            gte: threeMonthsAgo,
-                        },
-                    },
+
+        const recentViews = await prisma.recentView.findMany({
+            where: {
+                recentViewUserId: id,
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            select: {
+                id: true,
+                loginUserId: true,
+                viewCount: true,
+                updatedAt: true,
+                recentViewLoginUser: {
                     select: {
                         id: true,
-                        loginUserId: true,
-                        viewCount: true,
-                        updatedAt: true,
-                        recentViewLoginUser: {
-                            select: {
-                                id: true,
-                                name: true,
-                                userImage: true,
-                            },
-                        },
+                        name: true,
+                        userImage: true,
                     },
-                });
-                const totalViewCount = await prisma.recentView.aggregate({
-                    where: {
-                        recentViewUserId: id,
-                        updatedAt: {
-                            gte: threeMonthsAgo,
-                        },
-                    },
-                    _sum: {
-                        viewCount: true,
-                    },
-                });
-        
-                const analytics = {
-                    totalViewCount: totalViewCount._sum.viewCount || 0,
-                    recentViews,
-                };
-        
-                /******************************/
-        
-                // 1. Fetch recent views
-                const recentChatViews = await prisma.recentChatView.findMany({
-                    where: {
-                        loginUserId: id, // people who viewed this user
-                        updatedAt: {
-                            gte: threeMonthsAgo,
-                        },
-                    },
+                },
+            },
+        });
+        const totalViewCount = await prisma.recentView.aggregate({
+            where: {
+                recentViewUserId: id,
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            _sum: {
+                viewCount: true,
+            },
+        });
+
+        const analytics = {
+            totalViewCount: totalViewCount._sum.viewCount || 0,
+            recentViews,
+        };
+
+        /******************************/
+
+        // 1. Fetch recent views
+        const recentChatViews = await prisma.recentChatView.findMany({
+            where: {
+                loginUserId: id, // people who viewed this user
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            select: {
+                id: true,
+                loginUserId: true,
+                chatCount: true,
+                updatedAt: true,
+                recentChatViewLoginUser: {
                     select: {
                         id: true,
-                        loginUserId: true,
-                        chatCount: true,
-                        updatedAt: true,
-                        recentChatViewLoginUser: {
-                            select: {
-                                id: true,
-                                name: true,
-                                userImage: true,
-                            },
-                        },
+                        name: true,
+                        userImage: true,
                     },
-                    orderBy: {
-                        updatedAt: 'desc',
-                    },
-                });
-        
-                // 2. Aggregate total chat view count
-                const totalChatViewCount = await prisma.recentChatView.aggregate({
-                    where: {
-                        loginUserId: id,
-                        updatedAt: {
-                            gte: threeMonthsAgo,
-                        },
-                    },
-                    _sum: {
-                        chatCount: true,
-                    },
-                });
-        
-                const analyticsChat = {
-                    totalChatViewCount: totalChatViewCount._sum.chatCount || 0,
-                    recentViews: recentChatViews.map(view => ({
-                        id: view.id,
-                        chatCount: view.chatCount,
-                        updatedAt: view.updatedAt,
-                        viewer: view.recentChatViewLoginUser, // viewer info (name, image, id)
-                    })),
-                };
-        
-                const analyticSummary = {
-                    viewCountData: analytics,
-                    chatCountData: analyticsChat,
-                };
+                },
+            },
+            orderBy: {
+                updatedAt: 'desc',
+            },
+        });
+
+        // 2. Aggregate total chat view count
+        const totalChatViewCount = await prisma.recentChatView.aggregate({
+            where: {
+                loginUserId: id,
+                updatedAt: {
+                    gte: threeMonthsAgo,
+                },
+            },
+            _sum: {
+                chatCount: true,
+            },
+        });
+
+        const analyticsChat = {
+            totalChatViewCount: totalChatViewCount._sum.chatCount || 0,
+            recentViews: recentChatViews.map(view => ({
+                id: view.id,
+                chatCount: view.chatCount,
+                updatedAt: view.updatedAt,
+                viewer: view.recentChatViewLoginUser, // viewer info (name, image, id)
+            })),
+        };
+
+        const analyticSummary = {
+            viewCountData: analytics,
+            chatCountData: analyticsChat,
+        };
+
+        const transactionCount = await prisma.coinTransaction.count({
+            where: { userId: id },
+        });
+
+        const transactions = await prisma.coinTransaction.findMany({
+            where: { userId: id },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const rewards = {
+            count: transactionCount,
+            data: transactions,
+        };
+
+        const userStatss = await prisma.userStats.findFirst({
+            where: { userId: id },
+            select: {
+                totalEarnings: true,
+                totalWithdraw: true,
+                totalExpenses: true,
+            },
+        });
+
+        const totalEarnings = Number(userStats?.totalEarnings ?? 0);
+        const totalWithdraw = Number(userStats?.totalWithdraw ?? 0);
+        const totalExpenses = Number(userStats?.totalExpenses ?? 0);
+        const netEarning = totalEarnings - totalWithdraw;
+
+        const earningsSummary = {
+            totalEarnings,
+            totalWithdraw,
+            totalExpenses,
+            netEarning,
+        };
 
         return response.success(res, 'User fetched successfully!', {
             user: responseUser,
             token,
             analyticSummary,
+            rewards,
+            earningsSummary
         });
 
     } catch (error: any) {
