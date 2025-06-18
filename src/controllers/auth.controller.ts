@@ -521,6 +521,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 });
             } else {
                 // ✅ Create new view entry with viewCount 1
+                console.log(loginUserId, '>>>>>>>>>> loginUserId');
                 await prisma.recentView.create({
                     data: {
                         loginUserId,
@@ -530,6 +531,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 });
             }
         }
+        
 
         // ✅ Increment total view count on user's profile
         await prisma.user.update({
@@ -772,7 +774,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         };
         console.log("Fetching token for userId:", id);
 
-        const userAuthToken = await prisma.userAuthToken.findUnique({
+        const token = await prisma.userAuthToken.findUnique({
             where: { userId: loginUserId },
             select: {
                 UserAuthToken: true,
@@ -781,7 +783,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         return response.success(res, 'User fetched successfully!', {
             user: responseUser,
-            token: userAuthToken,
+            token,
             analyticSummary,
             rewards,
             earningsSummary
