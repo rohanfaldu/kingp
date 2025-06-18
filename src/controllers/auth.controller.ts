@@ -1,3 +1,4 @@
+import { chatViewCount } from './dashboard.controller';
 import { Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
@@ -96,16 +97,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         if (city.stateId !== stateId) return response.error(res, 'City does not belong to provided State');
     }
 
-    // let calculatedProfileCompletion = 0;
-    // if (req.body.type === UserType.INFLUENCER) {
-    //     calculatedProfileCompletion = calculateProfileCompletion({
-    //         ...req.body,
-    //         subcategoriesId,
-    //         socialMediaPlatforms: socialMediaPlatform,
-    //     });
-    // } else {
-    //     calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
-    // }
 
     let calculatedProfileCompletion = 0;
 
@@ -154,6 +145,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                     averageLikes: platform.averageLikes,
                     averageComments: platform.averageComments,
                     averageShares: platform.averageShares,
+                    viewCount: platform.viewCount,
                     price: platform.price,
                     status: platform.status,
                 })),
@@ -286,6 +278,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(newUser.id);
     const userResponse = {
         ...newUsers,
+        socialMediaPlatforms: newUser.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
         categories: userCategoriesWithSubcategories,
         countryName: newUser.countryData?.name ?? null,
         stateName: newUser.stateData?.name ?? null,
@@ -475,6 +468,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         const userResponse = {
             ...userWithoutPassword,
+            socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -637,6 +631,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         const responseUser = {
             ...users,
+            socialMediaPlatforms: users.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -961,6 +956,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
                 return {
                     ...userData,
+                    socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                     categories: userCategoriesWithSubcategories,
                     countryName: userData.countryData?.name ?? null,
                     stateName: userData.stateData?.name ?? null,
@@ -1345,6 +1341,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
+                socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -1812,15 +1809,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             subcategoriesId: updatedSubcategories
         };
 
-        // let calculatedProfileCompletion = 0;
-        // if (existingUser.type === UserType.INFLUENCER) {
-        //     calculatedProfileCompletion = calculateProfileCompletion({
-        //         ...profileCompletionData,
-        //         subcategoriesId: updatedSubcategories
-        //     });
-        // } else {
-        //     calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);
-        // }
 
         let calculatedProfileCompletion = 0;
 
@@ -1841,7 +1829,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
         finalUpdateData.profileCompletion = calculatedProfileCompletion;
 
-        // 👉 If profile is 100% complete, add PROFILE_COMPLETE reward (LOCKED)
         // 👉 If profile is 100% complete, add PROFILE_COMPLETE reward (LOCKED)
         if (calculatedProfileCompletion === 100) {
             await prisma.coinTransaction.create({
@@ -1894,6 +1881,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
         const userResponse = {
             ...newUsers,
+            socialMediaPlatforms: newUsers.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -2061,6 +2049,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
 
         const userResponse = {
             ...userWithoutPassword,
+            socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
             cityName: city?.name ?? null,

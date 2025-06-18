@@ -10,6 +10,7 @@ export interface ISocialMediaPlatform {
     averageLikes?: number;
     averageComments?: number;
     averageShares?: number;
+    viewCount?: number;
     price?: number;
     status?: boolean;
     createdAt?: Date;

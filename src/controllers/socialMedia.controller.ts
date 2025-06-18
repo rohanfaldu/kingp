@@ -20,7 +20,7 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
         if (!userId || !platform) {
             return response.error(res, 'userId and platform are required.');
         }
-        
+
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
             return response.error(res, 'User not found.');
@@ -42,10 +42,12 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
                 userId,
                 platform,
                 ...otherFields,
+
             },
         });
+        const { viewCount, ...filteredSocialMedia } = newSocialMedia;
 
-        return response.success(res, 'Social Media Platform created successfully!', newSocialMedia);
+        return response.success(res, 'Social Media Platform created successfully!', filteredSocialMedia);
 
     } catch (error: any) {
         return response.error(res, error.message);
@@ -80,7 +82,9 @@ export const editSocialMediaPlatform = async (req: Request, res: Response): Prom
             data: sanitizedData,
         });
 
-        response.success(res, 'Social Medial Platform Updated successfully!', updated);
+        const { viewCount, ...filteredSocialMedia } = updated;
+
+        response.success(res, 'Social Medial Platform Updated successfully!', filteredSocialMedia);
     } catch (error: any) {
         response.error(res, error.message);
     }
@@ -97,7 +101,10 @@ export const getByIdeditSocialMediaPlatform = async (req: Request, res: Response
         const scialMediaPlatform = await prisma.socialMediaPlatform.findUnique({
             where: { id: id },
         });
-        response.success(res, 'Category Get successfully!', scialMediaPlatform);
+
+        const { viewCount, ...filteredSocialMedia } = scialMediaPlatform;
+
+        response.success(res, 'Category Get successfully!', filteredSocialMedia);
     } catch (error: any) {
         response.error(res, error.message);
     }
@@ -122,7 +129,9 @@ export const getSocialMediaPlatformsByUserId = async (req: Request, res: Respons
             },
         });
 
-        return response.success(res, 'Social Media Platforms fetched successfully!', platforms);
+        const sanitizedPlatforms = platforms.map(({ viewCount, ...rest }) => rest);
+
+        return response.success(res, 'Social Media Platforms fetched successfully!', sanitizedPlatforms);
     } catch (error: any) {
         return response.error(res, error.message);
     }
@@ -131,18 +140,27 @@ export const getSocialMediaPlatformsByUserId = async (req: Request, res: Respons
 
 export const getAllSocialMediaPlatform = async (req: Request, res: Response): Promise<any> => {
     try {
-        const scialMediaPlatform = await paginate(req, prisma.socialMediaPlatform, {}, "Scial Media Platform");
+        const result = await paginate(req, prisma.socialMediaPlatform, {}, "Scial Media Platform");
 
-        if (!scialMediaPlatform || scialMediaPlatform.length === 0) {
+        const platformList = result["Scial Media Platform"];
+
+        if (!platformList || !Array.isArray(platformList) || platformList.length === 0) {
             throw new Error("Scial Media Platform not Found");
-
         }
-        response.success(res, 'Get All Scial Media Platform successfully!', scialMediaPlatform);
 
+        const cleanedList = platformList.map(({ viewCount, ...rest }) => rest);
+
+        const finalResponse = {
+            ...result,
+            "Scial Media Platform": cleanedList,
+        };
+
+        response.success(res, 'Get All Scial Media Platform successfully!', finalResponse);
     } catch (error: any) {
         response.error(res, error.message);
     }
-}
+};
+
 
 
 export const deleteSocialMediaPlatform = async (req: Request, res: Response): Promise<any> => {

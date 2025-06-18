@@ -179,7 +179,8 @@ model SocialMediaPlatform {
   engagementRate           Int?        
   averageLikes             Int?        
   averageComments          Int?        
-  averageShares            Int?        
+  averageShares            Int?      
+  viewCount                Int?           @default(0)
   price                    Decimal?       @db.Decimal
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)

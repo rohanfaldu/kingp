@@ -79,6 +79,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
+                socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -154,9 +155,21 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
         if (!order) {
             return response.error(res, 'Order not found');
         }
+
+        // ✅ Remove viewCount from influencerOrderData
+        if (order.influencerOrderData?.socialMediaPlatforms) {
+            order.influencerOrderData.socialMediaPlatforms = order.influencerOrderData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest);
+        }
+
+        // ✅ Remove viewCount from businessOrderData
+        if (order.businessOrderData?.socialMediaPlatforms) {
+            order.businessOrderData.socialMediaPlatforms = order.businessOrderData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest);
+        }
+
         if (!order?.groupOrderData) {
             return response.success(res, 'Order fetched', order);
         }
+
 
         const group = order.groupOrderData;
 
@@ -168,6 +181,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             const { password: _, socialMediaPlatform: __, ...userData } = user;
             return {
                 ...userData,
+                socialMediaPlatforms: userData.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -304,7 +318,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 businessId: true,
                 completionDate: true,
                 status: true,
-                // Add any other fields you need for notification content
                 finalAmount: true,
                 totalAmount: true
             }
@@ -393,7 +406,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     isNewRepeatBusiness = previousOrdersCount === 1;
                 }
 
-                console.log(existingUserStats, '>>>>>> existingUserStats');
+                // console.log(existingUserStats, '>>>>>> existingUserStats');
 
                 if (existingUserStats) {
                     // Update existing UserStats record
@@ -535,17 +548,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     // Store notifications in database and send FCM
                     const notificationPromises = influencerUsers.map(async (user) => {
                         try {
-                            // Store notification in database
-                            // await prisma.notification.create({
-                            //     data: {
-                            //         userId: user.id,
-                            //         title: notificationTitle,
-                            //         message: notificationBody,
-                            //         type: notificationType,
-                            //         status: 'SENT'
-                            //     }
-                            // });
-
                             // Send FCM if user has token
                             if (user.fcmToken) {
                                 await sendFCMNotificationToUsers(
@@ -579,13 +581,33 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             console.error('FCM notification process failed:', notificationError);
         }
 
+
+
         const order = await prisma.orders.findUnique({
             where: { id },
             include: {
                 groupOrderData: true,
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: true,
+                        // socialMediaPlatforms: true,
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -594,7 +616,25 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: true,
+                        // socialMediaPlatforms: true,
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -611,6 +651,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             const { password: _, socialMediaPlatform: __, ...userData } = user;
             return {
                 ...userData,
+                socialMediaPlatforms: userData.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -764,7 +805,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     where: { userId: entry.userId },
                     select: { id: true, totalEarnings: true, totalDeals: true },
                 });
-                console.log(existingUserStats, ">>>> existingUserStats");
+                // console.log(existingUserStats, ">>>> existingUserStats");
 
                 if (existingUserStats) {
                     // Update existing UserStats record
@@ -967,6 +1008,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     return {
                         user: {
                             ...userData,
+                            socialMediaPlatforms: userData.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
                             categories: userCategoriesWithSubcategories,
                             countryName: user?.countryData?.name ?? null,
                             stateName: user?.stateData?.name ?? null,
@@ -998,103 +1040,137 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
 
 export const getAllOrderList = async (req: Request, res: Response): Promise<any> => {
-    // try {
-    const { status } = req.body;
+    try {
+        const { status } = req.body;
 
-    const currentUserId = req.user?.userId;
+        const currentUserId = req.user?.userId;
 
-    if (status === "" || status === undefined || status === null) {
-        return response.error(res, 'Status is required');
-    }
+        if (status === "" || status === undefined || status === null) {
+            return response.error(res, 'Status is required');
+        }
 
-    const statusEnumValue = getStatusName(status);
-    let whereStatus;
-    if (status === 3) {
-        const completedEnumValue = getStatusName(4);
-        whereStatus = [statusEnumValue, completedEnumValue];
-    } else {
-        whereStatus = [statusEnumValue];
-    }
+        const statusEnumValue = getStatusName(status);
+        let whereStatus;
+        if (status === 3) {
+            const completedEnumValue = getStatusName(4);
+            whereStatus = [statusEnumValue, completedEnumValue];
+        } else {
+            whereStatus = [statusEnumValue];
+        }
 
-    // console.log(whereStatus, " >>>>>>> whereStatus");
-    const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
-    //  console.log(existingUser, ">>>>>>>>>>> existingUser");
-    if (!existingUser) {
-        return response.error(res, 'User not found');
-    }
+        // console.log(whereStatus, " >>>>>>> whereStatus");
+        const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
+        //  console.log(existingUser, ">>>>>>>>>>> existingUser");
+        if (!existingUser) {
+            return response.error(res, 'User not found');
+        }
 
-    let whereCondition;
-    if (existingUser.type === UserType.INFLUENCER) {
-        whereCondition = {
-            OR: [
-                {
-                    groupOrderData: {
-                        groupUsersList: {
-                            some: {
-                                OR: [
-                                    { adminUserId: currentUserId },
-                                    { invitedUserId: currentUserId },
-                                ],
+        let whereCondition;
+        if (existingUser.type === UserType.INFLUENCER) {
+            whereCondition = {
+                OR: [
+                    {
+                        groupOrderData: {
+                            groupUsersList: {
+                                some: {
+                                    OR: [
+                                        { adminUserId: currentUserId },
+                                        { invitedUserId: currentUserId },
+                                    ],
+                                },
                             },
                         },
                     },
-                },
-                { influencerId: currentUserId },
-            ],
-        };
-    } else {
-        whereCondition = {
-            businessId: currentUserId
-        };
-    }
-
-
-    // Option 1: Simple approach - exclude only userId (your original approach)
-    const getOrder = await prisma.orders.findMany({
-        where: {
-            status: {
-                in: whereStatus
-            },
-            ...whereCondition
-        },
-        include: {
-            // groupOrderData: {},
-            groupOrderData: {
-                include: {
-                    groupUsersList: true // Include related data if needed
-                }
-            },
-            influencerOrderData: {
-                include: {
-                    socialMediaPlatforms: true,
-                    brandData: true,
-                    countryData: true,
-                    stateData: true,
-                    cityData: true,
-                }
-            },
-            businessOrderData: {
-                include: {
-                    socialMediaPlatforms: true,
-                    brandData: true,
-                    countryData: true,
-                    stateData: true,
-                    cityData: true,
-                }
-            }
-        },
-        orderBy: {
-            createdAt: 'desc'
+                    { influencerId: currentUserId },
+                ],
+            };
+        } else {
+            whereCondition = {
+                businessId: currentUserId
+            };
         }
-    });
-    console.log(getOrder, " >>>>>>>> getOrder")
 
 
-    return response.success(res, 'Get All order List', getOrder);
+        // Option 1: Simple approach - exclude only userId (your original approach)
+        const getOrder = await prisma.orders.findMany({
+            where: {
+                status: {
+                    in: whereStatus
+                },
+                ...whereCondition
+            },
+            include: {
+                // groupOrderData: {},
+                groupOrderData: {
+                    include: {
+                        groupUsersList: true // Include related data if needed
+                    }
+                },
+                influencerOrderData: {
+                    include: {
+                        // socialMediaPlatforms: true,
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                },
+                businessOrderData: {
+                    include: {
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        }, brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        // console.log(getOrder, " >>>>>>>> getOrder")
 
-    // } catch (error: any) {
-    //     return response.error(res, error.message || 'Something went wrong');
-    // }
+
+        return response.success(res, 'Get All order List', getOrder);
+
+    } catch (error: any) {
+        return response.error(res, error.message || 'Something went wrong');
+    }
 };
 
 
@@ -1127,7 +1203,25 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
                 groupOrderData: {},
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: true,
+                        // socialMediaPlatforms: true,
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1136,7 +1230,25 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: true,
+                        // socialMediaPlatforms: true,
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1190,7 +1302,25 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                 groupOrderData: true,
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: true,
+                        // socialMediaPlatforms: true,
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1199,8 +1329,24 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: true,
-                        brandData: true,
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        }, brandData: true,
                         countryData: true,
                         stateData: true,
                         cityData: true,
