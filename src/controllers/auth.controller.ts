@@ -783,7 +783,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         return response.success(res, 'User fetched successfully!', {
             user: responseUser,
-            token,
+            token: token?.UserAuthToken,
             analyticSummary,
             rewards,
             earningsSummary
