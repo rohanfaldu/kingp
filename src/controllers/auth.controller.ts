@@ -640,12 +640,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             userStats: formattedUserStats,
         };
 
-        const token = jwt.sign(
-            { userId: user.id, email: user.emailAddress },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
         const threeMonthsAgo = subMonths(new Date(), 3);
 
         const recentViews = await prisma.recentView.findMany({
@@ -776,10 +770,18 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             totalExpenses,
             netEarning,
         };
+        console.log("Fetching token for userId:", id);
+
+        const userAuthToken = await prisma.userAuthToken.findUnique({
+            where: { userId: loginUserId },
+            select: {
+                UserAuthToken: true,
+            },
+        });
 
         return response.success(res, 'User fetched successfully!', {
             user: responseUser,
-            token,
+            token: userAuthToken,
             analyticSummary,
             rewards,
             earningsSummary
@@ -2311,12 +2313,9 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         // Get user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        // Generate JWT
-        const token = jwt.sign(
-            { userId: user.id, email: user.emailAddress },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = req.headers.authorization?.split(' ')[1] || req.token;
+
+
 
         // Remove password if exists & override countryId etc. with names
         const { password, ...userWithoutPassword } = user as any;

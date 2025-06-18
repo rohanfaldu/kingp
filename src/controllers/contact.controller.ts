@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 
 export const submitContactForm = async (req: Request, res: Response): Promise<any> => {
     try {
-        const userId = req.user?.userId; // ✅ Get from auth token
+        const userId = req.user?.userId; 
         const { name, title, description, emailAddress, contactNumber } = req.body;
 
         if (!userId || !title || !description) {
