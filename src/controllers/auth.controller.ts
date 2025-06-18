@@ -977,7 +977,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
 
 export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<any> => {
-    //try {
+    try {
     const {
         platform, type, countryId, stateId, cityId, status,
         subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
@@ -1619,9 +1619,9 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         users: paginatedResults
     });
 
-    // } catch (error: any) {
-    //     return response.error(res, error.message);
-    // }
+    } catch (error: any) {
+        return response.error(res, error.message);
+    }
 };
 
 
