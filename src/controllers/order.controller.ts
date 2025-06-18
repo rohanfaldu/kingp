@@ -893,8 +893,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         await prisma.referralCoinSummary.update({
                             where: { userId: updated.businessId },
                             data: {
-                                totalAmount: (existingSummary.totalAmount ?? 0) + kringPCoins,
-                                NetAmount: new Prisma.Decimal(existingSummary.NetAmount ?? 0).plus(kringPCoins),
+                                 totalAmount: (Number(existingSummary.totalAmount) || 0) + 50,
+                                netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(50),
                                 unlocked: true,
                                 unlockedAt: new Date(),
                             },
@@ -904,7 +904,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                             data: {
                                 userId: updated.businessId,
                                 totalAmount: kringPCoins,
-                                NetAmount: kringPCoins,
+                                netAmount: kringPCoins,
                                 unlocked: true,
                                 unlockedAt: new Date(),
                             },
@@ -964,7 +964,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                 await prisma.referralCoinSummary.update({
                                     where: { userId: referral.referrerId },
                                     data: {
-                                        totalAmount: (summary.totalAmount ?? 0) + 50,
+                                        totalAmount: (Number(summary.totalAmount) || 0) + 50,
                                         unlocked: true,
                                         unlockedAt: now
                                     }
@@ -1644,8 +1644,8 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
                 await prisma.referralCoinSummary.update({
                     where: { userId },
                     data: {
-                        totalAmount: (existingSummary.totalAmount ?? 0) + kringPCoins,
-                        NetAmount: new Prisma.Decimal(existingSummary.NetAmount ?? 0).plus(kringPCoins),
+                        totalAmount: Number(existingSummary.totalAmount ?? 0) + Number(kringPCoins),
+                        netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(kringPCoins),
                         unlocked: true,
                         unlockedAt: new Date(),
                     },
@@ -1655,7 +1655,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
                     data: {
                         userId,
                         totalAmount: kringPCoins,
-                        NetAmount: kringPCoins,
+                        netAmount: kringPCoins,
                         unlocked: true,
                         unlockedAt: new Date(),
                     },

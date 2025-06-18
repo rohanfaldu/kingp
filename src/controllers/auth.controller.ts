@@ -1338,7 +1338,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         const matchedGroupIdSet = [...new Set(matchedGroupIds.map(e => e.groupId))];
 
-        console.log(subCategoryId, '>>>>>>>>> subCategoryId');
+        // console.log(subCategoryId, '>>>>>>>>> subCategoryId');
         // Combine search filters with current user exclusion
         const finalGroupFilter = {
             AND: [
