@@ -238,8 +238,16 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             },
         });
 
+        const collabsCount = await prisma.groupUsersList.count({
+            where: {
+                invitedUserId: loggedInUserId,
+                requestAccept: RequestStatus.PENDING,
+            },
+        });
+
         const influencerStats = {
             totalEarning: formattedEarning,
+            collabsCount,
             collabs,
             profileView,
         };
