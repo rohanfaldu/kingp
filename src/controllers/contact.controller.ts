@@ -43,21 +43,6 @@ export const submitContactForm = async (req: Request, res: Response): Promise<an
 
 
 
-// export const getAllContactRequests = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const contacts = await paginate(req, prisma.contact, {}, "contactRequests");
-
-//         if(!contacts || contacts.contactRequests.length === 0){
-//             throw new Error("Contact Request not Found");    
-//         }
-
-//         response.success(res, 'Get All Contact Request successfully!', contacts);
-
-//     } catch (error: any) {
-//         response.error(res, error.message);
-//     }
-// }
-
 
 export const getAllContactRequests = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -89,3 +74,35 @@ export const getAllContactRequests = async (req: Request, res: Response): Promis
     }
 };
 
+
+
+export const deleteContactRequest = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const tokenUser = req.user;
+        if (!tokenUser || !tokenUser.userId) {
+            return response.error(res, "Invalid token payload");
+        }
+
+        const loggedInUser = await prisma.user.findUnique({
+            where: { id: tokenUser.userId },
+        });
+
+        if (!loggedInUser || loggedInUser.type !== 'ADMIN') {
+            return response.error(res, "Unauthorized access. Only ADMIN can delete contact requests.");
+        }
+
+        const { contactId } = req.body;
+
+        if (!contactId) {
+            return response.error(res, "Contact ID is required for deletion.");
+        }
+
+        const deletedContact = await prisma.contact.delete({
+            where: { id: contactId },
+        });
+
+        return response.success(res, "Contact request deleted successfully!", deletedContact);
+    } catch (error: any) {
+        return response.error(res, error.message || "Failed to delete contact request.");
+    }
+};
