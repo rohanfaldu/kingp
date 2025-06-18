@@ -1849,27 +1849,34 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
             return res.status(400).json({ success: false, message: 'User ID is required' });
         }
 
-        // Fetch all unlocked coin transactions
-        const coinTransactions = await prisma.coinTransaction.findMany({
-            where: { userId, status: 'UNLOCKED' },
-            orderBy: { createdAt: 'desc' },
-            select: {
-                id: true,
-                amount: true,
-                type: true,
-                source: true,
-                status: true,
-                createdAt: true,
+        // Paginate coin transactions (only UNLOCKED)
+        const paginated = await paginate(
+            req,
+            prisma.coinTransaction,
+            {
+                where: { userId, status: 'UNLOCKED' },
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    amount: true,
+                    type: true,
+                    source: true,
+                    status: true,
+                    createdAt: true,
+                },
             },
-        });
+            'transactions'
+        );
 
-        // Get total unlocked amount
+        const coinTransactions = paginated.transactions;
+
+        // Total unlocked amount
         const totalUnlockedAmount = await prisma.coinTransaction.aggregate({
             where: { userId, status: 'UNLOCKED' },
             _sum: { amount: true },
         });
 
-        // Get referral withdrawal amount
+        // Referral summary (withdrawals)
         const referralSummary = await prisma.referralCoinSummary.findUnique({
             where: { userId },
             select: {
@@ -1882,7 +1889,7 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
         const totalAmount = Number(totalUnlockedAmount._sum.amount || 0);
         const netAmount = totalAmount - withdrawAmount;
 
-        // Format coin transactions
+        // Format unlocked coin transactions
         const history = coinTransactions.map(tx => ({
             id: tx.id,
             date: tx.createdAt,
@@ -1893,7 +1900,7 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
             isWithdrawal: false,
         }));
 
-        // Add withdrawal entry if applicable
+        // Append withdrawal if present
         if (withdrawAmount > 0) {
             history.push({
                 id: 'withdrawal',
@@ -1906,14 +1913,16 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
             });
         }
 
-        // Sort all entries by date descending
+        // Sort by date descending
         history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+        // Send full response with pagination + amount details
         return response.success(res, 'Referral coin history fetched successfully.', {
             totalAmount,
             withdrawAmount,
             netAmount,
             data: history,
+            meta: paginated.meta, // includes page, limit, totalCount etc.
         });
 
     } catch (error: any) {
@@ -1924,6 +1933,7 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
         });
     }
 };
+
 
 
 
