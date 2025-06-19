@@ -84,8 +84,12 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     where: { emailAddress },
     select: { name: true },
   });
+  
+  if (user === null ) {
+    return response.error(res, 'Email not found. Please provide a valid email address.');
+  }
 
-  if (!user && otpType === 'RESETPASS') {
+  if (otpType === 'RESETPASS') {
     return response.error(res, 'Email not found. Please provide a valid email address.');
   }
 
@@ -109,7 +113,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
       }
 
       const newCount = timeSinceLastUpdate >= thirtyMinutes ? 1 : (existingOtp.countMail ?? 0) + 1;
-
       await prisma.otpVerify.update({
         where: { id: existingOtp.id },
         data: {

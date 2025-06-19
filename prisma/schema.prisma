@@ -154,7 +154,7 @@ model OtpVerify {
   expireAt               DateTime?
   verified               Boolean        @default(false)
   createdAt              DateTime       @default(now())@db.Timestamp(6)
-  updatedAt              DateTime       
+  updatedAt              DateTime       @default(now())@db.Timestamp(6)  
   otpType                OtpType?
   countMail              Int?           @default(0)
   userData               User?          @relation( fields: [emailAddress], references: [emailAddress], onDelete: Cascade ) 
