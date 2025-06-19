@@ -1174,7 +1174,155 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
 };
 
 
+export const getAdminAllOrderList = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { status, page = 1, limit = 10 } = req.body;
 
+        const tokenUser = req.user;
+        if (!tokenUser || !tokenUser.userId) {
+            return response.error(res, "Invalid token payload");
+        }
+
+        const loggedInUser = await prisma.user.findUnique({
+            where: { id: tokenUser.userId },
+        });
+
+        if (!loggedInUser || loggedInUser.type !== 'ADMIN') {
+            return response.error(res, "Unauthorized access. Only ADMIN can delete contact requests.");
+        }
+
+        const currentUserId = req.user?.userId;
+
+        // if (status === "" || status === undefined || status === null) {
+        //     return response.error(res, 'Status is required');
+        // }
+
+       
+        let whereStatus;
+        if (status === null) {
+            const completedEnumValue = getStatusName(0);
+            const completedEnumValue1 = getStatusName(1);
+            const completedEnumValue2 = getStatusName(2);
+            const completedEnumValue3 = getStatusName(3);
+            const completedEnumValue4 = getStatusName(4);
+            const completedEnumValue5 = getStatusName(5);
+            const completedEnumValue6 = getStatusName(6);
+            whereStatus = [completedEnumValue, completedEnumValue1, completedEnumValue2, completedEnumValue3, completedEnumValue4, completedEnumValue5, completedEnumValue6];
+        } else {
+            const statusEnumValue = getStatusName(status);
+            whereStatus = [statusEnumValue];
+        }
+
+        // console.log(whereStatus, " >>>>>>> whereStatus");
+        const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
+        //  console.log(existingUser, ">>>>>>>>>>> existingUser");
+        if (!existingUser) {
+            return response.error(res, 'User not found');
+        }
+
+
+        const parsedPage = Number(page) || 1;
+        const parsedLimit = Number(limit) || 100;
+        const skip = (parsedPage - 1) * parsedLimit;
+
+        // Get total count
+        const total = await prisma.orders.count({
+            where: {
+                status: {
+                    in: whereStatus
+                },
+            }
+        });
+
+
+        // Option 1: Simple approach - exclude only userId (your original approach)
+        const getOrder = await prisma.orders.findMany({
+            where: {
+                status: {
+                    in: whereStatus
+                },
+            },
+            include: {
+                groupOrderData: {
+                    include: {
+                        groupUsersList: true
+                    }
+                },
+                influencerOrderData: {
+                    include: {
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                },
+                businessOrderData: {
+                    include: {
+                        socialMediaPlatforms: {
+                            select: {
+                                id: true,
+                                image: true,
+                                userId: true,
+                                platform: true,
+                                userName: true,
+                                followerCount: true,
+                                engagementRate: true,
+                                averageLikes: true,
+                                averageComments: true,
+                                averageShares: true,
+                                price: true,
+                                status: true,
+                                createsAt: true,
+                                updatedAt: true,
+                            }
+                        },
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            },
+            skip,
+            take: parsedLimit
+        });
+        const totalPages = Math.ceil(total / parsedLimit);
+
+        return response.success(res, 'Get All order List', {
+            pagination: {
+                total,
+                page: parsedPage,
+                limit: parsedLimit,
+                totalPages
+            },
+            orderList: getOrder
+        });
+
+    } catch (error: any) {
+        return response.error(res, error.message || 'Something went wrong');
+    }
+};
 
 // Alternative approach - if you know the exact field names
 export const getAllOrderListAlternative = async (req: Request, res: Response): Promise<any> => {
