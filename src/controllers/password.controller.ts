@@ -89,9 +89,9 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     return response.error(res, 'Email not found. Please provide a valid email address.');
   }
 
-  if (otpType === 'RESETPASS') {
-    return response.error(res, 'Email not found. Please provide a valid email address.');
-  }
+  // if (otpType === 'RESETPASS') {
+  //   return response.error(res, 'Email not found. Please provide a valid email address.');
+  // }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expireAt = new Date(Date.now() + 10 * 60 * 1000);
