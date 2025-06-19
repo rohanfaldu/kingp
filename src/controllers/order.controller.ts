@@ -2107,12 +2107,12 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
         const withdrawAmount = referralSummary?.unlocked ? Number(referralSummary?.withdrawAmount || 0) : 0;
         const netAmount = totalAmount - withdrawAmount;
 
-        // Paginate coin transactions (only UNLOCKED)
+        // Paginate all coin transactions (locked + unlocked)
         const paginated = await paginate(
             req,
             prisma.coinTransaction,
             {
-                where: { userId, status: 'UNLOCKED' },
+                where: { userId },
                 orderBy: { createdAt: 'desc' },
                 select: {
                     id: true,
@@ -2128,14 +2128,14 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
 
         const coinTransactions = paginated.transactions;
 
-        // Format unlocked coin transactions
+        // Format all coin transactions
         const history = coinTransactions.map(tx => ({
             id: tx.id,
             date: tx.createdAt,
             type: tx.type,
             source: tx.source || null,
             amount: tx.amount,
-            status: tx.status,
+            status: tx.status, // can be LOCKED or UNLOCKED
             isWithdrawal: false,
         }));
 
@@ -2172,6 +2172,7 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
         });
     }
 };
+
 
 
 

@@ -269,6 +269,8 @@ model Badges {
   status                  Boolean         @default(true)
   createdAt               DateTime        @default(now()) @db.Timestamp(6)
   updatedAt               DateTime        @default(now()) @db.Timestamp(6)
+
+  userBadgeTitleData      UserBadges[]   
 }
 
 model Orders {
@@ -486,17 +488,14 @@ model DailyTips {
 }
 
 model UserBadges {
-  id                  String        @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
-  userId              String        @db.Uuid
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String?       @db.Uuid
   badgeId             String        @db.Uuid
-  badgeType           String        @db.Uuid
   createdAt           DateTime      @default(now()) @db.Timestamp(6)
   updatedAt           DateTime      @updatedAt @db.Timestamp(6)
 
   userBadgeData       User?         @relation(fields: [userId], references: [id])
-  userBadgeTitleData  Badges?       @relation("userBadgeTitleInfo" fields: [badgeId], references: [id])
-  userBadgeTypeData   Badges?       @relation("userBadgeTypeInfo" fields: [badgeType], references: [id])
-
+  userBadgeTitleData  Badges?       @relation(fields: [badgeId], references: [id])
 }
 
 enum Role {

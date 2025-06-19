@@ -45,6 +45,35 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
 
             },
         });
+
+        // 4. Count total social media accounts after insertion
+        const totalAccounts = await prisma.socialMediaPlatform.count({
+            where: { userId },
+        });
+
+        // 5. If 2 or more accounts, assign badge type 1 if not already assigned
+        if (totalAccounts >= 2) {
+            const badge = await prisma.badges.findFirst({
+                where: { type: '1' }, // Adjust if badge identification is different
+                select: { id: true },
+            });
+
+            const alreadyAssigned = await prisma.userBadges.findFirst({
+                where: {
+                    userId,
+                    badgeId: badge?.id,
+                },
+            });
+
+            if (badge && !alreadyAssigned) {
+                await prisma.userBadges.create({
+                    data: {
+                        userId,
+                        badgeId: badge.id,
+                    },
+                });
+            }
+        }
         const { viewCount, ...filteredSocialMedia } = newSocialMedia;
 
         return response.success(res, 'Social Media Platform created successfully!', filteredSocialMedia);

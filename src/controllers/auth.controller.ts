@@ -195,6 +195,23 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         },
     });
 
+    // If 2 or more accounts, assign badge type 1
+    if (socialMediaPlatform.length >= 2) {
+        const badge = await prisma.badges.findFirst({
+             where: { type: '1' }, // Adjust field name if it's called something else
+            select: { id: true },
+        });
+
+        if (badge) {
+            await prisma.userBadges.create({
+                data: {
+                    userId: newUser.id,
+                    badgeId: badge.id,
+                },
+            });
+        }
+    }
+
     const signupSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: newUser.id } });
     if (signupSummary) {
         await prisma.referralCoinSummary.update({
