@@ -84,14 +84,11 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     where: { emailAddress },
     select: { name: true },
   });
-  
-  if (user === null ) {
+
+  if (user === null) {
     return response.error(res, 'Email not found. Please provide a valid email address.');
   }
 
-  // if (otpType === 'RESETPASS') {
-  //   return response.error(res, 'Email not found. Please provide a valid email address.');
-  // }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expireAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -213,28 +210,54 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
 
     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-    // const token = jwt.sign(
-    //   { userId: user.id, email: user.emailAddress },
-    //   JWT_SECRET,
-    //   { expiresIn: '7d' }
-    // );
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.emailAddress },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // ✅ Store token in `UserAuthToken` table (upsert = create if not exists)
+    await prisma.userAuthToken.upsert({
+      where: { userId: user.id },
+      update: { UserAuthToken: token },
+      create: {
+        userId: user.id,
+        UserAuthToken: token,
+      },
+    });
     // const token = req.headers.authorization?.split(' ')[1] || req.token;
 
 
     const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
 
-    const userResponse = {
-      ...userWithoutPassword,
-      categories: userCategoriesWithSubcategories,
-      countryName: user.countryData?.name ?? null,
-      stateName: user.stateData?.name ?? null,
-      cityName: user.cityData?.name ?? null,
-    };
+    if (record.otpType === "SIGNUP") {
+      const userResponse = {
+        ...userWithoutPassword,
+        categories: userCategoriesWithSubcategories,
+        countryName: user.countryData?.name ?? null,
+        stateName: user.stateData?.name ?? null,
+        cityName: user.cityData?.name ?? null,
+      };
 
-    return response.success(res, 'OTP verified successfully.', {
-      user: userResponse,
-      token: null,
-    });
+      return response.success(res, 'OTP verified successfully.', {
+        user: userResponse,
+        token,
+      });
+    } else {
+      const userResponse = {
+        ...userWithoutPassword,
+        categories: userCategoriesWithSubcategories,
+        countryName: user.countryData?.name ?? null,
+        stateName: user.stateData?.name ?? null,
+        cityName: user.cityData?.name ?? null,
+      };
+
+      return response.success(res, 'OTP verified successfully.', {
+        user: userResponse,
+        token: null,
+      });
+    }
 
     // return response.success(res, 'OTP verified successfully.', null);
   } catch (error: any) {
