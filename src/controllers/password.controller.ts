@@ -207,11 +207,13 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
 
     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.emailAddress },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // const token = jwt.sign(
+    //   { userId: user.id, email: user.emailAddress },
+    //   JWT_SECRET,
+    //   { expiresIn: '7d' }
+    // );
+    const token = req.headers.authorization?.split(' ')[1] || req.token;
+
 
     const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
 

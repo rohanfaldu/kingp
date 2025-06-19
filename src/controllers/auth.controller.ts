@@ -265,14 +265,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         }
     }
 
-
-
-    const token = jwt.sign(
-        { userId: newUser.id, email: newUser.emailAddress },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-    );
-
     //  const { password: _, socialMediaPlatform: __, ...newUsers } = newUser as any;
     const newUsers = omit(newUser, ['password', 'socialMediaPlatform']);
 
@@ -286,6 +278,24 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         cityName: newUser.cityData?.name ?? null,
 
     };
+
+
+    const token = jwt.sign(
+        { userId: newUser.id, email: newUser.emailAddress },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+
+    // ✅ Store token in `UserAuthToken` table (upsert = create if not exists)
+    await prisma.userAuthToken.upsert({
+        where: { userId: newUsers.id },
+        update: { UserAuthToken: token },
+        create: {
+            userId: newUsers.id,
+            UserAuthToken: token,
+        },
+    });
+
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
@@ -447,22 +457,15 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         // Get user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: user.id, email: user.emailAddress },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        // // Generate JWT token
+        // const token = jwt.sign(
+        //     { userId: user.id, email: user.emailAddress },
+        //     JWT_SECRET,
+        //     { expiresIn: '7d' }
+        // );
 
-        // ✅ Store token in `UserAuthToken` table (upsert = create if not exists)
-        await prisma.userAuthToken.upsert({
-            where: { userId: user.id },
-            update: { UserAuthToken: token },
-            create: {
-                userId: user.id,
-                UserAuthToken: token,
-            },
-        });
+        const token = req.headers.authorization?.split(' ')[1] || req.token;
+
 
         // Build user response and replace IDs with names
         const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
@@ -531,7 +534,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 });
             }
         }
-        
+
 
         // ✅ Increment total view count on user's profile
         await prisma.user.update({
@@ -1017,41 +1020,93 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
             // Apply badge-specific filters based on criteria
             const badgeFilters: any[] = [];
-
+            let requiresPostFilter = false;
             badges.forEach(badge => {
                 switch (badge) {
                     case '1':
+                        // Add basic filter to match at least one platform (we'll post-filter to ensure count >= 2)
                         badgeFilters.push({
                             socialMediaPlatforms: {
                                 some: {
-                                    platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] },
-                                },
-                            },
+                                    platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] }
+                                }
+                            }
                         });
+                        requiresPostFilter = true;
                         break;
 
                     case '2':
                         badgeFilters.push({
-                            ratings: { gte: 4.5 },
+                            AND: [
+                                { ratings: { gte: 4.5 } },
+                                {
+                                    influencerOrderData: {
+                                        some: {
+                                            status: 'COMPLETED',
+                                        },
+                                    },
+                                },
+                            ]
                         });
+                        requiresPostFilter = true; // ← to count completed orders
                         break;
+
 
                     case '3':
                         badgeFilters.push({
-                            socialMediaPlatforms: {
-                                some: {
-                                    AND: [
-                                        { price: { gte: 100000 } },
-                                    ],
+                            AND: [
+                                { ratings: { gte: 4.7 } },
+                                {
+                                    userStats: {
+                                        some: {
+                                            totalEarnings: { gte: 100000 }
+                                        }
+                                    }
                                 },
-                            },
-                            ratings: { gte: 4.7 },
-
+                                {
+                                    influencerOrderData: {
+                                        some: {
+                                            status: 'COMPLETED',
+                                        },
+                                    },
+                                },
+                            ],
                         });
+                        requiresPostFilter = true; // ← to count completed orders (≥10)
                         break;
+
 
                 }
             });
+
+            const users = await prisma.user.findMany({
+                where: {
+                    AND: andFilters,
+                },
+                include: {
+                    socialMediaPlatforms: true,
+                    userStatsData: true,
+                    influencerOrderData: true, // needed for post-count
+                },
+            });
+
+            const filtered = requiresPostFilter
+                ? users.filter(user => {
+                    const platformCount = user.socialMediaPlatforms.filter(p =>
+                        ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'].includes(p.platform)
+                    ).length;
+
+                    const completedOrders = user.influencerOrderData?.filter(order => order.status === 'COMPLETED').length || 0;
+
+                    // Check which badges the user was evaluated for
+                    const hasBadge1 = badges.includes('1') ? platformCount >= 2 : true;
+                    const hasBadge2 = badges.includes('2') ? completedOrders >= 3 : true;
+                    const hasBadge3 = badges.includes('3') ? completedOrders >= 10 : true;
+
+                    return hasBadge1 && hasBadge2 && hasBadge3;
+                })
+                : users;
+
 
             if (badgeFilters.length > 0) {
                 andFilters.push({
@@ -1059,6 +1114,9 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                 });
             }
         }
+
+
+
 
         const whereFilter: any = { ...filter };
         if (andFilters.length > 0) {
