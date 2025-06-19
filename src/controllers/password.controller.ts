@@ -7,6 +7,7 @@ import { sendEmail } from '../utils/sendMail';
 import { Resend } from 'resend';
 import { resolveStatus } from '../utils/commonFunction'
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
+import { OtpType } from '@prisma/client';
 
 
 
@@ -69,10 +70,14 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
 
 
 export const forgotPassword = async (req: Request, res: Response): Promise<any> => {
-  const { emailAddress } = req.body;
+  const { emailAddress, otpType } = req.body;
 
   if (!emailAddress) {
     return response.error(res, 'Email address is required.');
+  }
+
+  if (!['SIGNUP', 'RESETPASS'].includes(otpType)) {
+    return response.error(res, 'Invalid OTP type.');
   }
 
   const user = await prisma.user.findUnique({
@@ -80,20 +85,20 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     select: { name: true },
   });
 
-  if (!user) {
+  if (!user && otpType === 'RESETPASS') {
     return response.error(res, 'Email not found. Please provide a valid email address.');
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes validity
+  const expireAt = new Date(Date.now() + 10 * 60 * 1000);
   const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
 
   try {
-    const existingOtp = await prisma.otpVerify.findFirst({
-      where: { emailAddress, otpType: 'RESETPASS' },
-    });
-
     const now = new Date();
+
+    const existingOtp = await prisma.otpVerify.findFirst({
+      where: { emailAddress, otpType },
+    });
 
     if (existingOtp) {
       const timeSinceLastUpdate = now.getTime() - new Date(existingOtp.updatedAt).getTime();
@@ -103,8 +108,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
         return response.error(res, 'Too many attempts. Please try again after 30 minutes.');
       }
 
-      // Reset count if 30 minutes have passed
-      const newCount = timeSinceLastUpdate >= thirtyMinutes ? 1 : (existingOtp.countMail || 0) + 1;
+      const newCount = timeSinceLastUpdate >= thirtyMinutes ? 1 : (existingOtp.countMail ?? 0) + 1;
 
       await prisma.otpVerify.update({
         where: { id: existingOtp.id },
@@ -112,7 +116,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
           otp,
           expireAt,
           verified: false,
-          // otpType: 'RESETPASS',
           countMail: newCount,
           updatedAt: now,
         },
@@ -124,7 +127,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
           otp,
           expireAt,
           verified: false,
-          otpType: 'RESETPASS',
+          otpType: otpType as OtpType,
           countMail: 1,
           updatedAt: now,
         },
@@ -133,17 +136,17 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
 
     const htmlContent = `
       <p>Hello ${user?.name || emailAddress},</p>
-      <p>This is your KringP Reset Password email.</p>
-      <p>We received a request to reset your password for your email address: ${emailAddress}.</p>
+      <p>This is your KringP ${otpType === 'SIGNUP' ? 'Signup' : 'Reset Password'} OTP email.</p>
+      <p>We received a request to ${otpType === 'SIGNUP' ? 'verify your account' : 'reset your password'} for your email address: ${emailAddress}.</p>
       <p>Your OTP is: <strong>${otp}</strong></p>
       <p>This OTP is valid for 10 minutes.</p>
-      <p>If you did not request a password reset, please ignore this email or contact our support team.</p>
+      <p>If you did not request this, please ignore this email or contact our support team.</p>
     `;
 
     await resend.emails.send({
       from: 'KringP <info@kringp.com>',
       to: emailAddress,
-      subject: 'Reset Password OTP - KringP',
+      subject: `${otpType === 'SIGNUP' ? 'Signup' : 'Reset Password'} OTP - KringP`,
       html: htmlContent,
     });
 
@@ -212,7 +215,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
     //   JWT_SECRET,
     //   { expiresIn: '7d' }
     // );
-    const token = req.headers.authorization?.split(' ')[1] || req.token;
+    // const token = req.headers.authorization?.split(' ')[1] || req.token;
 
 
     const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
@@ -227,7 +230,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
 
     return response.success(res, 'OTP verified successfully.', {
       user: userResponse,
-      token,
+      token: null,
     });
 
     // return response.success(res, 'OTP verified successfully.', null);

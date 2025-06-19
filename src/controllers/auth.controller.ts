@@ -286,16 +286,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         { expiresIn: '7d' }
     );
 
-    // ✅ Store token in `UserAuthToken` table (upsert = create if not exists)
-    await prisma.userAuthToken.upsert({
-        where: { userId: newUsers.id },
-        update: { UserAuthToken: token },
-        create: {
-            userId: newUsers.id,
-            UserAuthToken: token,
-        },
-    });
-
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
@@ -457,14 +447,22 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         // Get user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        // // Generate JWT token
-        // const token = jwt.sign(
-        //     { userId: user.id, email: user.emailAddress },
-        //     JWT_SECRET,
-        //     { expiresIn: '7d' }
-        // );
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user.id, email: user.emailAddress },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
 
-        const token = req.headers.authorization?.split(' ')[1] || req.token;
+        // ✅ Store token in `UserAuthToken` table (upsert = create if not exists)
+        await prisma.userAuthToken.upsert({
+            where: { userId: user.id },
+            update: { UserAuthToken: token },
+            create: {
+                userId: user.id,
+                UserAuthToken: token,
+            },
+        });
 
 
         // Build user response and replace IDs with names
@@ -1048,7 +1046,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                                 },
                             ]
                         });
-                        requiresPostFilter = true; // ← to count completed orders
+                        requiresPostFilter = true;
                         break;
 
 
@@ -1056,13 +1054,13 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                         badgeFilters.push({
                             AND: [
                                 { ratings: { gte: 4.7 } },
-                                {
-                                    userStats: {
-                                        some: {
-                                            totalEarnings: { gte: 100000 }
-                                        }
-                                    }
-                                },
+                                // {
+                                //     userStats: {
+                                //         some: {
+                                //             totalEarnings: { gte: 100000 }
+                                //         }
+                                //     }
+                                // },
                                 {
                                     influencerOrderData: {
                                         some: {
@@ -1072,7 +1070,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                                 },
                             ],
                         });
-                        requiresPostFilter = true; // ← to count completed orders (≥10)
+                        requiresPostFilter = true;
                         break;
 
 
