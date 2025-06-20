@@ -308,6 +308,17 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         { expiresIn: '7d' }
     );
 
+    if (loginType === 'GOOGLE' || loginType === 'APPLE') {
+        await prisma.userAuthToken.upsert({
+            where: { userId: newUser.id },
+            update: { UserAuthToken: token },
+            create: {
+                userId: newUser.id,
+                UserAuthToken: token,
+            },
+        });
+    }
+
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
@@ -1973,10 +1984,10 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                     ]
                 }
             }),
-             prisma.coinTransaction.deleteMany({
+            prisma.coinTransaction.deleteMany({
                 where: { userId: id },
             }),
-             prisma.userAuthToken.deleteMany({
+            prisma.userAuthToken.deleteMany({
                 where: { userId: id },
             }),
             prisma.user.delete({
