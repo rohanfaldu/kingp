@@ -7,6 +7,7 @@ import { calculateProfileCompletion, getProfileCompletionSuggestions } from '../
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { subMonths } from 'date-fns';
 import { Role } from '@prisma/client';
+import { paginate } from '../utils/pagination';
 
 
 const prisma = new PrismaClient();
@@ -267,7 +268,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-            const responseUser = {
+        const responseUser = {
             ...authUser,
             categories: userCategoriesWithSubcategories,
         };
@@ -497,21 +498,30 @@ export const chatViewCount = async (req: Request, res: Response): Promise<any> =
 
 
 
+
 export const getAdminDashboardStats = async (req: Request, res: Response): Promise<any> => {
     try {
-        const [influencerCount, businessCount, earningsAggregate] = await Promise.all([
+        const [influencerCount, businessCount, adminUsers] = await Promise.all([
             prisma.user.count({ where: { type: Role.INFLUENCER } }),
             prisma.user.count({ where: { type: Role.BUSINESS } }),
-            prisma.earnings.aggregate({
-                _sum: {
-                    earningAmount: true,
-                },
-               
+            prisma.user.findMany({
+                where: { type: Role.ADMIN },
+                select: { id: true },
             }),
         ]);
-        console.log(earningsAggregate, '>>>>>>>>>>>>> earningsAggregate');
 
-        const totalEarnings = earningsAggregate._sum.earningAmount ?? 0;
+        const adminUserIds = adminUsers.map(user => user.id);
+
+        const totalEarningResult = await prisma.earnings.aggregate({
+            where: {
+                userId: { in: adminUserIds },
+            },
+            _sum: {
+                earningAmount: true,
+            },
+        });
+
+        const totalEarnings = totalEarningResult._sum.earningAmount || 0;
 
         return response.success(res, 'Admin dashboard stats fetched successfully', {
             totalInfluencers: influencerCount,
@@ -521,6 +531,45 @@ export const getAdminDashboardStats = async (req: Request, res: Response): Promi
     } catch (error: any) {
         console.error('getAdminDashboardStats error:', error);
         return response.error(res, 'Failed to fetch admin dashboard stats');
+    }
+};
+
+
+
+
+export const getAdminEarningsList = async (req: Request, res: Response): Promise<any> => {
+    try {
+        // Get all ADMIN users' IDs
+        const adminUsers = await prisma.user.findMany({
+            where: { type: 'ADMIN' },
+            select: { id: true },
+        });
+
+        const adminUserIds = adminUsers.map(user => user.id);
+
+        const earnings = await paginate(
+            req,
+            prisma.earnings,
+            {
+                where: {
+                    userId: { in: adminUserIds },
+                },
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    orderData: true,
+                },
+            },
+            "earnings"
+        );
+
+        if (!earnings || earnings.earnings.length === 0) {
+            throw new Error("Earnings not found for admin users");
+        }
+
+        response.success(res, 'Admin earnings list fetched successfully', earnings);
+
+    } catch (error: any) {
+        response.error(res, error.message);
     }
 };
 
