@@ -1,5 +1,5 @@
 import express from 'express';
-import { getTopInfluencers, getDashboardData, influencerDashboard, chatViewCount } from '../controllers/dashboard.controller';
+import { getTopInfluencers, getDashboardData, influencerDashboard, chatViewCount, getAdminDashboardStats } from '../controllers/dashboard.controller';
 import { authenticateToken } from '../services/authorization';
 
 
@@ -14,6 +14,8 @@ router.post('/updateChatCount', authenticateToken, chatViewCount);
 
 
 router.post('/getInfluencerData', authenticateToken, influencerDashboard);
+router.post('/getAdminDashboardStats', authenticateToken, getAdminDashboardStats);
+
 
 
 

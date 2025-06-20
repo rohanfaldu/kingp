@@ -6,6 +6,7 @@ import { RequestStatus, CoinType } from '@prisma/client';
 import { calculateProfileCompletion, getProfileCompletionSuggestions } from '../utils/calculateProfileCompletion';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { subMonths } from 'date-fns';
+import { Role } from '@prisma/client';
 
 
 const prisma = new PrismaClient();
@@ -495,4 +496,28 @@ export const chatViewCount = async (req: Request, res: Response): Promise<any> =
 };
 
 
+
+export const getAdminDashboardStats = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const [influencerCount, businessCount, totalEarning] = await Promise.all([
+            prisma.user.count({ where: { type: Role.INFLUENCER } }),
+            prisma.user.count({ where: { type: Role.BUSINESS } }),
+            prisma.earnings.aggregate({
+                _sum: {
+                    earningAmount: true,
+                },
+               
+            }),
+        ]);
+
+        return response.success(res, 'Admin dashboard stats fetched successfully', {
+            totalInfluencers: influencerCount,
+            totalBusinesses: businessCount,
+            totalEarnings: totalEarning._sum.earningAmount ?? 0,
+        });
+    } catch (error: any) {
+        console.error('getAdminDashboardStats error:', error);
+        return response.error(res, 'Failed to fetch admin dashboard stats');
+    }
+};
 
