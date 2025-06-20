@@ -2001,7 +2001,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
     }
 
     const {
-        emailAddress, password, subcategoriesId = [], stateId, cityId, countryId, brandTypeId, status, gender, ...updatableFields
+        emailAddress, password, subcategoriesId = [], stateId, cityId, countryId, brandTypeId, status, gender, referralCode, ...updatableFields
     } = userData;
 
     const finalUpdateData: any = {};
