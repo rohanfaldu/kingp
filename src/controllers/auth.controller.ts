@@ -1962,10 +1962,28 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             prisma.otpVerify.deleteMany({
                 where: { emailAddress: existingUser.emailAddress },
             }),
+            prisma.referralCoinSummary.deleteMany({
+                where: { userId: id },
+            }),
+            prisma.referral.deleteMany({
+                where: {
+                    OR: [
+                        { referrerId: id },
+                        { referredUserId: id }
+                    ]
+                }
+            }),
+             prisma.coinTransaction.deleteMany({
+                where: { userId: id },
+            }),
+             prisma.userAuthToken.deleteMany({
+                where: { userId: id },
+            }),
             prisma.user.delete({
                 where: { id },
             }),
         ]);
+
 
         response.success(res, 'User and all related data deleted successfully', null);
 

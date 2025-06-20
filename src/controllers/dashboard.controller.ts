@@ -499,7 +499,7 @@ export const chatViewCount = async (req: Request, res: Response): Promise<any> =
 
 export const getAdminDashboardStats = async (req: Request, res: Response): Promise<any> => {
     try {
-        const [influencerCount, businessCount, totalEarning] = await Promise.all([
+        const [influencerCount, businessCount, earningsAggregate] = await Promise.all([
             prisma.user.count({ where: { type: Role.INFLUENCER } }),
             prisma.user.count({ where: { type: Role.BUSINESS } }),
             prisma.earnings.aggregate({
@@ -509,11 +509,14 @@ export const getAdminDashboardStats = async (req: Request, res: Response): Promi
                
             }),
         ]);
+        console.log(earningsAggregate, '>>>>>>>>>>>>> earningsAggregate');
+
+        const totalEarnings = earningsAggregate._sum.earningAmount ?? 0;
 
         return response.success(res, 'Admin dashboard stats fetched successfully', {
             totalInfluencers: influencerCount,
             totalBusinesses: businessCount,
-            totalEarnings: totalEarning._sum.earningAmount ?? 0,
+            totalEarnings,
         });
     } catch (error: any) {
         console.error('getAdminDashboardStats error:', error);
