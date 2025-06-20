@@ -1056,108 +1056,22 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
 
             if (invalidBadges.length > 0) {
-                return response.error(res, `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`);
+                return response.error(
+                    res,
+                    `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`
+                );
             }
 
-            // Apply badge-specific filters based on criteria
-            const badgeFilters: any[] = [];
-            let requiresPostFilter = false;
-            badges.forEach(badge => {
-                switch (badge) {
-                    case '1':
-                        // Add basic filter to match at least one platform (we'll post-filter to ensure count >= 2)
-                        badgeFilters.push({
-                            socialMediaPlatforms: {
-                                some: {
-                                    platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] }
-                                }
-                            }
-                        });
-                        requiresPostFilter = true;
-                        break;
-
-                    case '2':
-                        badgeFilters.push({
-                            AND: [
-                                { ratings: { gte: 4.5 } },
-                                {
-                                    influencerOrderData: {
-                                        some: {
-                                            status: 'COMPLETED',
-                                        },
-                                    },
-                                },
-                            ]
-                        });
-                        requiresPostFilter = true;
-                        break;
-
-
-                    case '3':
-                        badgeFilters.push({
-                            AND: [
-                                { ratings: { gte: 4.7 } },
-                                // {
-                                //     userStats: {
-                                //         some: {
-                                //             totalEarnings: { gte: 100000 }
-                                //         }
-                                //     }
-                                // },
-                                {
-                                    influencerOrderData: {
-                                        some: {
-                                            status: 'COMPLETED',
-                                        },
-                                    },
-                                },
-                            ],
-                        });
-                        requiresPostFilter = true;
-                        break;
-
-
-                }
-            });
-
-            const users = await prisma.user.findMany({
-                where: {
-                    AND: andFilters,
-                },
-                include: {
-                    socialMediaPlatforms: true,
-                    userStatsData: true,
-                    influencerOrderData: true, // needed for post-count
+            andFilters.push({
+                userBadgeData: {
+                    some: {
+                        userBadgeTitleData: {
+                            type: { in: badges },
+                        },
+                    },
                 },
             });
-
-            const filtered = requiresPostFilter
-                ? users.filter(user => {
-                    const platformCount = user.socialMediaPlatforms.filter(p =>
-                        ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'].includes(p.platform)
-                    ).length;
-
-                    const completedOrders = user.influencerOrderData?.filter(order => order.status === 'COMPLETED').length || 0;
-
-                    // Check which badges the user was evaluated for
-                    const hasBadge1 = badges.includes('1') ? platformCount >= 2 : true;
-                    const hasBadge2 = badges.includes('2') ? completedOrders >= 3 : true;
-                    const hasBadge3 = badges.includes('3') ? completedOrders >= 10 : true;
-
-                    return hasBadge1 && hasBadge2 && hasBadge3;
-                })
-                : users;
-
-
-            if (badgeFilters.length > 0) {
-                andFilters.push({
-                    OR: badgeFilters,
-                });
-            }
         }
-
-
-
 
         const whereFilter: any = { ...filter };
         if (andFilters.length > 0) {
@@ -1400,58 +1314,27 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             }
         }
 
-        // Badge Type filter (NEW)
+         // Badge Type filter (NEW)
         if (badgeType) {
             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
 
             if (invalidBadges.length > 0) {
-                return response.error(res, `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`);
+                return response.error(
+                    res,
+                    `Invalid badge type(s): ${invalidBadges.join(', ')}. Allowed: 1-8 (1: Verified, 2: Rising Star, 3: Top Influencer, 4: Creative Genius, 5: On-Time Pro, 6: Engagement Champion, 7: Collaboration Hero, 8: Eco-Conscious Creator)`
+                );
             }
 
-            // Apply badge-specific filters based on criteria
-            const badgeFilters: any[] = [];
-
-            badges.forEach(badge => {
-                switch (badge) {
-                    case '1':
-                        badgeFilters.push({
-                            socialMediaPlatforms: {
-                                some: {
-                                    platform: { in: ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'] },
-                                },
-                            },
-                        });
-                        break;
-
-                    case '2':
-                        badgeFilters.push({
-                            ratings: { gte: 4.5 },
-                        });
-                        break;
-
-                    case '3':
-                        badgeFilters.push({
-                            socialMediaPlatforms: {
-                                some: {
-                                    AND: [
-                                        { price: { gte: 100000 } },
-                                    ],
-                                },
-                            },
-                            ratings: { gte: 4.7 },
-
-                        });
-                        break;
-
-                }
+            andFilters.push({
+                userBadgeData: {
+                    some: {
+                        userBadgeTitleData: {
+                            type: { in: badges },
+                        },
+                    },
+                },
             });
-
-            if (badgeFilters.length > 0) {
-                andFilters.push({
-                    OR: badgeFilters,
-                });
-            }
         }
 
         if (countryId) {
