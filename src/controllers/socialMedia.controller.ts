@@ -51,7 +51,7 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
             where: { userId },
         });
 
-        // 5. If 2 or more accounts, assign badge type 1 if not already assigned
+        // BADGE : 1 If 2 or more accounts, assign badge type 1 if not already assigned
         if (totalAccounts >= 2) {
             const badge = await prisma.badges.findFirst({
                 where: { type: '1' }, // Adjust if badge identification is different
@@ -74,6 +74,55 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
                 });
             }
         }
+        // ******  BADGE : 6 START Count total completed orders by the user *********//
+        // 1. Get all social accounts of the user
+        const allSocialAccounts = await prisma.socialMediaPlatform.findMany({
+            where: {
+                userId,
+                status: true,
+            },
+            select: {
+                id: true,
+                averageLikes: true,
+                averageComments: true,
+                viewCount: true,
+            },
+        });
+
+        // 2. Ensure user has at least 2 accounts
+        if (allSocialAccounts) {
+            // 3. Check if ALL accounts meet criteria
+            const allMeetCriteria = allSocialAccounts.every(account =>
+                (account.averageLikes ?? 0) >= 300 &&
+                (account.averageComments ?? 0) >= 100 &&
+                (account.viewCount ?? 0) >= 500
+            );
+
+            if (allMeetCriteria) {
+                const badge = await prisma.badges.findFirst({
+                    where: { type: '6' },
+                    select: { id: true },
+                });
+
+                const alreadyAssigned = await prisma.userBadges.findFirst({
+                    where: {
+                        userId,
+                        badgeId: badge?.id,
+                    },
+                });
+
+                if (badge && !alreadyAssigned) {
+                    await prisma.userBadges.create({
+                        data: {
+                            userId,
+                            badgeId: badge.id,
+                        },
+                    });
+                }
+            }
+        }
+
+        // ******  BADGE : 6 END Count total completed orders by the user *********//
         const { viewCount, ...filteredSocialMedia } = newSocialMedia;
 
         return response.success(res, 'Social Media Platform created successfully!', filteredSocialMedia);
@@ -105,11 +154,58 @@ export const editSocialMediaPlatform = async (req: Request, res: Response): Prom
                 sanitizedData[key] = value;
             }
         }
-
+        
+        // 1. Update social media platform
         const updated = await prisma.socialMediaPlatform.update({
             where: { id },
             data: sanitizedData,
         });
+        const userId = updated.userId;
+
+        // Fetch all social media accounts for the user
+        const allAccounts = await prisma.socialMediaPlatform.findMany({
+            where: {
+                userId,
+                status: true,
+            },
+            select: {
+                id: true,
+                averageLikes: true,
+                averageComments: true,
+                viewCount: true,
+            },
+        });
+
+        if (allAccounts.length >= 2) {
+            const allMeetCriteria = allAccounts.every(account =>
+                (account.averageLikes ?? 0) >= 300 &&
+                (account.averageComments ?? 0) >= 100 &&
+                (account.viewCount ?? 0) >= 500
+            );
+
+            if (allMeetCriteria) {
+                const badge = await prisma.badges.findFirst({
+                    where: { type: '6' },
+                    select: { id: true },
+                });
+
+                const alreadyAssigned = await prisma.userBadges.findFirst({
+                    where: {
+                        userId,
+                        badgeId: badge?.id,
+                    },
+                });
+
+                if (badge && !alreadyAssigned) {
+                    await prisma.userBadges.create({
+                        data: {
+                            userId,
+                            badgeId: badge.id,
+                        },
+                    });
+                }
+            }
+        }
 
         const { viewCount, ...filteredSocialMedia } = updated;
 

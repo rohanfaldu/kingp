@@ -294,7 +294,7 @@ model Orders {
   businessReviewStatus    Boolean         @default(false)
   influencerReviewStatus  Boolean         @default(false)
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
-  updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime?       @updatedAt @db.Timestamp(6)
 
   orderData               Earnings[]
   groupOrderData          Group?          @relation(fields: [groupId], references: [id])

@@ -952,6 +952,44 @@ export const respondToGroupInvite = async (req: Request, res: Response): Promise
                 })
         );
 
+        // ******************* BADGE : 7 START ***************************//
+        const participatingGroups = await prisma.groupUsersList.findMany({
+            where: {
+                invitedUserId: userId,
+                requestAccept: 'ACCEPTED',
+            },
+            select: {
+                groupId: true,
+            },
+            distinct: ['groupId'], // Ensure unique group participation
+        });
+
+        if (participatingGroups.length >= 5) {
+            const badge = await prisma.badges.findFirst({
+                where: { type: '7' },
+                select: { id: true },
+            });
+
+            const alreadyAssigned = await prisma.userBadges.findFirst({
+                where: {
+                    userId,
+                    badgeId: badge?.id,
+                },
+            });
+
+            if (badge && !alreadyAssigned) {
+                await prisma.userBadges.create({
+                    data: {
+                        userId,
+                        badgeId: badge.id,
+                    },
+                });
+
+                console.log(`🏅 Badge (type 7) awarded to user ${userId} for participating in 5+ accepted groups`);
+            }
+        }
+
+
         // Step 8: Return response
         return response.success(res, 'Request accepted and group fetched successfully!', {
             groupInformation: {
@@ -1603,7 +1641,7 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
                         const formattedInvitedUser = await formatUserData(entry.invitedUser);
                         console.log(status, '>>>>>>>>>> requestAcceptValue');
                         const group = groupMap.get(key);
-                        if(requestAcceptValue !== undefined){
+                        if (requestAcceptValue !== undefined) {
                             const alreadyHasAccepted = group.invitedUsers.some(user => user.requestStatus === requestAcceptValue);
                             if (!alreadyHasAccepted && entry.requestAccept === requestAcceptValue) {
                                 group.invitedUsers.push({
@@ -1612,16 +1650,16 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
                                         : entry.requestAccept === 'REJECTED' ? 2
                                             : 0,
                                 });
-                           }
-                        }else{
+                            }
+                        } else {
                             group.invitedUsers.push({
-                                    ...formattedInvitedUser,
-                                    requestStatus: entry.requestAccept === 'ACCEPTED' ? 1
-                                        : entry.requestAccept === 'REJECTED' ? 2
-                                            : 0,
-                                });
+                                ...formattedInvitedUser,
+                                requestStatus: entry.requestAccept === 'ACCEPTED' ? 1
+                                    : entry.requestAccept === 'REJECTED' ? 2
+                                        : 0,
+                            });
                         }
-                        
+
                     }
                 }
 

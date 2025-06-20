@@ -481,8 +481,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                 badgeId: badge.id,
                             },
                         });
-
-                        console.log(`🏅 Badge (type 2) awarded to user ${userId} for 3+ completed orders and 4.5+ rating`);
                     }
                 }
                 // ******  BADGE : 2 END Count total completed orders by the user *********//
@@ -533,12 +531,89 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                 badgeId: badge.id,
                             },
                         });
-
-                        console.log(`🏅 Badge (type 3) awarded to user ${userId} for ₹1L+ earnings and 10+ completed orders`);
                     }
                 }
-
                 // ******  BADGE : 3 END Count total completed orders by the user *********//
+
+                // ******  BADGE : 4 START Count total completed orders by the user *********//
+
+                const totalRatingsReceived = await prisma.ratings.count({
+                    where: {
+                        ratedToUserId: userId,
+                    },
+                });
+
+                const hasHighRatingNew = (user?.ratings?.toNumber?.() ?? 0) >= 5;
+                const hasMinReceivedRatings = totalRatingsReceived >= 20;
+
+                if (hasHighRatingNew && hasMinReceivedRatings) {
+                    const badge = await prisma.badges.findFirst({
+                        where: { type: '4' },
+                        select: { id: true },
+                    });
+
+                    const alreadyAssigned = await prisma.userBadges.findFirst({
+                        where: {
+                            userId,
+                            badgeId: badge?.id,
+                        },
+                    });
+
+                    if (badge && !alreadyAssigned) {
+                        await prisma.userBadges.create({
+                            data: {
+                                userId,
+                                badgeId: badge.id,
+                            },
+                        });
+                    }
+                }
+                // ******  BADGE : 4  END Count total completed orders by the user *********//
+
+                // ******  BADGE : 5 START Count total completed orders by the user *********//
+                const completedOnTimeOrders = await prisma.orders.findMany({
+                    where: {
+                        influencerId: userId,
+                        status: 'COMPLETED',
+                    },
+                    select: {
+                        id: true,
+                        updatedAt: true,
+                        completionDate: true,
+                    },
+                });
+
+                // Filter orders where updatedAt is on or before completionDate
+                const onTimeCount = completedOnTimeOrders.filter(order =>
+                    order.updatedAt <= order.completionDate
+                ).length;
+
+                // If at least 10 on-time completed orders, assign badge 5
+                if (onTimeCount >= 10) {
+                    const badge = await prisma.badges.findFirst({
+                        where: { type: '5' },
+                        select: { id: true },
+                    });
+
+                    const alreadyAssigned = await prisma.userBadges.findFirst({
+                        where: {
+                            userId,
+                            badgeId: badge?.id,
+                        },
+                    });
+
+                    if (badge && !alreadyAssigned) {
+                        await prisma.userBadges.create({
+                            data: {
+                                userId,
+                                badgeId: badge.id,
+                            },
+                        });
+                    }
+                }
+                // ******  BADGE : 5 END Count total completed orders by the user *********//
+
+
 
             }
         }
@@ -932,36 +1007,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
             // Update business totalExpenses
             if (updated.businessId) {
-                // const businessUserStats = await prisma.userStats.findFirst({
-                //     where: { userId: updated.businessId },
-                //     select: { id: true, totalExpenses: true, totalDeals: true, averageValue: true },
-                // });
-
-                // if (businessUserStats) {
-                //     // Update existing business UserStats record
-                //     const currentExpenses = businessUserStats.totalExpenses ?? 0;
-                //     const updatedExpenses = Number(currentExpenses) + Number(amount);
-                //     const updatedTotalDeals = Number(businessUserStats.totalDeals) + Number(1);
-                //     const updatedAverageValue = updatedExpenses / updatedTotalDeals;
-
-                //     await prisma.userStats.update({
-                //         where: { id: businessUserStats.id },
-                //         data: {
-                //             totalExpenses: updatedExpenses,
-                //             totalDeals: updatedTotalDeals,
-                //             averageValue: updatedAverageValue,
-                //         },
-                //     });
-                // } else {
-                //     await prisma.userStats.create({
-                //         data: {
-                //             userId: updated.businessId,
-                //             totalExpenses: Number(amount),
-                //             totalDeals: 1
-                //         },
-                //     });
-                // }
-
                 // 🎁 Reward business user with KringP Coins for spending
                 const kringPCoins = Math.floor(Number(amount) / 100);
                 if (kringPCoins > 0) {
