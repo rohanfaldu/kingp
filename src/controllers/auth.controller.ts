@@ -1391,7 +1391,9 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         if (status !== undefined) {
             if (status === 'true' || status === 'false') {
-                filter.status = status === 'true';
+                const availability = (status === 'true')? "ONLINE" : "OFFLINE";
+                filter.availability = availability;
+
             } else {
                 return response.error(res, 'Invalid status value. Use true or false.');
             }
