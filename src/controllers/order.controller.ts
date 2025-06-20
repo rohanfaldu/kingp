@@ -1017,7 +1017,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         data: {
                             userId: updated.businessId,
                             amount: kringPCoins,
-                            type: 'ONGOING',
+                            type: 'CASHOUT_BONUS',
                             status: 'UNLOCKED',
                             source: coinSource,
                         },
@@ -1916,7 +1916,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
                 data: {
                     userId,
                     amount: kringPCoins,
-                    type: 'ONGOING',
+                    type: 'CASHOUT_BONUS',
                     status: 'UNLOCKED',
                     source: sourceNote,
                 },

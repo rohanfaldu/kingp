@@ -581,7 +581,7 @@ enum CoinType {
   SOCIAL_POST
   REFERRAL
   FIRST_DEAL_REFFERAL
-  ONGOING
+  CASHOUT_BONUS
 }
 
 enum CoinStatus {
