@@ -1390,8 +1390,8 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         }
 
         if (status !== undefined) {
-            if (status === true || status === false) {
-                const availability = (status === true)? "ONLINE" : "OFFLINE";
+            if (status === 'true' || status === 'false') {
+                const availability = (status)? "ONLINE" : "OFFLINE";
                 filter.availability = availability;
 
             } else {
