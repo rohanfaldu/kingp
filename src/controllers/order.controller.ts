@@ -407,6 +407,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 }
 
                 // console.log(existingUserStats, '>>>>>> existingUserStats');
+                let newTotalDeals = 1;
 
                 if (existingUserStats) {
                     // Update existing UserStats record
@@ -442,6 +443,55 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         },
                     });
                 }
+
+                // 1. Count total completed orders by the user
+                const completedOrders = await prisma.orders.count({
+                    where: {
+                        influencerId: userId, // or just `userId` if you use that directly
+                        status: 'COMPLETED',
+                    },
+                });
+
+                const user = await prisma.user.findUnique({
+                    where: { id: userId },
+                    select: { ratings: true },
+                });
+
+                const hasMinOrders = completedOrders >= 3;
+                const hasHighRating = (user?.ratings?.toNumber?.() ?? 0) >= 4.5;
+
+                console.log(hasMinOrders, '>>>>>>>>>>>>>>> hasMinOrders');
+                console.log(hasHighRating, '>>>>>>>>>>>>>>> hasHighRating');
+
+                if (hasMinOrders && hasHighRating) {
+                    const badge = await prisma.badges.findFirst({
+                        where: { type: '2' },
+                        select: { id: true },
+                    });
+
+                    
+                    const alreadyAssigned = await prisma.userBadges.findFirst({
+                        where: {
+                            userId,
+                            badgeId: badge?.id,
+                        },
+                    });
+                    console.log(alreadyAssigned, '>>>>>>>>>>>> alreadyAssigned');
+
+
+                    if (badge && !alreadyAssigned) {
+                        await prisma.userBadges.create({
+                            data: {
+                                userId,
+                                badgeId: badge.id,
+                            },
+                        });
+
+                        console.log(`🏅 Badge (type 2) awarded to user ${userId} for 3+ completed orders and 4.5+ rating`);
+                    }
+                }
+
+
             }
         }
 
@@ -893,7 +943,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         await prisma.referralCoinSummary.update({
                             where: { userId: updated.businessId },
                             data: {
-                                 totalAmount: (Number(existingSummary.totalAmount) || 0) + 50,
+                                totalAmount: (Number(existingSummary.totalAmount) || 0) + 50,
                                 netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(50),
                                 unlocked: true,
                                 unlockedAt: new Date(),
@@ -1197,7 +1247,7 @@ export const getAdminAllOrderList = async (req: Request, res: Response): Promise
         //     return response.error(res, 'Status is required');
         // }
 
-       
+
         let whereStatus;
         if (status === null) {
             const completedEnumValue = getStatusName(0);

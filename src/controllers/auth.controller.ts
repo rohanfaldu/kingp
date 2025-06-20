@@ -198,7 +198,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     // If 2 or more accounts, assign badge type 1
     if (socialMediaPlatform.length >= 2) {
         const badge = await prisma.badges.findFirst({
-             where: { type: '1' }, // Adjust field name if it's called something else
+            where: { type: '1' }, // Adjust field name if it's called something else
             select: { id: true },
         });
 
@@ -756,9 +756,15 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             chatCountData: analyticsChat,
         };
 
-        const transactionCount = await prisma.coinTransaction.count({
+        const transactionSum = await prisma.coinTransaction.aggregate({
             where: { userId: id },
+            _sum: {
+                amount: true,
+            },
         });
+
+        const totalAmount = transactionSum._sum.amount ?? 0;
+
 
         const transactions = await prisma.coinTransaction.findMany({
             where: { userId: id },
@@ -766,7 +772,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         });
 
         const rewards = {
-            count: transactionCount,
+            count: totalAmount,
             data: transactions,
         };
 
@@ -2167,7 +2173,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             const userSubCategories = (updatedSubcategories || []).map((id: string) => ({
                 subCategoryId: id
             }));
-
+            
             calculatedProfileCompletion = calculateProfileCompletion({
                 ...profileCompletionData,
                 userSubCategories,
