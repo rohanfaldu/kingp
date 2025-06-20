@@ -77,7 +77,12 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
     if (existingUser) {
-        return response.error(res, `Email already registered via ${existingUser.loginType}.`);
+        const message =
+            existingUser.loginType === 'NONE'
+                ? 'Email already registered with email & password.'
+                : `Email already registered via ${existingUser.loginType}.`;
+
+        return response.error(res, message);
     }
 
     const hashedPassword = normalizedLoginType === LoginType.NONE ? await bcrypt.hash(password, 10) : undefined;
@@ -1314,7 +1319,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             }
         }
 
-         // Badge Type filter (NEW)
+        // Badge Type filter (NEW)
         if (badgeType) {
             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
