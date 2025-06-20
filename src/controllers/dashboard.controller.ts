@@ -252,14 +252,26 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             profileView,
         };
 
+
         const authUser = await prisma.user.findUnique({
             where: { id: loggedInUserId },
             include: {
                 socialMediaPlatforms: true,
+                brandData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
             },
         });
 
-        const profileSuggestions = getProfileCompletionSuggestions(authUser);
+        const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+            const responseUser = {
+            ...authUser,
+            categories: userCategoriesWithSubcategories,
+        };
+
+        const profileSuggestions = getProfileCompletionSuggestions(responseUser);
 
         const totalReferralCount = await prisma.coinTransaction.count({
             where: {
@@ -415,12 +427,12 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
         };
 
         const userBadges = await prisma.userBadges.findMany({
-            where: { userId: loggedInUserId }, 
+            where: { userId: loggedInUserId },
             include: {
-                userBadgeTitleData: true, 
+                userBadgeTitleData: true,
             },
         });
-        
+
         return response.success(res, "Influencer dashboard data fetched successfully", {
             profileCompletion: user.profileCompletion,
             dailyTips: dailyTips,

@@ -1,7 +1,7 @@
 const calculateProfileCompletion = (user: any): number => {
     let completedFields = 0;
     const totalFields = 16;
-    
+
     console.log(user.UserSubCategory, " >>>> Sub Category")
 
     if (user.type) completedFields++;
@@ -42,7 +42,7 @@ const calculateBusinessProfileCompletion = (user: any, loginType: string): numbe
     if (user.referralCode) completedFields++;
     if (user.userImage) completedFields++;
     if (user.applicationLink) completedFields++;
-    if (Array.isArray(user.subcategoriesId) && user.subcategoriesId.length > 0) completedFields++;
+    if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
     if (user.description) completedFields++;
     if (user.contactPersonName) completedFields++;
     if (user.contactPersonPhoneNumber) completedFields++;
@@ -64,8 +64,9 @@ export const getProfileCompletionSuggestions = (user: any): string[] => {
     if (!user.countryId) suggestions.push('Please select your country');
     if (!user.stateId) suggestions.push('Please select your state');
     if (!user.cityId) suggestions.push('Please select your city');
-    if (!user.userSubCategories || user.userSubCategories.length === 0) { suggestions.push('Choose at least one sub-category');}
-    // if (!user.referralCode) suggestions.push('Add your referral code (if any)');
+    if (!Array.isArray(user.categories) || user.categories.length === 0 ||!user.categories.some(cat => Array.isArray(cat.subcategories) && cat.subcategories.length > 0)) {
+        suggestions.push('Choose at least one sub-category');
+    }
     if (!user.userImage) suggestions.push('Please upload a profile image');
     if (!user.contactPersonName) suggestions.push('Add a contact person name');
     if (!user.socialMediaPlatforms || user.socialMediaPlatforms.length === 0) suggestions.push('Add your social media platforms for your Profile Completion');
@@ -74,5 +75,6 @@ export const getProfileCompletionSuggestions = (user: any): string[] => {
     if (!user.sampleWorkLink) suggestions.push('Add your sample work link');
     if (!user.aboutYou) suggestions.push('Write something about yourself for your Profile Completion');
 
+    console.log(user, '>>>>>>>>>>>>>>>>>>> user.userSubCategories');
     return suggestions;
 };
