@@ -77,6 +77,32 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     },
                 });
 
+                if (toUserId) {
+                    // 1. Count total ratings for the user
+                    const allUserRatings = await prisma.ratings.findMany({
+                        where: {
+                            ratedToUserId: toUserId,
+                            typeToUser: 'INFLUENCER', // or whatever type is relevant
+                        },
+                        select: { rating: true },
+                    });
+
+                    // 2. Calculate average
+                    const totalRatings = allUserRatings.length;
+                    const sumRatings = allUserRatings.reduce((sum, r) => {
+                        return sum + (r.rating?.toNumber?.() ?? 0);
+                    }, 0); const averageRating = totalRatings > 0 ? sumRatings / totalRatings : rating;
+
+                    // 3. Update the user with new average
+                    await prisma.user.update({
+                        where: { id: toUserId },
+                        data: {
+                            ratings: averageRating,
+                        },
+                    });
+                }
+
+
                 createdRatings.push(newRating);
 
                 if (toUserId) {

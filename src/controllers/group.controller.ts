@@ -1555,8 +1555,7 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
 
                 const groupUsersList = await prisma.groupUsersList.findMany({
                     where: {
-                        groupId: group.id,
-                        ...(requestAcceptValue ? { requestAccept: requestAcceptValue } : {}),
+                        groupId: group.id
                     },
                     include: {
                         adminUser: {
@@ -1602,12 +1601,27 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
 
                     if (entry.invitedUser) {
                         const formattedInvitedUser = await formatUserData(entry.invitedUser);
-                        groupMap.get(key).invitedUsers.push({
-                            ...formattedInvitedUser,
-                            requestStatus: entry.requestAccept === 'ACCEPTED' ? 1
-                                : entry.requestAccept === 'REJECTED' ? 2
-                                    : 0,
-                        });
+                        console.log(status, '>>>>>>>>>> requestAcceptValue');
+                        const group = groupMap.get(key);
+                        if(requestAcceptValue !== undefined){
+                            const alreadyHasAccepted = group.invitedUsers.some(user => user.requestStatus === requestAcceptValue);
+                            if (!alreadyHasAccepted && entry.requestAccept === requestAcceptValue) {
+                                group.invitedUsers.push({
+                                    ...formattedInvitedUser,
+                                    requestStatus: entry.requestAccept === 'ACCEPTED' ? 1
+                                        : entry.requestAccept === 'REJECTED' ? 2
+                                            : 0,
+                                });
+                           }
+                        }else{
+                            group.invitedUsers.push({
+                                    ...formattedInvitedUser,
+                                    requestStatus: entry.requestAccept === 'ACCEPTED' ? 1
+                                        : entry.requestAccept === 'REJECTED' ? 2
+                                            : 0,
+                                });
+                        }
+                        
                     }
                 }
 
