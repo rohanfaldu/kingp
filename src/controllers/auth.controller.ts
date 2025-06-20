@@ -358,9 +358,13 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         html: htmlContent,
     });
 
+
+
     return response.success(res, 'Sign Up successful!', {
         user: userResponse,
         token,
+        badges: [],
+
     });
 };
 
@@ -495,11 +499,19 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
             // socialMediaPlatforms: user.socialMediaPlatforms ?? [],
         };
+        const userBadges = await prisma.userBadges.findMany({
+            where: { userId: user.id },
+            include: {
+                userBadgeTitleData: true,
+            },
+        });
+
 
         // Final response
         return response.success(res, 'Login successful!', {
             user: userResponse,
             token,
+            badges: userBadges.map(b => b.userBadgeTitleData),
         });
 
     } catch (error: any) {
@@ -805,9 +817,17 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             },
         });
 
+        const userBadges = await prisma.userBadges.findMany({
+            where: { userId: user.id },
+            include: {
+                userBadgeTitleData: true,
+            },
+        });
+
         return response.success(res, 'User fetched successfully!', {
             user: responseUser,
             token: token?.UserAuthToken,
+            badges: userBadges.map(b => b.userBadgeTitleData),
             analyticSummary,
             rewards,
             earningsSummary
@@ -1171,6 +1191,12 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         const formattedUsers = await Promise.all(
             paginatedResult.User.map(async (userData: any) => {
                 const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(userData.id);
+                const userBadges = await prisma.userBadges.findMany({
+                    where: { userId: userData.id },
+                    include: {
+                        userBadgeTitleData: true,
+                    },
+                });
 
                 return {
                     ...userData,
@@ -1179,9 +1205,11 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
                     countryName: userData.countryData?.name ?? null,
                     stateName: userData.stateData?.name ?? null,
                     cityName: userData.cityData?.name ?? null,
+                    badges: userBadges.map(b => b.userBadgeTitleData),
                 };
             })
         );
+
         return response.success(res, 'Users fetched successfully!', {
             pagination: paginatedResult.pagination,
             users: formattedUsers,
@@ -2173,7 +2201,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             const userSubCategories = (updatedSubcategories || []).map((id: string) => ({
                 subCategoryId: id
             }));
-            
+
             calculatedProfileCompletion = calculateProfileCompletion({
                 ...profileCompletionData,
                 userSubCategories,
@@ -2245,15 +2273,25 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             cityName: city?.name ?? null,
         };
 
+        const userBadges = await prisma.userBadges.findMany({
+            where: { userId: newUsers.id },
+            include: {
+                userBadgeTitleData: true,
+            },
+        });
+
         return response.success(res, 'User profile updated successfully!', {
             user: userResponse,
             token,
+            badges: userBadges.map(b => b.userBadgeTitleData),
         });
 
     } catch (error: any) {
         return response.error(res, error.message || 'Failed to update user profile');
     }
 };
+
+
 
 export const getUsersWithType = async (req: Request, res: Response): Promise<any> => {
     try {

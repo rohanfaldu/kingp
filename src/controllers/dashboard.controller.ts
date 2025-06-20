@@ -414,6 +414,13 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             chatCountData: analyticsChat,
         };
 
+        const userBadges = await prisma.userBadges.findMany({
+            where: { userId: loggedInUserId }, 
+            include: {
+                userBadgeTitleData: true, 
+            },
+        });
+        
         return response.success(res, "Influencer dashboard data fetched successfully", {
             profileCompletion: user.profileCompletion,
             dailyTips: dailyTips,
@@ -422,6 +429,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             totalReferralCount,
             leadBoard,
             analyticSummary,
+            badges: userBadges.map(b => b.userBadgeTitleData),
         });
     } catch (error: any) {
         return response.error(res, error.message);
