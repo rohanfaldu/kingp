@@ -1994,16 +1994,67 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
             totalWithdraw = formattedWithdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
         }
 
-        const transactionData = [...formattedEarnings, ...formattedWithdrawals].sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+        let formattedBusinessOrders: TransactionHistoryItem[] = [];
+        let totalBusinessExpenses = 0;
+
+        if (!type || type === 'EXPENSE') {
+            const businessOrders = await prisma.orders.findMany({
+                where: {
+                    businessId: userId,
+                    status: 'COMPLETED',            // Ensure order is completed
+                    createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
+                },
+            });
+
+            formattedBusinessOrders = businessOrders.map((order) => ({
+                id: order.id,
+                type: 'EXPENSE',
+                amount: Number(order.finalAmount ?? 0),
+                createdAt: order.createdAt!,
+                title: order.title ?? 'Business Order',
+                description: order.description ?? '',
+                referenceId: order.transactionId ?? '',
+            }));
+
+            totalBusinessExpenses = formattedBusinessOrders.reduce((sum, t) => sum + Number(t.amount), 0);
+        }
+
+
+        const transactionData = [
+            ...formattedEarnings,
+            ...formattedWithdrawals,
+            ...formattedBusinessOrders,
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        let totalExpenses = 0;
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { type: true },
+        });
+
+        if (user?.type === 'BUSINESS') {
+            const completedOrders = await prisma.orders.findMany({
+                where: {
+                    businessId: userId,
+                    status: 'COMPLETED',
+                    createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
+                },
+                select: { finalAmount: true },
+            });
+
+            totalExpenses = completedOrders.reduce((sum, order) => sum + Number(order.finalAmount), 0);
+        }
+
 
         const responseData = {
             totalEarnings,
             totalWithdraw,
-            netEarnings: totalEarnings - totalWithdraw,
+            totalBusinessExpenses,
+            netEarnings: totalEarnings - totalWithdraw - totalBusinessExpenses,
             transactionData,
         };
+
 
         return response.success(res, 'Transaction history fetched successfully', responseData);
     } catch (error: any) {

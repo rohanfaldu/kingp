@@ -283,6 +283,7 @@ model Orders {
   completionDate          DateTime        @default(now())
   attachment              String?         @db.VarChar
   status                  OfferStatus     @default(PENDING)
+  reason                  String?         @db.VarChar
   transactionId           String?         @db.VarChar
   totalAmount             Decimal?        @db.Decimal
   discountAmount          Decimal?        @db.Decimal

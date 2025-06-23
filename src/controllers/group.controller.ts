@@ -215,9 +215,15 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
         }
 
         const existingGroup = await prisma.group.findUnique({
-            where: { id },
-            include: { groupData: true },
+            where: {
+                id: id,
+                status: true,
+            },
+            include: {
+                groupData: true,
+            },
         });
+
 
         if (!existingGroup) {
             return response.error(res, 'Group not found');
@@ -289,8 +295,8 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
         }
 
         // 4. Fetch updated group
-        const finalUpdatedGroup = await prisma.group.findUnique({
-            where: { id },
+        const finalUpdatedGroup = await prisma.group.findFirst({
+            where: { id, status: true, },
             include: { groupData: true },
         });
 
@@ -418,8 +424,8 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
             return response.error(res, 'Invalid UUID format');
         }
 
-        const group = await prisma.group.findUnique({
-            where: { id },
+        const group = await prisma.group.findFirst({
+            where: { id, status: true, },
             include: { groupData: true },
         });
 
@@ -640,8 +646,11 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
         }
 
         // Check if group exists
-        const existingGroup = await prisma.group.findUnique({
-            where: { id: groupId },
+        const existingGroup = await prisma.group.findFirst({
+            where: {
+                id: groupId,
+                status: true, // ✅ Only fetch active groups
+            },
         });
 
         if (!existingGroup) {
@@ -905,7 +914,7 @@ export const respondToGroupInvite = async (req: Request, res: Response): Promise
         });
 
         // Step 3: Fetch group info
-        const group = await prisma.group.findUnique({ where: { id: groupId } });
+        const group = await prisma.group.findFirst({ where: { id: groupId, status: true, } });
         if (!group) {
             return response.error(res, 'Group not found.');
         }
@@ -1109,7 +1118,7 @@ export const listGroupInvitesByStatus = async (req: Request, res: Response): Pro
         const statusStr = statusMap[status];
 
         // Fetch the group
-        const group = await prisma.group.findUnique({ where: { id: groupId } });
+        const group = await prisma.group.findFirst({ where: { id: groupId, status: true, } });
         if (!group) {
             return response.error(res, 'Group not found.');
         }
@@ -1219,7 +1228,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
             return response.error(res, 'groupId, userId, and invitedUserId array are required.');
         }
 
-        const group = await prisma.group.findUnique({ where: { id: groupId } });
+        const group = await prisma.group.findFirst({ where: { id: groupId, status: true, } });
         if (!group) return response.error(res, 'Invalid groupId. Group does not exist.');
 
         const isAdmin = await prisma.groupUsers.findFirst({
@@ -1628,7 +1637,10 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
 
         // Fetch all matching groups (before pagination)
         const allGroups = await prisma.group.findMany({
-            where: { id: { in: groupIds } },
+            where: {
+                id: { in: groupIds },
+                status: true,
+            },
             orderBy: { createsAt: 'desc' },
         });
 
@@ -1817,7 +1829,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
             return response.error(res, 'groupId, userId, and invitedUserId are required.');
         }
 
-        const group = await prisma.group.findUnique({ where: { id: groupId } });
+        const group = await prisma.group.findFirst({ where: { id: groupId, status: true, } });
         if (!group) return response.error(res, 'Invalid groupId. Group does not exist.');
 
         const isAdmin = await prisma.groupUsers.findFirst({
