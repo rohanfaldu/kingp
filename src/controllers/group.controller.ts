@@ -695,7 +695,7 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
                 },
             },
             data: {
-                status: 'CANCELED',
+                status: 'DECLINED',
             },
         });
 
@@ -1843,9 +1843,9 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
     try {
         const { groupId, userId, invitedUserId } = req.body;
 
-        // if (!groupId || !userId || !invitedUserId) {
-        //     return response.error(res, 'groupId, userId, and invitedUserId are required.');
-        // }
+        if (!groupId || !userId ) {
+            return response.error(res, 'groupId, userId, and invitedUserId are required.');
+        }
 
         const group = await prisma.group.findUnique({ where: { id: groupId } });
         if (!group) return response.error(res, 'Invalid groupId. Group does not exist.');
@@ -1868,7 +1868,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
             });
             // console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
             if (nextAdminEntry === null) {
-                console.log(groupId, " >>>>>>>>>> groupId");
+                // console.log(groupId, " >>>>>>>>>> groupId");
 
                 const updateGroupData = await prisma.groupUsers.findFirst({
                     where: {
@@ -1900,7 +1900,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         },
                     },
                     data: {
-                        status: 'CANCELED',
+                        status: 'DECLINED',
                     },
                 });
             } else {
@@ -1933,7 +1933,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                             status: true
                         },
                     });
-                    console.log(latestUpdateData, " >>>>>>>>>>>>>>>> Update New user Data");
+                    // console.log(latestUpdateData, " >>>>>>>>>>>>>>>> Update New user Data");
                 }
                 console.log(updateGroupData, ">>>>>>>>>> Update Group Data");
 
@@ -1949,7 +1949,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         updatedAt: new Date(),
                     },
                 });
-                console.log(updateGroupInvitedData, ">>>>>>>>>>>>>> update Group Invited Data");
+                // console.log(updateGroupInvitedData, ">>>>>>>>>>>>>> update Group Invited Data");
 
                 const deleteGroupInvitedData = await prisma.groupUsersList.deleteMany({
                     where: {
@@ -1961,14 +1961,13 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                 });
             }
         } else {
-            console.log("Here");
             const adminGroupUser = await prisma.groupUsers.findFirst({
                 where: { groupId, userId },
             });
             if (!adminGroupUser) {
                 return response.error(res, 'Admin group entry not found.');
             }
-            console.log(adminGroupUser, " >>>>>>>> adminGroupUser new");
+            // console.log(adminGroupUser, " >>>>>>>> adminGroupUser new");
             if (adminGroupUser) {
                 const updatedInvitedUserIds = adminGroupUser.invitedUserId.filter(
                     (id) => id !== invitedUserId
@@ -1982,7 +1981,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         status: true
                     },
                 });
-                console.log(latestUpdateData, " >>>>>>>>>>>>>>>> Update New user Data");
+                // console.log(latestUpdateData, " >>>>>>>>>>>>>>>> Update New user Data");
             }
 
             const updateGroupData = await prisma.groupUsersList.deleteMany({
