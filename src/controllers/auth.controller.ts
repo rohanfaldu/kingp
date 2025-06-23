@@ -874,7 +874,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             maxAge,
             minPrice,
             maxPrice,
-            badgeType,
+            badgeType = [],
         } = req.body;
 
         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'FACEBOOK'];
@@ -1067,7 +1067,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         }
 
         // Badge Type filter (NEW)
-        if (badgeType) {
+       if (badgeType.length != 0) {
             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
 
@@ -1157,7 +1157,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const {
             platform, type, countryId, stateId, cityId, status,
             subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
-            badgeType, search, subtype, minViewCount, maxViewCount, page = 1, limit = 10,
+            badgeType = [], search, subtype, minViewCount, maxViewCount, page = 1, limit = 10,
         } = req.body;
 
         // const currentUserId = req.user?.id || req.userId; 
@@ -1331,7 +1331,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         }
 
         // Badge Type filter (NEW)
-        if (badgeType) {
+        if (badgeType.length != 0) {
             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
 
