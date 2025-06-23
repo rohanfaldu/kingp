@@ -75,7 +75,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         return response.error(res, 'Password is required for email-password signup.');
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
+    const existingUser = await prisma.user.findUnique({ where: { emailAddress, status: true } });
     if (existingUser) {
         const message =
             existingUser.loginType === 'NONE'
@@ -255,7 +255,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     // 👉 Referral reward for referrer (if referralCode present)
     if (referralCode) {
-        const referrer = await prisma.user.findFirst({ where: { referralCode } });
+        const referrer = await prisma.user.findFirst({ where: { referralCode, status: true } });
         if (referrer) {
             await prisma.referral.create({
                 data: {
@@ -355,7 +355,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
     const user = await prisma.user.findUnique({
         where: { emailAddress },
-        select: { name: true },
+        select: { name: true, status: true },
     });
 
     const htmlContent = `
@@ -399,7 +399,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         }
 
         let user = await prisma.user.findUnique({
-            where: { emailAddress },
+            where: { emailAddress, status: true },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -471,7 +471,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         // Update FCM token if provided
         if (fcmToken) {
             await prisma.user.update({
-                where: { id: user.id },
+                where: { id: user.id, status: true },
                 data: { fcmToken },
             });
         }
@@ -581,16 +581,14 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         // ✅ Increment total view count on user's profile
         await prisma.user.update({
-            where: { id },
+            where: { id, status: true },
             data: {
                 viewCount: { increment: 1 }
             }
         });
 
-
-
         const user = await prisma.user.findUnique({
-            where: { id },
+            where: { id, status: true },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -1067,7 +1065,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
         }
 
         // Badge Type filter (NEW)
-       if (badgeType.length != 0) {
+        if (badgeType.length != 0) {
             const badges = Array.isArray(badgeType) ? badgeType.map(b => b.toString()) : [badgeType.toString()];
             const invalidBadges = badges.filter(b => !allowedBadgeTypes.includes(b));
 
@@ -1089,7 +1087,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             });
         }
 
-        const whereFilter: any = { ...filter };
+        const whereFilter: any = { ...filter, status: true, };
         if (andFilters.length > 0) {
             whereFilter.AND = andFilters;
         }
@@ -1412,7 +1410,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         }
 
 
-        const whereFilter: any = { ...filter };
+        const whereFilter: any = { ...filter, status: true, };
         if (andFilters.length > 0) whereFilter.AND = andFilters;
         if (search) {
             whereFilter.name = { contains: search, mode: 'insensitive' };
@@ -1952,7 +1950,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
         // Check if user exists
         const existingUser = await prisma.user.findUnique({
-            where: { id },
+            where: { id, status: true },
             select: { emailAddress: true },
         });
 
@@ -1961,44 +1959,16 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Perform transactional delete (force delete all dependencies first)
-        await prisma.$transaction([
-            prisma.userDetail.deleteMany({
-                where: { userId: id },
-            }),
-            prisma.socialMediaPlatform.deleteMany({
-                where: { userId: id },
-            }),
-            prisma.userSubCategory.deleteMany({
-                where: { userId: id },
-            }),
-            prisma.otpVerify.deleteMany({
-                where: { emailAddress: existingUser.emailAddress },
-            }),
-            prisma.referralCoinSummary.deleteMany({
-                where: { userId: id },
-            }),
-            prisma.referral.deleteMany({
-                where: {
-                    OR: [
-                        { referrerId: id },
-                        { referredUserId: id }
-                    ]
-                }
-            }),
-            prisma.coinTransaction.deleteMany({
-                where: { userId: id },
-            }),
-            prisma.userAuthToken.deleteMany({
-                where: { userId: id },
-            }),
-            prisma.user.delete({
-                where: { id },
-            }),
-        ]);
+        // Soft-delete the user
+        await prisma.user.update({
+            where: { id, status: true },
+            data: {
+                status: false,
+            },
+        }),
 
 
-        response.success(res, 'User and all related data deleted successfully', null);
+            response.success(res, 'User and related data soft-deleted successfully', null);
 
     } catch (error: any) {
         response.error(res, error.message);
@@ -2016,7 +1986,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
     }
 
     const existingUser = await prisma.user.findUnique({
-        where: { id },
+        where: { id, status: true },
         include: {
             socialMediaPlatforms: true,
             subCategories: {
@@ -2165,7 +2135,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         const token = req.headers.authorization?.split(' ')[1] || req.token;
 
         const editedUser = await prisma.user.update({
-            where: { id },
+            where: { id, status: true },
             data: finalUpdateData,
             include: {
                 socialMediaPlatforms: true,
@@ -2248,7 +2218,7 @@ export const incrementInfluencerClick = async (req: Request, res: Response): Pro
         const loginUserId = req.user?.id;
 
         const user = await prisma.user.findUnique({
-            where: { id },
+            where: { id, status: true },
         });
 
         if (!user) {
@@ -2260,7 +2230,7 @@ export const incrementInfluencerClick = async (req: Request, res: Response): Pro
         }
 
         const updatedUser = await prisma.user.update({
-            where: { id },
+            where: { id, status: true },
             data: {
                 viewCount: { increment: 1 },
             },
@@ -2315,7 +2285,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
 
         // Find user by socialId (include socialMediaPlatforms for response)
         let user = await prisma.user.findFirst({
-            where: { socialId },
+            where: { socialId, status: true },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -2328,7 +2298,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         // If user doesn't exist, create one
         if (!user) {
             if (emailAddress) {
-                const existingEmailUser = await prisma.user.findUnique({ where: { emailAddress } });
+                const existingEmailUser = await prisma.user.findUnique({ where: { emailAddress, status: true } });
                 if (existingEmailUser) {
                     return response.error(res, 'Email already registered with another account.');
                 }

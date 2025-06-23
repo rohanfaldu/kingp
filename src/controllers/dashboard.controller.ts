@@ -19,6 +19,7 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
             where: {
                 ratings: 5,
                 type: 'INFLUENCER',
+                status: true,
             },
             include: {
                 socialMediaPlatforms: true,
@@ -89,6 +90,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             where: {
                 ratings: 5,
                 type: 'INFLUENCER',
+                status: true,
             },
             include: {
                 socialMediaPlatforms: true,
@@ -191,7 +193,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
         }
 
         const user = await prisma.user.findUnique({
-            where: { id: loggedInUserId },
+            where: { id: loggedInUserId, status: true, },
             select: {
                 profileCompletion: true,
             },
@@ -204,7 +206,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
         const dailyTips = await prisma.dailyTips.findMany();
 
         const profileView = await prisma.user.findUnique({
-            where: { id: loggedInUserId },
+            where: { id: loggedInUserId, status: true, },
             select: {
                 viewCount: true,
             },
@@ -256,7 +258,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
 
 
         const authUser = await prisma.user.findUnique({
-            where: { id: loggedInUserId },
+            where: { id: loggedInUserId, status: true, },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,

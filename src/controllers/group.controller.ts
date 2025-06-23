@@ -52,7 +52,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
 
         // ✅ Check: Admin user exists
         const adminUser = await prisma.user.findUnique({
-            where: { id: userId },
+            where: { id: userId, status: true },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -75,7 +75,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
         // ✅ Fetch invited users
         const invitedUsers = invitedUserId.length > 0
             ? await prisma.user.findMany({
-                where: { id: { in: invitedUserId } },
+                where: { id: { in: invitedUserId }},
                 include: {
                     socialMediaPlatforms: true,
                     brandData: true,
@@ -343,7 +343,7 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
         const formattedGroupData = await Promise.all(
             (finalUpdatedGroup?.groupData || []).map(async (groupUser) => {
                 const adminUser = await prisma.user.findUnique({
-                    where: { id: groupUser.userId },
+                    where: { id: groupUser.userId, status: true },
                     include: {
                         UserDetail: true,
                         socialMediaPlatforms: true,
@@ -366,7 +366,7 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
                 const invitedUserIds = acceptedInvites.map(entry => entry.invitedUserId);
                 const invitedUsers = invitedUserIds.length
                     ? await prisma.user.findMany({
-                        where: { id: { in: invitedUserIds } },
+                        where: { id: { in: invitedUserIds }, status: true },
                         include: {
                             UserDetail: true,
                             socialMediaPlatforms: true,
@@ -503,7 +503,7 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
             const key = `${groupUser.groupId}-${groupUser.id}`;
 
             const adminUser = await prisma.user.findUnique({
-                where: { id: groupUser.userId },
+                where: { id: groupUser.userId, status: true },
                 include: {
                     UserDetail: true,
                     socialMediaPlatforms: true,
@@ -774,7 +774,7 @@ export const getAllGroups = async (req: Request, res: Response): Promise<any> =>
                 const key = `${groupUser.groupId}-${groupUser.id}`;
 
                 const adminUser = await prisma.user.findUnique({
-                    where: { id: groupUser.userId },
+                    where: { id: groupUser.userId, status: true },
                     include: {
                         UserDetail: true,
                         socialMediaPlatforms: true,
@@ -981,7 +981,7 @@ export const respondToGroupInvite = async (req: Request, res: Response): Promise
         const formattedAdminUser = adminUser
             ? await formatUserData(
                 await prisma.user.findUnique({
-                    where: { id: adminUser.id },
+                    where: { id: adminUser.id, status: true },
                     include: {
                         socialMediaPlatforms: true,
                         brandData: true,
@@ -1240,7 +1240,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
         }
 
         const adminUser = await prisma.user.findUnique({
-            where: { id: userId },
+            where: { id: userId, status: true },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -1252,7 +1252,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
         if (!adminUser) return response.error(res, 'Invalid userId. User does not exist.');
 
         const invitedUsers = await prisma.user.findMany({
-            where: { id: { in: invitedUserId } },
+            where: { id: { in: invitedUserId }},
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,

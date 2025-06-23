@@ -22,7 +22,7 @@ model User {
   contactPersonName        String?      @db.VarChar
   contactPersonPhoneNumber String?      @db.VarChar
   gstNumber                String?      @db.VarChar
-  status                   Boolean?     @default(false)
+  status                   Boolean?     @default(true)
   workEmail                String?      @db.VarChar
   socialMediaPlatform      String[]     @db.VarChar
   birthDate                DateTime?
