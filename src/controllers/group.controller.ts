@@ -584,10 +584,9 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
 export const deleteGroup = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id: groupId } = req.params;
-        const groupData: Partial<IGroup> = req.body;
 
         if (!isUuid(groupId)) {
-            response.error(res, 'Invalid UUID formate')
+            return response.error(res, 'Invalid UUID format');
         }
 
         if (!groupId) {
@@ -604,20 +603,29 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
             return response.error(res, 'Group not found with this Group ID.');
         }
 
+        // Delete from GroupUsersList first
+        await prisma.groupUsersList.deleteMany({
+            where: { groupId },
+        });
+
+        // Then delete from GroupUsers
         await prisma.groupUsers.deleteMany({
             where: { groupId },
         });
 
-        const deletedGroup = await prisma.group.delete({
+        // Finally delete the group
+        await prisma.group.delete({
             where: { id: groupId },
         });
-        response.success(res, 'Group Deleted successfully!', null);
+
+        return response.success(res, 'Group deleted successfully!', null);
 
     } catch (error: any) {
-        console.error(error);
+        console.error('Delete group error:', error);
         return response.error(res, error.message || 'Failed to delete group');
     }
-}
+};
+
 
 
 
@@ -1739,3 +1747,132 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message);
     }
 };
+
+
+
+export const deleteMemberFromGroup = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { groupId, userId, invitedUserId } = req.body;
+
+        if (!groupId || !userId || !invitedUserId) {
+            return response.error(res, 'groupId, userId, and invitedUserId are required.');
+        }
+
+        const group = await prisma.group.findUnique({ where: { id: groupId } });
+        if (!group) return response.error(res, 'Invalid groupId. Group does not exist.');
+
+        const isAdmin = await prisma.groupUsers.findFirst({
+            where: { groupId, userId, status: true },
+        });
+        if (!isAdmin) {
+            return response.error(res, 'You are not authorized to remove members from this group.');
+        }
+
+        const adminGroupUser = await prisma.groupUsers.findFirst({
+            where: { groupId, userId },
+        });
+        if (!adminGroupUser) {
+            return response.error(res, 'Admin group entry not found.');
+        }
+
+        await prisma.groupUsersList.deleteMany({
+            where: {
+                groupId,
+                groupUserId: adminGroupUser.id,
+                invitedUserId,
+            },
+        });
+
+        // Remove from invitedUserId list in groupUsers
+        const updatedInvitedIds = (adminGroupUser.invitedUserId || []).filter(id => id !== invitedUserId);
+        await prisma.groupUsers.update({
+            where: { id: adminGroupUser.id },
+            data: { invitedUserId: updatedInvitedIds },
+        });
+
+        // Format response
+        const subCategoriesWithCategory = await prisma.subCategory.findMany({
+            where: { id: { in: group.subCategoryId } },
+            include: { categoryInformation: true },
+        });
+
+        const formatUserData = async (user: any) => {
+            const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+            const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
+            const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
+            const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+
+            const { password: _, socialMediaPlatform: __, ...userData } = user;
+
+            return {
+                ...userData,
+                socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                categories: userCategoriesWithSubcategories,
+                countryName: country?.name ?? null,
+                stateName: state?.name ?? null,
+                cityName: city?.name ?? null,
+            };
+        };
+
+        const adminUser = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                socialMediaPlatforms: true,
+                brandData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
+            },
+        });
+
+        const formattedAdminUser = await formatUserData(adminUser);
+
+        const allGroupInvitedUsers = await prisma.groupUsersList.findMany({
+            where: { groupId },
+            include: {
+                invitedUser: {
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    },
+                },
+            },
+        });
+
+        const getNumericStatus = (requestStatus: string) => {
+            switch (requestStatus) {
+                case 'PENDING': return 0;
+                case 'ACCEPTED': return 1;
+                case 'REJECTED': return 2;
+                default: return 0;
+            }
+        };
+
+        const formattedInvitedUsers = await Promise.all(
+            allGroupInvitedUsers.map(async (entry) => {
+                const formattedUser = await formatUserData(entry.invitedUser);
+                return {
+                    ...formattedUser,
+                    requestStatus: getNumericStatus(entry.requestAccept || 'PENDING'),
+                };
+            })
+        );
+
+        return response.success(res, 'Member removed from group successfully.', {
+            groupInformation: {
+                ...group,
+                subCategoryId: subCategoriesWithCategory,
+                adminUser: formattedAdminUser,
+                invitedUsers: formattedInvitedUsers,
+            },
+        });
+
+    } catch (error: any) {
+        console.error('Delete member error:', error);
+        return response.error(res, error.message);
+    }
+};
+

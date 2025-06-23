@@ -1,5 +1,5 @@
 import express from 'express';
-import { groupCreate, editGroup, getGroupById, getAllGroups, deleteGroup, getMyGroups, respondToGroupInvite, listGroupInvitesByStatus, addMemberToGroup, listUserGroupInvitesByStatus } from '../controllers/group.controller';
+import { groupCreate, editGroup, getGroupById, getAllGroups, deleteGroup, getMyGroups, respondToGroupInvite, listGroupInvitesByStatus, addMemberToGroup, listUserGroupInvitesByStatus, deleteMemberFromGroup } from '../controllers/group.controller';
 import { authenticateToken } from '../services/authorization';
 
 
@@ -20,6 +20,8 @@ router.post('/listUserInvites', authenticateToken, listUserGroupInvitesByStatus)
 
 
 router.post('/memberRequest', authenticateToken, addMemberToGroup);
+router.post('/deleteMember', authenticateToken, deleteMemberFromGroup);
+
 
 
 
