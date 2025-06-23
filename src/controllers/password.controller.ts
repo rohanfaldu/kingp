@@ -80,10 +80,30 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     return response.error(res, 'Invalid OTP type.');
   }
 
+  // const user = await prisma.user.findUnique({
+  //   where: { emailAddress },
+  //   select: { name: true },
+  // });
+
   const user = await prisma.user.findUnique({
     where: { emailAddress },
-    select: { name: true },
+    select: {
+      name: true,
+      loginType: true,
+      socialId: true,
+    },
   });
+
+  if (!user) {
+    return response.error(res, 'Email not found. Please provide a valid email address.');
+  }
+
+  // Prevent reset for social login users
+if (user.socialId || (user.loginType && ['GOOGLE', 'APPLE'].includes(user.loginType))) {
+    return response.error(res, 'This account was created using social login (Google/Apple).');
+  }
+
+
 
   if (user === null) {
     return response.error(res, 'Email not found. Please provide a valid email address.');
