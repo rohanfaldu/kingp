@@ -75,7 +75,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
         // ✅ Fetch invited users
         const invitedUsers = invitedUserId.length > 0
             ? await prisma.user.findMany({
-                where: { id: { in: invitedUserId }},
+                where: { id: { in: invitedUserId } },
                 include: {
                     socialMediaPlatforms: true,
                     brandData: true,
@@ -687,6 +687,19 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
             },
         });
 
+        await prisma.orders.updateMany({
+            where: {
+                groupId: groupId, // specify the group ID
+                NOT: {
+                    status: 'COMPLETED',
+                },
+            },
+            data: {
+                status: 'CANCELED',
+            },
+        });
+
+
         return response.success(res, 'Group deleted successfully!', null);
 
     } catch (error: any) {
@@ -1252,7 +1265,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
         if (!adminUser) return response.error(res, 'Invalid userId. User does not exist.');
 
         const invitedUsers = await prisma.user.findMany({
-            where: { id: { in: invitedUserId }},
+            where: { id: { in: invitedUserId } },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -1838,7 +1851,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
         if (!group) return response.error(res, 'Invalid groupId. Group does not exist.');
 
         const isAdmin = await prisma.groupUsers.findFirst({
-            where: { groupId, userId, status: true },
+            where: { groupId, userId },
         });
         if (!isAdmin) {
             return response.error(res, 'You are not authorized to remove members from this group.');
@@ -1853,7 +1866,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                 },
                 orderBy: { updatedAt: 'asc' },
             });
-            console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
+            // console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
             if (nextAdminEntry === null) {
                 console.log(groupId, " >>>>>>>>>> groupId");
 
@@ -1874,9 +1887,21 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                     where: {
                         id: groupId
                     },
-                    data:{
+                    data: {
                         status: false
                     }
+                });
+
+                await prisma.orders.updateMany({
+                    where: {
+                        groupId: groupId, // specify the group ID
+                        NOT: {
+                            status: 'COMPLETED',
+                        },
+                    },
+                    data: {
+                        status: 'CANCELED',
+                    },
                 });
             } else {
 
