@@ -15,6 +15,10 @@ export const createCountry = async (req: Request, res: Response): Promise<any> =
     try {
         const countryData: ICountry = req.body;
 
+        if(!countryData.name || !countryData.countryCode){
+            response.error(res, 'Country Name and Country code is required');
+        }
+        
         const status = resolveStatus(countryData.status);
         const { ...countryFields } = countryData;
 

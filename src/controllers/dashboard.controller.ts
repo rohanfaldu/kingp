@@ -549,6 +549,19 @@ export const getAdminEarningsList = async (req: Request, res: Response): Promise
 
         const adminUserIds = adminUsers.map(user => user.id);
 
+        const { search } = req.body;
+
+        const searchFilter = search
+            ? {
+                  where: {
+                      name: {
+                          contains: String(search),
+                          mode: 'insensitive', 
+                      },
+                  },
+              }
+            : {};
+
         const earnings = await paginate(
             req,
             prisma.earnings,

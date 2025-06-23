@@ -94,6 +94,18 @@ export const getByIdBrand = async (req: Request, res: Response): Promise<any> =>
 
 export const getAllBrand = async (req: Request, res: Response): Promise<any> => {
     try {
+        const { search } = req.body;
+
+        const searchFilter = search
+            ? {
+                  where: {
+                      name: {
+                          contains: String(search),
+                          mode: 'insensitive', 
+                      },
+                  },
+              }
+            : {};
         const brands = await paginate(req, prisma.brandType, {
                 orderBy: [
                     { updatedAt: 'desc' },
