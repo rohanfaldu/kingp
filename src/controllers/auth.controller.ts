@@ -2313,18 +2313,22 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
             return response.error(res, 'socialId is required.');
         }
 
-        // Find by socialId
+        // Find user by socialId (include socialMediaPlatforms for response)
         let user = await prisma.user.findFirst({
             where: { socialId },
+            include: {
+                socialMediaPlatforms: true,
+                brandData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
+            },
         });
 
-        // If user not exists → create user
+        // If user doesn't exist, create one
         if (!user) {
-            // Optional check: If email provided, make sure no existing user with email exists
             if (emailAddress) {
-                const existingEmailUser = await prisma.user.findUnique({
-                    where: { emailAddress },
-                });
+                const existingEmailUser = await prisma.user.findUnique({ where: { emailAddress } });
                 if (existingEmailUser) {
                     return response.error(res, 'Email already registered with another account.');
                 }
@@ -2336,47 +2340,50 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                     name: name || 'Social User',
                     emailAddress: emailAddress || null,
                     userImage: userImage || null,
-                    type: 'INFLUENCER', // Or 'BUSINESS' as per your need
+                    type: 'INFLUENCER',
                     status: true,
                     profileCompletion: 0,
+                },
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
                 },
             });
         }
 
-        // Fetch country, state, city names
-        const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
-        const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
-        const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
+        // Token handling (optional)
+        const token = jwt.sign(
+            { userId: user.id, email: user.emailAddress },
+            process.env.JWT_SECRET || 'default_secret',
+            { expiresIn: '7d' }
+        );
 
-        // Get user categories
+        // Get formatted user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        const token = req.headers.authorization?.split(' ')[1] || req.token;
-
-
-
-        // Remove password if exists & override countryId etc. with names
+        // Format user object
         const { password, ...userWithoutPassword } = user as any;
 
         const userResponse = {
             ...userWithoutPassword,
-            socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
-            countryName: country?.name ?? null,
-            stateName: state?.name ?? null,
-            cityName: city?.name ?? null,
+            socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) || [],
+            countryName: user.countryData?.name || null,
+            stateName: user.stateData?.name || null,
+            cityName: user.cityData?.name || null,
             categories: userCategoriesWithSubcategories,
         };
 
-        return response.success(res, 'Social Login successful!', {
+        return response.success(res, 'Social login successful!', {
             user: userResponse,
             token,
         });
 
     } catch (error: any) {
-        return res.status(200).json({
-            status: false,
-            message: error.message || 'Social login failed, User not found with this socialId.',
-            data: null
-        });
+        console.error('Social login error:', error);
+        return response.error(res, error.message || 'Social login failed.');
     }
 };
+

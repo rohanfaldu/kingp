@@ -1775,11 +1775,16 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
             return response.error(res, 'Admin group entry not found.');
         }
 
-        await prisma.groupUsersList.deleteMany({
+        await prisma.groupUsersList.updateMany({
             where: {
                 groupId,
                 groupUserId: adminGroupUser.id,
-                invitedUserId,
+                invitedUserId, 
+            },
+            data: {
+                status: false,
+                requestAccept: 'REJECTED',
+                updatedAt: new Date(),
             },
         });
 
