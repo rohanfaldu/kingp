@@ -1386,13 +1386,14 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 filter.ratings = { gte: minRating };
             }
         }
-
+        console.log(status, " >>>>>>>>>>>> status");
+        console.log(typeof status === 'boolean', ' >>>>>>>>>>>> is boolean');
         if (status !== undefined) {
-            if (status === true || status === false) {
-                const availability = (status) ? "ONLINE" : "OFFLINE";
-                filter.availability = availability;
-
-            } else {
+            if (status === 'true' || status === true) {
+                filter.availability = "ONLINE";
+            } else if (status === 'false' || status === false) {
+                filter.availability = "OFFLINE";
+            } else if (status !== undefined) {
                 return response.error(res, 'Invalid status value. Use true or false.');
             }
         }
