@@ -2365,7 +2365,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
         // Format user object
-        const { password, socialMediaPlatforms, ...userWithoutSensitive } = user as any;
+        const { password, socialMediaPlatform, ...userWithoutSensitive } = user as any;
 
         const userResponse = {
             ...userWithoutSensitive,
