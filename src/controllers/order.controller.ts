@@ -1901,6 +1901,24 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
     }
 };
 
+const formatUserData = async (user: any) => {
+  const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+  const {
+    password: _,
+    socialMediaPlatforms: __,
+    ...userData
+  } = user;
+
+  return {
+    ...userData,
+    socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
+    categories: userCategoriesWithSubcategories,
+    countryName: user.countryData?.name ?? null,
+    stateName: user.stateData?.name ?? null,
+    cityName: user.cityData?.name ?? null,
+  };
+};
 
 
 
@@ -2001,23 +2019,169 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
             const businessOrders = await prisma.orders.findMany({
                 where: {
                     businessId: userId,
-                    status: 'COMPLETED',            // Ensure order is completed
+                    status: 'COMPLETED',
                     createdAt: Object.keys(dateFilter).length ? dateFilter : undefined,
+                },
+                include: {
+                    groupOrderData: true,
+                    influencerOrderData: {
+                        include: {
+                            socialMediaPlatforms: {
+                                select: {
+                                    id: true,
+                                    image: true,
+                                    userId: true,
+                                    platform: true,
+                                    userName: true,
+                                    followerCount: true,
+                                    engagementRate: true,
+                                    averageLikes: true,
+                                    averageComments: true,
+                                    averageShares: true,
+                                    price: true,
+                                    status: true,
+                                    createsAt: true,
+                                    updatedAt: true,
+                                },
+                            },
+                            brandData: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        },
+                    },
+                    businessOrderData: {
+                        include: {
+                            socialMediaPlatforms: {
+                                select: {
+                                    id: true,
+                                    image: true,
+                                    userId: true,
+                                    platform: true,
+                                    userName: true,
+                                    followerCount: true,
+                                    engagementRate: true,
+                                    averageLikes: true,
+                                    averageComments: true,
+                                    averageShares: true,
+                                    price: true,
+                                    status: true,
+                                    createsAt: true,
+                                    updatedAt: true,
+                                },
+                            },
+                            brandData: true,
+                            countryData: true,
+                            stateData: true,
+                            cityData: true,
+                        },
+                    },
                 },
             });
 
-            formattedBusinessOrders = businessOrders.map((order) => ({
-                id: order.id,
-                type: 'EXPENSE',
-                amount: Number(order.finalAmount ?? 0),
-                createdAt: order.createdAt!,
-                title: order.title ?? 'Business Order',
-                description: order.description ?? '',
-                referenceId: order.transactionId ?? '',
-            }));
+            formattedBusinessOrders = [];
+
+            for (const order of businessOrders) {
+                let formattedGroup: any = null;
+
+                if (order.groupOrderData) {
+                    const group = order.groupOrderData;
+
+                    const subCategoriesWithCategory = await prisma.subCategory.findMany({
+                        where: { id: { in: group.subCategoryId } },
+                        include: { categoryInformation: true },
+                    });
+
+                    const groupUsers = await prisma.groupUsers.findMany({ where: { groupId: group.id } });
+
+                    const groupMap = new Map<string, any>();
+
+                    for (const groupUser of groupUsers) {
+                        const adminUser = await prisma.user.findUnique({
+                            where: { id: groupUser.userId },
+                            include: {
+                                UserDetail: true,
+                                socialMediaPlatforms: true,
+                                brandData: true,
+                                countryData: true,
+                                stateData: true,
+                                cityData: true,
+                            },
+                        });
+
+                        const formattedAdmin = adminUser ? await formatUserData(adminUser) : null;
+
+                        const invitedEntries = await prisma.groupUsersList.findMany({
+                            where: {
+                                groupId: group.id,
+                                groupUserId: groupUser.id,
+                                requestAccept: 'ACCEPTED',
+                            },
+                            include: {
+                                invitedUser: {
+                                    include: {
+                                        UserDetail: true,
+                                        socialMediaPlatforms: true,
+                                        brandData: true,
+                                        countryData: true,
+                                        stateData: true,
+                                        cityData: true,
+                                    },
+                                },
+                            },
+                        });
+
+                        const formattedInvitedUsers = await Promise.all(
+                            invitedEntries.map(async (entry) => {
+                                if (!entry.invitedUser) return null;
+                                const formatted = await formatUserData(entry.invitedUser);
+                                return {
+                                    ...formatted,
+                                    requestStatus: 1,
+                                };
+                            })
+                        );
+
+                        groupMap.set(`${groupUser.groupId}-${groupUser.id}`, {
+                            id: groupUser.id,
+                            userId: groupUser.userId,
+                            groupId: groupUser.groupId,
+                            status: groupUser.status,
+                            createdAt: groupUser.createsAt,
+                            updatedAt: groupUser.updatedAt,
+                            adminUser: formattedAdmin,
+                            invitedUsers: formattedInvitedUsers.filter(Boolean),
+                        });
+                    }
+
+                    formattedGroup = {
+                        ...group,
+                        subCategoryId: subCategoriesWithCategory,
+                        groupData: Array.from(groupMap.values())[0] || null,
+                    };
+                }
+
+                formattedBusinessOrders.push({
+                    id: order.id,
+                    type: 'EXPENSE',
+                    amount: Number(order.finalAmount ?? 0),
+                    createdAt: order.createdAt!,
+                    title: order.title ?? 'Business Order',
+                    description: order.description ?? '',
+                    referenceId: order.transactionId ?? '',
+                    orderDetails: {
+                        ...order,
+                        groupOrderData: formattedGroup,
+                    },
+                });
+            }
 
             totalBusinessExpenses = formattedBusinessOrders.reduce((sum, t) => sum + Number(t.amount), 0);
         }
+
+
+
+
 
 
         const transactionData = [
