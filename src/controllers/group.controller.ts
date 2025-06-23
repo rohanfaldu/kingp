@@ -580,6 +580,52 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
 
 
 
+// HAED Delete Group
+// export const deleteGroup = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { id: groupId } = req.params;
+
+//         if (!isUuid(groupId)) {
+//             return response.error(res, 'Invalid UUID format');
+//         }
+
+//         if (!groupId) {
+//             return response.error(res, 'GroupId is required.');
+//         }
+
+//         // Check if group exists
+//         const existingGroup = await prisma.group.findUnique({
+//             where: { id: groupId },
+//             include: { groupData: true },
+//         });
+
+//         if (!existingGroup) {
+//             return response.error(res, 'Group not found with this Group ID.');
+//         }
+
+//         // Delete from GroupUsersList first
+//         await prisma.groupUsersList.deleteMany({
+//             where: { groupId },
+//         });
+
+//         // Then delete from GroupUsers
+//         await prisma.groupUsers.deleteMany({
+//             where: { groupId },
+//         });
+
+//         // Finally delete the group
+//         await prisma.group.delete({
+//             where: { id: groupId },
+//         });
+
+//         return response.success(res, 'Group deleted successfully!', null);
+
+//     } catch (error: any) {
+//         console.error('Delete group error:', error);
+//         return response.error(res, error.message || 'Failed to delete group');
+//     }
+// };
+
 
 export const deleteGroup = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -596,26 +642,39 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
         // Check if group exists
         const existingGroup = await prisma.group.findUnique({
             where: { id: groupId },
-            include: { groupData: true },
         });
 
         if (!existingGroup) {
             return response.error(res, 'Group not found with this Group ID.');
         }
 
-        // Delete from GroupUsersList first
-        await prisma.groupUsersList.deleteMany({
-            where: { groupId },
-        });
+        const now = new Date();
 
-        // Then delete from GroupUsers
-        await prisma.groupUsers.deleteMany({
-            where: { groupId },
-        });
-
-        // Finally delete the group
-        await prisma.group.delete({
+        // Soft delete in Group table
+        await prisma.group.update({
             where: { id: groupId },
+            data: {
+                status: false,
+                updatedAt: now,
+            },
+        });
+
+        // Soft delete related GroupUsers
+        await prisma.groupUsers.updateMany({
+            where: { groupId },
+            data: {
+                status: false,
+                updatedAt: now,
+            },
+        });
+
+        // Soft delete related GroupUsersList
+        await prisma.groupUsersList.updateMany({
+            where: { groupId },
+            data: {
+                status: false,
+                updatedAt: now,
+            },
         });
 
         return response.success(res, 'Group deleted successfully!', null);
@@ -625,7 +684,6 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message || 'Failed to delete group');
     }
 };
-
 
 
 
@@ -662,6 +720,7 @@ export const getAllGroups = async (req: Request, res: Response): Promise<any> =>
 
         const allGroups = await prisma.group.findMany({
             where: {
+                status: true,
                 OR: [
                     { groupName: { contains: lowerSearch, mode: 'insensitive' } },
                     { groupBio: { contains: lowerSearch, mode: 'insensitive' } },
@@ -1779,7 +1838,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
             where: {
                 groupId,
                 groupUserId: adminGroupUser.id,
-                invitedUserId, 
+                invitedUserId,
             },
             data: {
                 status: false,
