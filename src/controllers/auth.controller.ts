@@ -1968,7 +1968,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         }),
 
 
-            response.success(res, 'User and related data soft-deleted successfully', null);
+            response.success(res, 'User Deleted successfully', null);
 
     } catch (error: any) {
         response.error(res, error.message);
