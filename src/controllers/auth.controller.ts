@@ -1391,7 +1391,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         if (status !== undefined) {
             if (status === 'true' || status === 'false') {
-                const availability = (status)? "ONLINE" : "OFFLINE";
+                const availability = (status) ? "ONLINE" : "OFFLINE";
                 filter.availability = availability;
 
             } else {
@@ -2365,16 +2365,17 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
         // Format user object
-        const { password, ...userWithoutPassword } = user as any;
+        const { password, socialMediaPlatforms, ...userWithoutSensitive } = user as any;
 
         const userResponse = {
-            ...userWithoutPassword,
-            socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) || [],
+            ...userWithoutSensitive,
             countryName: user.countryData?.name || null,
             stateName: user.stateData?.name || null,
             cityName: user.cityData?.name || null,
             categories: userCategoriesWithSubcategories,
         };
+
+
 
         return response.success(res, 'Social login successful!', {
             user: userResponse,
