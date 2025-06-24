@@ -277,9 +277,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             if (referralSummary) {
                 await prisma.referralCoinSummary.update({
                     where: { userId: referrer.id },
-                    data: { totalAmount: (Number(referralSummary.totalAmount) || 0) + 50,},
+                    data: { totalAmount: (Number(referralSummary.totalAmount) || 0) + 50, },
 
-                    
+
                 });
             } else {
                 await prisma.referralCoinSummary.create({
@@ -2009,7 +2009,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
                         // console.log(deleteGroupInvitedData, " >>>>>>>>> deleteGroupInvitedData")
                     }
-                }else{
+                } else {
                     const updateGroupUserStatus = await prisma.groupUsers.delete({
                         where: {
                             id: groupData.id,
@@ -2022,6 +2022,17 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         data: {
                             status: false
                         }
+                    });
+                    await prisma.orders.updateMany({
+                        where: {
+                            groupId: groupData.groupId, 
+                            NOT: {
+                                status: 'COMPLETED',
+                            },
+                        },
+                        data: {
+                            status: 'DECLINED',
+                        },
                     });
                 }
 
