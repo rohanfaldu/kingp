@@ -1970,9 +1970,12 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
             await prisma.orders.updateMany({
                 where: {
-                    influencerId: id,
+                    OR: [
+                        { influencerId: id },
+                        { businessId: id }
+                    ],
                     status: {
-                        not: 'COMPLETED', 
+                        not: 'COMPLETED',
                     },
                 },
                 data: {

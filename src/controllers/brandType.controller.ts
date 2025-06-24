@@ -16,6 +16,10 @@ export const createBrand = async (req: Request, res: Response): Promise<any> => 
     try {
         const brandData: IBrandType  = req.body;
 
+        if(!brandData.name ){
+            response.error(res, 'Brand Name required');
+        }
+
         const existingBrand = await prisma.brandType.findFirst({
             where: {
                 name: brandData.name,
