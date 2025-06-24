@@ -1991,7 +1991,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                     invitedUserId,
                 }
             });
-            console.log(updateGroupData, " >>>>>>>> updateGroupData");
+            // console.log(updateGroupData, " >>>>>>>> updateGroupData");
 
         }
 
@@ -2079,7 +2079,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                 };
             })
         );
-        console.log(formattedInvitedUsers, " >>>>>>>>>> formatted Invited Users");
+        // console.log(formattedInvitedUsers, " >>>>>>>>>> formatted Invited Users");
         return response.success(res, 'Member removed from group successfully.', {
             groupInformation: {
                 ...group,

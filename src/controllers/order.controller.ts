@@ -32,6 +32,16 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             return res.status(400).json({ error: 'businessId is required' });
         }
 
+        if (influencerId) {
+            const influencer = await prisma.user.findUnique({
+                where: { id: influencerId, status: true }, // Optional: check only active users
+            });
+
+            if (!influencer) {
+                return response.error(res, 'Invalid influencer ID provided.');
+            }
+        }
+
         let parsedCompletionDate: Date | undefined = undefined;
         const statusEnumValue = getStatusName(restFields.status ?? 0);
 
@@ -1901,23 +1911,25 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
     }
 };
 
+
+
 const formatUserData = async (user: any) => {
-  const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+    const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-  const {
-    password: _,
-    socialMediaPlatforms: __,
-    ...userData
-  } = user;
+    const {
+        password: _,
+        socialMediaPlatforms: __,
+        ...userData
+    } = user;
 
-  return {
-    ...userData,
-    socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
-    categories: userCategoriesWithSubcategories,
-    countryName: user.countryData?.name ?? null,
-    stateName: user.stateData?.name ?? null,
-    cityName: user.cityData?.name ?? null,
-  };
+    return {
+        ...userData,
+        socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
+        categories: userCategoriesWithSubcategories,
+        countryName: user.countryData?.name ?? null,
+        stateName: user.stateData?.name ?? null,
+        cityName: user.cityData?.name ?? null,
+    };
 };
 
 

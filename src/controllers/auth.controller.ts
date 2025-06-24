@@ -1968,8 +1968,20 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             },
         }),
 
+            await prisma.orders.updateMany({
+                where: {
+                    influencerId: id,
+                    status: {
+                        not: 'COMPLETED', 
+                    },
+                },
+                data: {
+                    status: 'DECLINED',
+                },
+            });
 
-            response.success(res, 'User Deleted successfully', null);
+
+        response.success(res, 'User Deleted successfully', null);
 
     } catch (error: any) {
         response.error(res, error.message);
