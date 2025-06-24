@@ -14,7 +14,7 @@ export const createState = async (req: Request, res: Response): Promise<any> => 
         const stateData: IState = req.body;
 
         if (!stateData.name ) {
-            response.error(res, 'State Name is required');
+            return response.error(res, 'State Name is required');
         }
         if (!stateData.countryId) {
             return response.error(res, 'countryId is required.');
