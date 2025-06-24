@@ -1,6 +1,6 @@
 export interface ISubCategory {
     categoryId: string;
-    name?: string;
+    name: string;
     image?: string;
     status: boolean;
     createdAt: Date;

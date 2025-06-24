@@ -17,6 +17,10 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
     try {
         const categoryData: ICategory = req.body;
 
+        if(!categoryData.name ){
+            response.error(res, 'Category Name required');
+        }
+
         const status = resolveStatus(categoryData.status);
 
         const { ...categoryFields } = categoryData;
@@ -43,6 +47,10 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
 
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID format');
+        }
+
+        if (!categoryData.name) {
+            response.error(res, 'Category Name required for Edit Category');
         }
 
         const updateCategory = await prisma.category.update({

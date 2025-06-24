@@ -15,10 +15,26 @@ export const createCountry = async (req: Request, res: Response): Promise<any> =
     try {
         const countryData: ICountry = req.body;
 
-        if(!countryData.name || !countryData.countryCode){
-            response.error(res, 'Country Name and Country code is required');
+        if (!countryData.name || !countryData.countryCode) {
+            response.error(res, 'Country Name and Country code both is required');
         }
-        
+
+        const existingCountry = await prisma.country.findFirst({
+            where: {
+                OR: [
+                    { name: countryData.name },
+                    { countryCode: countryData.countryCode }
+                ]
+            }
+        });
+
+        if (existingCountry) {
+            return response.error(
+                res,
+                'Country with the same name or country code already exists.'
+            );
+        }
+
         const status = resolveStatus(countryData.status);
         const { ...countryFields } = countryData;
 
@@ -26,7 +42,7 @@ export const createCountry = async (req: Request, res: Response): Promise<any> =
             data: {
                 ...countryFields
             },
-           
+
         });
         response.success(res, 'Country Created successfully!', newCountry);
     } catch (error: any) {
@@ -36,17 +52,21 @@ export const createCountry = async (req: Request, res: Response): Promise<any> =
 
 
 export const editCountry = async (req: Request, res: Response): Promise<any> => {
-    try{
-        const {id} = req.params;
-        const categoryData: ICountry  = req.body;
+    try {
+        const { id } = req.params;
+        const categoryData: ICountry = req.body;
         const { ...countryFields } = categoryData;
 
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID format');
         }
 
+         if (!categoryData.name || !categoryData.countryCode) {
+            response.error(res, 'Country Name and Country code both is required');
+        }
+
         const updateCountry = await prisma.country.update({
-            where: { id: id }, 
+            where: { id: id },
             data: {
                 ...countryFields,
             },
@@ -61,11 +81,11 @@ export const editCountry = async (req: Request, res: Response): Promise<any> => 
 
 export const getByIdCountry = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID format');
         }
-        
+
         const country = await prisma.country.findUnique({
             where: { id: id },
         });
@@ -81,10 +101,10 @@ export const getAllCountry = async (req: Request, res: Response): Promise<any> =
         const countries = await paginate(req, prisma.country, {}, "countries");
         // const countries = await prisma.country.findMany ();
 
-        if(!countries || countries.countries.length === 0){
-            throw new Error("Country not Found");    
+        if (!countries || countries.countries.length === 0) {
+            throw new Error("Country not Found");
         }
-    
+
         response.success(res, 'Get All Countries successfully!', countries);
 
     } catch (error: any) {
@@ -94,14 +114,14 @@ export const getAllCountry = async (req: Request, res: Response): Promise<any> =
 
 export const deleteCountry = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID formate')
         }
         const deletedCountry = await prisma.country.delete({
-            where: {id: id},
+            where: { id: id },
         });
-        response.success(res, 'Country Deleted successfully!',null);
+        response.success(res, 'Country Deleted successfully!', null);
 
     } catch (error: any) {
         response.error(res, error.message);

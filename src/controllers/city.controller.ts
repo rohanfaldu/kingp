@@ -13,6 +13,9 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
     try {
         const cityData: ICity = req.body;
 
+        if (!cityData.name ) {
+            response.error(res, 'State Name is required');
+        }
         if (!cityData.stateId) {
             return response.error(res, 'stateId is required.');
         }
@@ -54,6 +57,21 @@ export const editCity = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
         const cityData: ICity = req.body;
+
+        
+        if (!cityData.name ) {
+            response.error(res, 'State Name is required');
+        }
+         if (!cityData.stateId) {
+            return response.error(res, 'stateId is required.');
+        }
+
+        const existingCountry = await prisma.country.findUnique({
+            where: { id: cityData.stateId },
+        });
+        if (!existingCountry) {
+            return response.error(res, 'Invalid stateId: State not found.');
+        }
         const status = resolveStatus(cityData.status);
 
         const { ...cityFields } = cityData;

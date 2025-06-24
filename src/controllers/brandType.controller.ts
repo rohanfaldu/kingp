@@ -14,10 +14,14 @@ const prisma = new PrismaClient();
 
 export const createBrand = async (req: Request, res: Response): Promise<any> => {
     try {
-        const brandData: IBrandType  = req.body;
+        const brandData: IBrandType = req.body;
 
-        if(!brandData.name ){
+        if (!brandData.name) {
             response.error(res, 'Brand Name required');
+        }
+
+        if (typeof brandData.status !== 'boolean') {
+            return response.error(res, 'Brand status must be either true or false.');
         }
 
         const existingBrand = await prisma.brandType.findFirst({
@@ -47,17 +51,12 @@ export const createBrand = async (req: Request, res: Response): Promise<any> => 
 
 export const editBrand = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
-        const brandData: IBrandType  = req.body;
+        const { id } = req.params;
+        const brandData: IBrandType = req.body;
 
-        // const existingBrand = await prisma.brandType.findFirst({
-        //     where: {
-        //         name: brandData.name,
-        //     },
-        // });
-        // if (existingBrand) {
-        //     return response.error(res, 'Brand Type with this name already exists.');
-        // }
+        if (!brandData.name) {
+            response.error(res, 'Brand Name required for Edit Brand');
+        }
 
         const status = resolveStatus(brandData.status);
         const { ...brandFields } = brandData;
@@ -67,13 +66,13 @@ export const editBrand = async (req: Request, res: Response): Promise<any> => {
         }
 
         const updateBrand = await prisma.brandType.update({
-            where: { id: id }, 
+            where: { id: id },
             data: {
                 ...brandFields,
             },
         });
         response.success(res, 'Brand Type Updated successfully!', updateBrand);
-    } catch (error: any){
+    } catch (error: any) {
         response.error(res, error.message);
     }
 }
@@ -81,11 +80,11 @@ export const editBrand = async (req: Request, res: Response): Promise<any> => {
 
 export const getByIdBrand = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID format');
         }
-        
+
         const BrandType = await prisma.brandType.findUnique({
             where: { id: id },
         });
@@ -102,24 +101,24 @@ export const getAllBrand = async (req: Request, res: Response): Promise<any> => 
 
         const searchFilter = search
             ? {
-                  where: {
-                      name: {
-                          contains: String(search),
-                          mode: 'insensitive', 
-                      },
-                  },
-              }
+                where: {
+                    name: {
+                        contains: String(search),
+                        mode: 'insensitive',
+                    },
+                },
+            }
             : {};
         const brands = await paginate(req, prisma.brandType, {
-                orderBy: [
-                    { updatedAt: 'desc' },
-                    { createsAt: 'desc' },
-                ],
-            }, "Brands");
-    
-        if(!brands || brands.length === 0){
+            orderBy: [
+                { updatedAt: 'desc' },
+                { createsAt: 'desc' },
+            ],
+        }, "Brands");
+
+        if (!brands || brands.length === 0) {
             throw new Error("Brand Type not Found");
-            
+
         }
         response.success(res, 'Get All Brand Type successfully!', brands);
 
@@ -131,12 +130,12 @@ export const getAllBrand = async (req: Request, res: Response): Promise<any> => 
 
 export const deleteBrand = async (req: Request, res: Response): Promise<any> => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID formate')
         }
 
-         // Check if category exists
+        // Check if category exists
         const brand = await prisma.brandType.findUnique({
             where: { id },
         });
@@ -158,7 +157,7 @@ export const deleteBrand = async (req: Request, res: Response): Promise<any> => 
             where: { id },
         });
 
-        response.success(res, 'Brand Type Deleted successfully!',null);
+        response.success(res, 'Brand Type Deleted successfully!', null);
 
     } catch (error: any) {
         response.error(res, error.message);

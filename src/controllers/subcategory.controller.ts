@@ -18,6 +18,9 @@ export const createSubCategory = async (req: Request, res: Response): Promise<an
     try {
         const subcategoryData: ISubCategory = req.body;
 
+        if (!subcategoryData.name) {
+            response.error(res, 'Sub Category Name required.');
+        }
 
         if (!subcategoryData.categoryId) {
             return response.error(res, 'categoryId is required.');
@@ -70,6 +73,12 @@ export const editSubCategory = async (req: Request, res: Response): Promise<any>
         if (!isUuid(id)) {
             response.error(res, 'Invalid UUID format');
         }
+        if (!categoryData.name) {
+            response.error(res, 'Sub Category Name required.');
+        }
+        if (!categoryData.categoryId) {
+            return response.error(res, 'categoryId is required.');
+        }
 
         const updateCategory = await prisma.subCategory.update({
             where: { id: id },
@@ -80,7 +89,7 @@ export const editSubCategory = async (req: Request, res: Response): Promise<any>
                 categoryInformation: true,
             },
         });
-        response.success(res, 'Category Updated successfully!', updateCategory);
+        response.success(res, 'Sub Category Updated successfully!', updateCategory);
 
     } catch (error: any) {
         return response.serverError(res, error.message || 'Failed to efit sub-categories.');
@@ -114,7 +123,7 @@ export const getAllSubCategories = async (req: Request, res: Response): Promise<
                 categoryInformation: true,
             },
             orderBy: {
-                createdAt: 'desc', 
+                createdAt: 'desc',
             },
         });
 
@@ -134,7 +143,7 @@ export const deleteSubCategory = async (req: Request, res: Response): Promise<an
         // const deletedSubCategory = await prisma.subCategory.delete({
         //     where: { id: id },
         // });
-         const relatedInUserSubCategory = await prisma.userSubCategory.count({
+        const relatedInUserSubCategory = await prisma.userSubCategory.count({
             where: { subCategoryId: id },
         });
 

@@ -13,6 +13,9 @@ export const createState = async (req: Request, res: Response): Promise<any> => 
     try {
         const stateData: IState = req.body;
 
+        if (!stateData.name ) {
+            response.error(res, 'State Name is required');
+        }
         if (!stateData.countryId) {
             return response.error(res, 'countryId is required.');
         }
@@ -54,6 +57,21 @@ export const editState = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
         const stateData: IState = req.body;
+
+        if (!stateData.name ) {
+            response.error(res, 'State Name is required');
+        }
+         if (!stateData.countryId) {
+            return response.error(res, 'countryId is required.');
+        }
+
+        const existingCountry = await prisma.country.findUnique({
+            where: { id: stateData.countryId },
+        });
+        if (!existingCountry) {
+            return response.error(res, 'Invalid countryId: Country not found.');
+        }
+
         const status = resolveStatus(stateData.status);
 
         const { ...stateFields } = stateData;
@@ -131,25 +149,25 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
 export const getAllStates = async (req: Request, res: Response): Promise<any> => {
     const { search } = req.body;
     // try {
-        const filter = {
-            where: {
-                name: {
-                    contains: search,
-                    mode: "insensitive",
-                },
+    const filter = {
+        where: {
+            name: {
+                contains: search,
+                mode: "insensitive",
             },
-            include: {
-                countryKey: true,
-            },
-            orderBy: {
-                name: 'asc'
-            }
-        };
-        
-   
-        const states = await paginate(req, prisma.state, filter);
-        console.log(states, '>>>>>>>>>>>>>> states');
-        return response.success(res, 'Fetched all States successfully.', states);
+        },
+        include: {
+            countryKey: true,
+        },
+        orderBy: {
+            name: 'asc'
+        }
+    };
+
+
+    const states = await paginate(req, prisma.state, filter);
+    console.log(states, '>>>>>>>>>>>>>> states');
+    return response.success(res, 'Fetched all States successfully.', states);
     // } catch (error: any) {
     //     return response.serverError(res, error.message || 'Failed to fetch States.');
     // }
