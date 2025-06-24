@@ -277,7 +277,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             if (referralSummary) {
                 await prisma.referralCoinSummary.update({
                     where: { userId: referrer.id },
-                    data: { totalAmount: (referralSummary.totalAmount ?? 0) + 50 },
+                    data: { totalAmount: (Number(referralSummary.totalAmount) || 0) + 50,},
+
+                    
                 });
             } else {
                 await prisma.referralCoinSummary.create({
@@ -1950,40 +1952,150 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         }
 
         // Check if user exists
-        const existingUser = await prisma.user.findUnique({
-            where: { id, status: true },
-            select: { emailAddress: true },
-        });
-
-        if (!existingUser) {
-            response.error(res, 'User not found');
-            return;
-        }
-
-        // Soft-delete the user
-        await prisma.user.update({
-            where: { id, status: true },
-            data: {
-                status: false,
+        const nextAdminEntry = await prisma.groupUsers.findMany({
+            where: {
+                userId: id,
+                status: true
             },
-        }),
+            orderBy: { updatedAt: 'asc' },
+        });
+        console.log(nextAdminEntry, " >>>>>>>>>>>> nextAdminEntry");
+        if (nextAdminEntry.length > 0) {
+            nextAdminEntry.map(async (groupData) => {
+                if (groupData.invitedUserId.length > 0) {
+                    const groupUserListData = await prisma.groupUsersList.findFirst({
+                        where: {
+                            groupId: groupData.groupId,
+                            groupUserId: groupData.id,
+                            adminUserId: groupData.userId,
+                            requestAccept: "ACCEPTED"
+                        },
+                        orderBy: { updatedAt: 'asc' },
+                    });
+                    if (groupUserListData !== null) {
 
-            await prisma.orders.updateMany({
-                where: {
-                    OR: [
-                        { influencerId: id },
-                        { businessId: id }
-                    ],
-                    status: {
-                        not: 'COMPLETED',
-                    },
-                },
-                data: {
-                    status: 'DECLINED',
-                },
+                        const updateUserId = groupUserListData.invitedUserId;
+                        const filtered = groupData.invitedUserId.filter(id => id !== updateUserId);
+                        console.log(filtered, "Filtered invitedUserId list");
+
+                        const updateGroupStatus = await prisma.groupUsersList.updateMany({
+                            where: {
+                                groupId: groupData.groupId,
+                                groupUserId: groupData.id,
+                            },
+                            data: {
+                                adminUserId: groupUserListData.invitedUserId
+                            }
+                        });
+                        console.log(updateGroupStatus, " >>>>>>>>> updateGroupStatus")
+                        const updateGroupUserStatus = await prisma.groupUsers.updateMany({
+                            where: {
+                                id: groupData.id,
+                            },
+                            data: {
+                                userId: groupUserListData.invitedUserId,
+                                invitedUserId: filtered
+                            }
+                        });
+                        console.log(updateGroupUserStatus, " >>>>>>>>> updateGroupUserStatus")
+                        const deleteGroupInvitedData = await prisma.groupUsersList.deleteMany({
+                            where: {
+                                groupId: groupData.groupId,
+                                groupUserId: groupData.id,
+                                adminUserId: groupUserListData.invitedUserId,
+                                invitedUserId: groupUserListData.invitedUserId,
+                            },
+                        });
+
+                        // console.log(deleteGroupInvitedData, " >>>>>>>>> deleteGroupInvitedData")
+                    }
+                }else{
+                    const updateGroupUserStatus = await prisma.groupUsers.delete({
+                        where: {
+                            id: groupData.id,
+                        }
+                    });
+                    await prisma.group.update({
+                        where: {
+                            id: groupData.groupId,
+                        },
+                        data: {
+                            status: false
+                        }
+                    });
+                }
+
+                console.log(groupData, " >>>>>>>>>> groupUserListData");
             });
 
+            const existingUser = await prisma.user.findUnique({
+                where: { id, status: true },
+                select: { emailAddress: true },
+            });
 
+            if (!existingUser) {
+                response.error(res, 'User not found');
+                return;
+            }
+
+            // Soft-delete the user
+            await prisma.user.update({
+                where: { id, status: true },
+                data: {
+                    status: false,
+                },
+            }),
+
+                await prisma.orders.updateMany({
+                    where: {
+                        OR: [
+                            { influencerId: id },
+                            { businessId: id }
+                        ],
+                        status: {
+                            not: 'COMPLETED',
+                        },
+                    },
+                    data: {
+                        status: 'DECLINED',
+                    },
+                });
+
+        } else {
+            const existingUser = await prisma.user.findUnique({
+                where: { id, status: true },
+                select: { emailAddress: true },
+            });
+
+            if (!existingUser) {
+                response.error(res, 'User not found');
+                return;
+            }
+
+            // Soft-delete the user
+            await prisma.user.update({
+                where: { id, status: true },
+                data: {
+                    status: false,
+                },
+            }),
+
+                await prisma.orders.updateMany({
+                    where: {
+                        OR: [
+                            { influencerId: id },
+                            { businessId: id }
+                        ],
+                        status: {
+                            not: 'COMPLETED',
+                        },
+                    },
+                    data: {
+                        status: 'DECLINED',
+                    },
+                });
+
+        }
         response.success(res, 'User Deleted successfully', null);
 
     } catch (error: any) {
