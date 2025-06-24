@@ -17,7 +17,7 @@ export const createBrand = async (req: Request, res: Response): Promise<any> => 
         const brandData: IBrandType = req.body;
 
         if (!brandData.name) {
-            response.error(res, 'Brand Name required');
+            return response.error(res, 'Brand Name required');
         }
 
         if (typeof brandData.status !== 'boolean') {
@@ -55,14 +55,14 @@ export const editBrand = async (req: Request, res: Response): Promise<any> => {
         const brandData: IBrandType = req.body;
 
         if (!brandData.name) {
-            response.error(res, 'Brand Name required for Edit Brand');
+            return response.error(res, 'Brand Name required for Edit Brand');
         }
 
         const status = resolveStatus(brandData.status);
         const { ...brandFields } = brandData;
 
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
 
         const updateBrand = await prisma.brandType.update({
@@ -71,9 +71,9 @@ export const editBrand = async (req: Request, res: Response): Promise<any> => {
                 ...brandFields,
             },
         });
-        response.success(res, 'Brand Type Updated successfully!', updateBrand);
+        return response.success(res, 'Brand Type Updated successfully!', updateBrand);
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -82,15 +82,15 @@ export const getByIdBrand = async (req: Request, res: Response): Promise<any> =>
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
 
         const BrandType = await prisma.brandType.findUnique({
             where: { id: id },
         });
-        response.success(res, 'Brand Type Get successfully!', BrandType);
+        return response.success(res, 'Brand Type Get successfully!', BrandType);
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -120,10 +120,10 @@ export const getAllBrand = async (req: Request, res: Response): Promise<any> => 
             throw new Error("Brand Type not Found");
 
         }
-        response.success(res, 'Get All Brand Type successfully!', brands);
+        return response.success(res, 'Get All Brand Type successfully!', brands);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -132,7 +132,7 @@ export const deleteBrand = async (req: Request, res: Response): Promise<any> => 
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID formate')
+            return response.error(res, 'Invalid UUID formate')
         }
 
         // Check if category exists
@@ -157,9 +157,9 @@ export const deleteBrand = async (req: Request, res: Response): Promise<any> => 
             where: { id },
         });
 
-        response.success(res, 'Brand Type Deleted successfully!', null);
+        return response.success(res, 'Brand Type Deleted successfully!', null);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }

@@ -19,7 +19,7 @@ export const createSubCategory = async (req: Request, res: Response): Promise<an
         const subcategoryData: ISubCategory = req.body;
 
         if (!subcategoryData.name) {
-            response.error(res, 'Sub Category Name required.');
+            return response.error(res, 'Sub Category Name required.');
         }
 
         if (!subcategoryData.categoryId) {
@@ -71,10 +71,10 @@ export const editSubCategory = async (req: Request, res: Response): Promise<any>
         const status = resolveStatus(categoryData.status);
         const { ...subCategoryFields } = categoryData;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
         if (!categoryData.name) {
-            response.error(res, 'Sub Category Name required.');
+            return response.error(res, 'Sub Category Name required.');
         }
         if (!categoryData.categoryId) {
             return response.error(res, 'categoryId is required.');
@@ -89,7 +89,7 @@ export const editSubCategory = async (req: Request, res: Response): Promise<any>
                 categoryInformation: true,
             },
         });
-        response.success(res, 'Sub Category Updated successfully!', updateCategory);
+        return response.success(res, 'Sub Category Updated successfully!', updateCategory);
 
     } catch (error: any) {
         return response.serverError(res, error.message || 'Failed to efit sub-categories.');
@@ -100,7 +100,7 @@ export const getByIdSubCategories = async (req: Request, res: Response): Promise
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
         const subCategory = await prisma.subCategory.findUnique({
             where: { id: id },
@@ -108,7 +108,7 @@ export const getByIdSubCategories = async (req: Request, res: Response): Promise
                 categoryInformation: true,
             },
         });
-        response.success(res, 'Sub-Category Get successfully!', subCategory);
+        return response.success(res, 'Sub-Category Get successfully!', subCategory);
     } catch (error: any) {
         return response.serverError(res, error.message || 'Failed to fetch sub-categories.');
     }
@@ -138,11 +138,9 @@ export const deleteSubCategory = async (req: Request, res: Response): Promise<an
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID formate')
+            return response.error(res, 'Invalid UUID formate')
         }
-        // const deletedSubCategory = await prisma.subCategory.delete({
-        //     where: { id: id },
-        // });
+    
         const relatedInUserSubCategory = await prisma.userSubCategory.count({
             where: { subCategoryId: id },
         });
@@ -166,7 +164,7 @@ export const getByCategoriesId = async (req: Request, res: Response): Promise<an
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
         const subCategory = await prisma.subCategory.findMany({
             where: { categoryId: id },
@@ -174,7 +172,7 @@ export const getByCategoriesId = async (req: Request, res: Response): Promise<an
                 categoryInformation: true,
             },
         });
-        response.success(res, 'Sub-Category Get successfully!', subCategory);
+        return response.success(res, 'Sub-Category Get successfully!', subCategory);
     } catch (error: any) {
         return response.serverError(res, error.message || 'Failed to fetch sub-categories.');
     }

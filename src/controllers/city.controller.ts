@@ -14,7 +14,7 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
         const cityData: ICity = req.body;
 
         if (!cityData.name ) {
-            response.error(res, 'State Name is required');
+            return response.error(res, 'State Name is required');
         }
         if (!cityData.stateId) {
             return response.error(res, 'stateId is required.');
@@ -37,7 +37,6 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, 'City with this name already exists in the selected State.');
         }
 
-
         const { ...cityFields } = cityData;
 
         const newCity = await prisma.city.create({
@@ -46,9 +45,9 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
             },
 
         });
-        response.success(res, 'City Created successfully!', newCity);
+        return response.success(res, 'City Created successfully!', newCity);
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -60,7 +59,7 @@ export const editCity = async (req: Request, res: Response): Promise<any> => {
 
         
         if (!cityData.name ) {
-            response.error(res, 'State Name is required');
+            return response.error(res, 'State Name is required');
         }
          if (!cityData.stateId) {
             return response.error(res, 'stateId is required.');
@@ -77,7 +76,7 @@ export const editCity = async (req: Request, res: Response): Promise<any> => {
         const { ...cityFields } = cityData;
 
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
 
         const updateCity = await prisma.city.update({
@@ -93,10 +92,10 @@ export const editCity = async (req: Request, res: Response): Promise<any> => {
                 },
             },
         });
-        response.success(res, 'City Updated successfully!', updateCity);
+        return response.success(res, 'City Updated successfully!', updateCity);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -105,7 +104,7 @@ export const getByIdCity = async (req: Request, res: Response): Promise<any> => 
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
         const city = await prisma.city.findUnique({
             where: { id: id },
@@ -117,7 +116,7 @@ export const getByIdCity = async (req: Request, res: Response): Promise<any> => 
                 },
             },
         });
-        response.success(res, 'City Get successfully!', city);
+        return response.success(res, 'City Get successfully!', city);
     } catch (error: any) {
         return response.serverError(res, error.message || 'Failed to fetch City.');
     }
@@ -185,14 +184,14 @@ export const deleteCity = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID formate')
+            return response.error(res, 'Invalid UUID formate')
         }
         const deleteCity = await prisma.city.delete({
             where: { id: id },
         });
-        response.success(res, 'City Deleted successfully!', null);
+        return response.success(res, 'City Deleted successfully!', null);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }

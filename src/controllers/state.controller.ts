@@ -46,9 +46,9 @@ export const createState = async (req: Request, res: Response): Promise<any> => 
             },
 
         });
-        response.success(res, 'State Created successfully!', newState);
+        return response.success(res, 'State Created successfully!', newState);
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -59,7 +59,7 @@ export const editState = async (req: Request, res: Response): Promise<any> => {
         const stateData: IState = req.body;
 
         if (!stateData.name ) {
-            response.error(res, 'State Name is required');
+            return response.error(res, 'State Name is required');
         }
          if (!stateData.countryId) {
             return response.error(res, 'countryId is required.');
@@ -89,10 +89,10 @@ export const editState = async (req: Request, res: Response): Promise<any> => {
                 countryKey: true,
             },
         });
-        response.success(res, 'Country Updated successfully!', updateState);
+        return response.success(res, 'Country Updated successfully!', updateState);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -101,7 +101,7 @@ export const getByIdState = async (req: Request, res: Response): Promise<any> =>
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
         const state = await prisma.state.findUnique({
             where: { id: id },
@@ -109,7 +109,7 @@ export const getByIdState = async (req: Request, res: Response): Promise<any> =>
                 countryKey: true,
             },
         });
-        response.success(res, 'State Get successfully!', state);
+        return response.success(res, 'State Get successfully!', state);
     } catch (error: any) {
         return response.serverError(res, error.message || 'Failed to fetch state.');
     }
@@ -148,7 +148,7 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
 
 export const getAllStates = async (req: Request, res: Response): Promise<any> => {
     const { search } = req.body;
-    // try {
+    try {
     const filter = {
         where: {
             name: {
@@ -164,27 +164,26 @@ export const getAllStates = async (req: Request, res: Response): Promise<any> =>
         }
     };
 
-
     const states = await paginate(req, prisma.state, filter);
     console.log(states, '>>>>>>>>>>>>>> states');
     return response.success(res, 'Fetched all States successfully.', states);
-    // } catch (error: any) {
-    //     return response.serverError(res, error.message || 'Failed to fetch States.');
-    // }
+    } catch (error: any) {
+        return response.serverError(res, error.message || 'Failed to fetch States.');
+    }
 };
 
 export const deleteState = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID formate')
+            return response.error(res, 'Invalid UUID formate')
         }
         const deleteState = await prisma.state.delete({
             where: { id: id },
         });
-        response.success(res, 'State Deleted successfully!', null);
+        return response.success(res, 'State Deleted successfully!', null);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }

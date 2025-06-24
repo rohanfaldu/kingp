@@ -18,7 +18,7 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
         const categoryData: ICategory = req.body;
 
         if(!categoryData.name ){
-            response.error(res, 'Category Name required');
+            return response.error(res, 'Category Name required');
         }
 
         const status = resolveStatus(categoryData.status);
@@ -46,11 +46,11 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
         const { ...categoryFields } = categoryData;
 
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
 
         if (!categoryData.name) {
-            response.error(res, 'Category Name required for Edit Category');
+            return response.error(res, 'Category Name required for Edit Category');
         }
 
         const updateCategory = await prisma.category.update({
@@ -59,9 +59,9 @@ export const editCategory = async (req: Request, res: Response): Promise<any> =>
                 ...categoryFields,
             },
         });
-        response.success(res, 'Category Updated successfully!', updateCategory);
+        return response.success(res, 'Category Updated successfully!', updateCategory);
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -70,15 +70,15 @@ export const getByIdCategory = async (req: Request, res: Response): Promise<any>
     try {
         const { id } = req.params;
         if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID format');
+            return response.error(res, 'Invalid UUID format');
         }
 
         const category = await prisma.category.findUnique({
             where: { id: id },
         });
-        response.success(res, 'Category Get successfully!', category);
+        return response.success(res, 'Category Get successfully!', category);
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -91,10 +91,10 @@ export const getAllCategory = async (req: Request, res: Response): Promise<any> 
             throw new Error("Categories not Found");
 
         }
-        response.success(res, 'Get All categories successfully!', categories);
+        return response.success(res, 'Get All categories successfully!', categories);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 }
 
@@ -131,10 +131,10 @@ export const deleteCategory = async (req: Request, res: Response): Promise<any> 
             where: { id },
         });
 
-        response.success(res, 'Category deleted successfully!', null);
+        return response.success(res, 'Category deleted successfully!', null);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 };
 
@@ -182,9 +182,9 @@ export const getInfluencersBySubCategories = async (req: Request, res: Response)
             },
             "influencers"
         );
-        response.success(res, 'Influencers fetched successfully', influencers);
+        return response.success(res, 'Influencers fetched successfully', influencers);
 
     } catch (error: any) {
-        response.error(res, error.message);
+        return response.error(res, error.message);
     }
 };
