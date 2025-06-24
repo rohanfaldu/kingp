@@ -39,7 +39,7 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(cors({
     origin: "*", 
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Methods'], // Add necessary headers
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Methods'], 
 }));
 
 

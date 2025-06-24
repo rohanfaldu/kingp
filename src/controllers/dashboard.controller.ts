@@ -29,7 +29,7 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
                 cityData: true,
             },
             orderBy: {
-                createsAt: 'desc', // fix this if your column name was incorrect
+                createsAt: 'desc', 
             },
             take: 4,
         });
@@ -42,7 +42,7 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
             users.map(async (userData: any) => {
                 const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(userData.id);
 
-                const { password, socialMediaPlatform, ...safeUserData } = userData; // safely exclude sensitive fields
+                const { password, socialMediaPlatform, ...safeUserData } = userData; 
 
                 return {
                     ...safeUserData,
@@ -63,10 +63,10 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
 };
 
 
-
+// Business Dashboard Data
 export const getDashboardData = async (req: Request, res: Response): Promise<any> => {
     try {
-        const loginUserId = req.user?.userId; // Assuming you have the logged-in user's ID in req.user
+        const loginUserId = req.user?.userId; 
 
         // Fetch app settings
         const bannerData = await prisma.appSetting.findMany({
@@ -100,7 +100,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                 cityData: true,
             },
             orderBy: {
-                createsAt: 'desc', // Fixed typo from createsAt to createdAt
+                createsAt: 'desc', 
             },
             take: 4,
         });
@@ -159,7 +159,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                         countryName: user.countryData?.name ?? null,
                         stateName: user.stateData?.name ?? null,
                         cityName: user.cityData?.name ?? null,
-                        viewedAt: view.updatedAt, // Include the last viewed timestamp
+                        viewedAt: view.updatedAt, 
                     };
                 })
             );
@@ -295,9 +295,8 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             },
         });
 
-
-        const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
-        const endDate = endOfWeek(new Date(), { weekStartsOn: 1 });     // Sunday
+        const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); 
+        const endDate = endOfWeek(new Date(), { weekStartsOn: 1 });     
 
         const topCreators = await prisma.referralCoinSummary.findMany({
             where: {
@@ -316,7 +315,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
                     select: {
                         id: true,
                         name: true,
-                        userImage: true, // optional
+                        userImage: true, 
                     },
                 },
             }
@@ -374,8 +373,6 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             recentViews,
         };
 
-        /******************************/
-
         // 1. Fetch recent views
         const recentChatViews = await prisma.recentChatView.findMany({
             where: {
@@ -421,7 +418,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
                 id: view.id,
                 chatCount: view.chatCount,
                 updatedAt: view.updatedAt,
-                viewer: view.recentChatViewLoginUser, // viewer info (name, image, id)
+                viewer: view.recentChatViewLoginUser, 
             })),
         };
 
@@ -541,7 +538,7 @@ export const getAdminDashboardStats = async (req: Request, res: Response): Promi
 
 export const getAdminEarningsList = async (req: Request, res: Response): Promise<any> => {
     try {
-        // Get all ADMIN users' IDs
+        
         const adminUsers = await prisma.user.findMany({
             where: { type: 'ADMIN' },
             select: { id: true },

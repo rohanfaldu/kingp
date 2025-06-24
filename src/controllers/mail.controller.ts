@@ -11,12 +11,12 @@ app.use(bodyParser.json());
 
 // Configure your transporter
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com', // or your SMTP host
+    host: 'smtp.gmail.com', 
     port: 587,
     secure: false,
     auth: {
-        user: 'your-email@gmail.com',        // ✅ Your email
-        pass: 'your-app-password-or-token',  // ✅ App password (not your email password)
+        user: 'your-email@gmail.com',        
+        pass: 'your-app-password-or-token',  
     },
 });
 

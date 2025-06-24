@@ -9,6 +9,6 @@ const router = express.Router();
 router.post('/create', authenticateToken, createRating);
 router.post('/get', getUserRatings);
 router.post('/orderRatings', getOrderRatings);
-// router.post('/getAllMedia', getAllMediaList);
+
 
 export default router;  

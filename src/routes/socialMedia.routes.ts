@@ -13,5 +13,4 @@ router.delete('/delete/:id', deleteSocialMediaPlatform);
 
 
 
-
 export default router;  

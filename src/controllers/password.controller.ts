@@ -80,11 +80,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     return response.error(res, 'Invalid OTP type.');
   }
 
-  // const user = await prisma.user.findUnique({
-  //   where: { emailAddress },
-  //   select: { name: true },
-  // });
-
   const user = await prisma.user.findUnique({
     where: { emailAddress },
     select: {
@@ -103,12 +98,9 @@ if (user.socialId || (user.loginType && ['GOOGLE', 'APPLE'].includes(user.loginT
     return response.error(res, 'This account was created using social login (Google/Apple).');
   }
 
-
-
   if (user === null) {
     return response.error(res, 'Email not found. Please provide a valid email address.');
   }
-
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expireAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -237,7 +229,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       { expiresIn: '7d' }
     );
 
-    // ✅ Store token in `UserAuthToken` table (upsert = create if not exists)
+    // Store token in `UserAuthToken` table (upsert = create if not exists)
     await prisma.userAuthToken.upsert({
       where: { userId: user.id },
       update: { UserAuthToken: token },
@@ -246,8 +238,6 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
         UserAuthToken: token,
       },
     });
-    // const token = req.headers.authorization?.split(' ')[1] || req.token;
-
 
     const { password, socialMediaPlatform, ...userWithoutPassword } = user as any;
 
@@ -279,7 +269,6 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // return response.success(res, 'OTP verified successfully.', null);
   } catch (error: any) {
     return response.serverError(res, error.message);
   }
@@ -318,15 +307,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<any> =
       },
     });
 
-    // // Delete OTP entry to prevent reuse
-    // await prisma.otpVerify.delete({
-    //   where: { id: otpRecord.id },
-    // });
-
     return response.success(res, 'Password reset successfully.', null);
   } catch (error: any) {
     return response.serverError(res, error.message);
   }
 };
-
-

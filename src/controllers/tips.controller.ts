@@ -30,6 +30,7 @@ export const createDailyTips = async (req: Request, res: Response): Promise<any>
     }
 }
 
+
 export const editDailyTips = async (req: Request, res: Response): Promise<any> => {
     try{
         const {id} = req.params;
@@ -70,6 +71,7 @@ export const getByIdTips = async (req: Request, res: Response): Promise<any> => 
         response.error(res, error.message);
     }
 }
+
 
 export const getAllDailyTips = async (req: Request, res: Response): Promise<any> => {
     try {

@@ -42,11 +42,10 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
                 userId,
                 platform,
                 ...otherFields,
-
             },
         });
 
-        // 4. Count total social media accounts after insertion
+        //  Count total social media accounts after insertion
         const totalAccounts = await prisma.socialMediaPlatform.count({
             where: { userId },
         });
@@ -74,8 +73,8 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
                 });
             }
         }
+
         // ******  BADGE : 6 START Count total completed orders by the user *********//
-        // 1. Get all social accounts of the user
         const allSocialAccounts = await prisma.socialMediaPlatform.findMany({
             where: {
                 userId,
@@ -89,9 +88,9 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
             },
         });
 
-        // 2. Ensure user has at least 2 accounts
+        //  Ensure user has at least 2 accounts
         if (allSocialAccounts) {
-            // 3. Check if ALL accounts meet criteria
+            //  Check if ALL accounts meet criteria
             const allMeetCriteria = allSocialAccounts.every(account =>
                 (account.averageLikes ?? 0) >= 300 &&
                 (account.averageComments ?? 0) >= 100 &&
@@ -121,7 +120,6 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
                 }
             }
         }
-
         // ******  BADGE : 6 END Count total completed orders by the user *********//
         const { viewCount, ...filteredSocialMedia } = newSocialMedia;
 
@@ -206,7 +204,6 @@ export const editSocialMediaPlatform = async (req: Request, res: Response): Prom
                 }
             }
         }
-
         const { viewCount, ...filteredSocialMedia } = updated;
 
         response.success(res, 'Social Medial Platform Updated successfully!', filteredSocialMedia);

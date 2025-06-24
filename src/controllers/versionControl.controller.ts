@@ -62,6 +62,7 @@ export const editAppSetting = async (req: Request, res: Response): Promise<any> 
     }
 }
 
+
 export const getByIdAppVersionData = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
@@ -77,6 +78,7 @@ export const getByIdAppVersionData = async (req: Request, res: Response): Promis
         response.error(res, error.message);
     }
 }
+
 
 export const getAllAppVersionData = async (req: Request, res: Response): Promise<any> => {
     try {

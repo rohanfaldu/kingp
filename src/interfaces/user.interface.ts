@@ -38,13 +38,3 @@ export interface IUser {
 
 
 export type RequiredUser = Required<Pick<IUser, 'emailAddress' | 'password' >> & Omit<IUser, 'emailAddress' | 'password' >;
-
-// export interface ICreateUser {
-//   email: string;
-//   name?: string;
-// }
-
-// export interface IUpdateUser {
-//   email?: string;
-//   name?: string;
-// }

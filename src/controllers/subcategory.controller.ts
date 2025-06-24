@@ -96,6 +96,7 @@ export const editSubCategory = async (req: Request, res: Response): Promise<any>
     }
 }
 
+
 export const getByIdSubCategories = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
@@ -159,6 +160,7 @@ export const deleteSubCategory = async (req: Request, res: Response): Promise<an
         response.error(res, error.message);
     }
 }
+
 
 export const getByCategoriesId = async (req: Request, res: Response): Promise<any> => {
     try {

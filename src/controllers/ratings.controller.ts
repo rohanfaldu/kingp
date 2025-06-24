@@ -11,7 +11,6 @@ import { sendFCMNotificationToUsers } from '../utils/notification';
 
 const prisma = new PrismaClient();
 
-// creating a rating
 export const createRating = async (req: Request, res: Response): Promise<any> => {
     try {
         const { orderId, ratedToUserId, groupId, rating, review } = req.body;
@@ -101,7 +100,6 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                         },
                     });
                 }
-
 
                 createdRatings.push(newRating);
 
@@ -262,6 +260,8 @@ const formatUserData = async (user: any) => {
         cityName: city?.name ?? null,
     };
 };
+
+
 
 const getFormattedGroupOrderData = async (groupId: string) => {
     const group = await prisma.group.findUnique({ where: { id: groupId } });
@@ -483,199 +483,10 @@ export const getUserRatings = async (req: Request, res: Response): Promise<any> 
 
 
 
-
-// Get ratings for a specific user
-// export const getUserRatings = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { userId, groupId } = req.body;
-//         const type = req.query.type as string | undefined;
-
-//         if (!userId && !groupId) {
-//             return res.status(400).json({ error: "userId or groupId is required" });
-//         }
-
-//         let ratedUserIds: string[] = [];
-
-//         if (groupId) {
-//             // Get group users (influencers) in the group
-//             const groupUsers = await prisma.groupUsersList.findMany({
-//                 where: { groupId },
-//                 select: { invitedUserId: true }
-//             });
-//             ratedUserIds = groupUsers.map(u => u.invitedUserId);
-
-//             if (ratedUserIds.length === 0) {
-//                 return response.success(res, "No users in group", {
-//                     ratings: [],
-//                     group: null,
-//                     summary: { totalRatings: 0, averageRating: 0 }
-//                 });
-//             }
-//         }
-
-//         // Build the where clause for ratings query
-//         const whereClause: Record<string, any> = {
-//             NOT: { ratedByUserId: undefined }
-//         };
-
-//         if (groupId) {
-//             whereClause.groupId = groupId;
-//             //whereClause.ratedToUserId = { in: ratedUserIds };
-//             //whereClause.NOT = { ratedByUserId: { in: ratedUserIds } };
-//         } else if (userId) {
-//             whereClause.ratedToUserId = userId;
-//             whereClause.NOT = { ratedByUserId: userId };
-//         }
-
-//         if (type && ["INFLUENCER", "BUSINESS", "GROUP"].includes(type)) {
-//             whereClause.typeToUser = type;
-//         }
-
-//         // Fetch ratings & count in parallel
-//         const [ratings, totalCount] = await Promise.all([
-//             prisma.ratings.findMany({
-//                 where: whereClause,
-//                 include: {
-//                     ratedByUserData: {
-//                         select: { id: true, name: true, userImage: true, type: true }
-//                     },
-//                     orderRatings: {
-//                         select: { id: true, status: true, groupId: true }
-//                     }
-//                 },
-//                 orderBy: { createdAt: "desc" }
-//             }),
-//             prisma.ratings.count({ where: whereClause })
-//         ]);
-
-//         // Get group admins for ratings involving orders
-//         const groupIdsFromRatings = Array.from(new Set(
-//             ratings.map(r => r.orderRatings?.groupId).filter(Boolean)
-//         ));
-
-//         const groupAdmins = await prisma.groupUsers.findMany({
-//             where: { groupId: { in: groupIdsFromRatings } },
-//             select: { groupId: true, userId: true }
-//         });
-
-//         const groupAdminMap = new Map<string, string>();
-//         groupAdmins.forEach(admin => {
-//             groupAdminMap.set(admin.groupId, admin.userId);
-//         });
-
-//         // Enrich ratings with correct ratedByUser type
-//         const enrichedRatings = ratings.map(r => {
-//             const ratedBy = r.ratedByUserData;
-//             let ratedByType = ratedBy?.type || "INFLUENCER";
-
-//             const orderGroupId = r.orderRatings?.groupId;
-//             const isToBusiness = r.typeToUser === "BUSINESS";
-//             const isGroupAdmin = orderGroupId && ratedBy?.id && groupAdminMap.get(orderGroupId) === ratedBy.id;
-
-//             if (isToBusiness && isGroupAdmin) {
-//                 ratedByType = "GROUP";
-//             }
-
-//             return {
-//                 ...r,
-//                 ratedByUserData: {
-//                     ...ratedBy,
-//                     type: ratedByType
-//                 }
-//             };
-//         });
-
-//         // Calculate average rating
-//         const avgRating = ratings.length > 0
-//             ? ratings.reduce((sum, r) => sum + Number(r.rating ?? 0), 0) / ratings.length
-//             : 0;
-
-//         // Round to 2 decimal places
-//         const avgRatingRounded = Number(avgRating.toFixed(2));
-
-//         // Update user's ratings field in User table if userId is provided
-//         if (userId) {
-//             await prisma.user.update({
-//                 where: { id: userId },
-//                 data: {
-//                     ratings: avgRatingRounded
-//                 }
-//             });
-//         }
-
-
-//         // If groupId is given, also fetch the group data + influencers (rated users in group)
-//         let groupData = null;
-//         if (groupId) {
-//             // Fetch group info
-//             groupData = await prisma.group.findUnique({
-//                 where: { id: groupId },
-//                 include: {
-//                     // include categories, location etc if needed
-//                 }
-//             });
-
-//             // Get unique rated user IDs with reviews
-//             const ratedUserIdsInGroup = Array.from(
-//                 new Set(
-//                     ratings
-//                         .filter(r => r.review && r.review.trim() !== "")
-//                         .map(r => r.ratedToUserId)
-//                         .filter(Boolean) as string[]
-//                 )
-//             );
-
-//             // Fetch admin userId for the group
-//             const groupAdmin = await prisma.groupUsers.findFirst({
-//                 where: { groupId },
-//                 select: { userId: true }
-//             });
-
-//             const adminUserId = groupAdmin?.userId;
-
-//             // Combine admin + rated influencers, avoid duplicates
-//             const userIdsToFetch = adminUserId
-//                 ? Array.from(new Set([...ratedUserIdsInGroup, adminUserId]))
-//                 : ratedUserIdsInGroup;
-
-//             // Fetch user details for admin + influencers who got reviews
-//             const influencers = await prisma.user.findMany({
-//                 where: { id: { in: userIdsToFetch } },
-//                 select: { id: true, name: true, userImage: true, type: true }
-//             });
-
-//             groupData = {
-//                 ...groupData,
-//                 influencers
-//             };
-//         }
-
-//         return response.success(res, "Ratings fetched successfully!", {
-//             ratings: enrichedRatings,
-//             group: groupData,
-//             summary: {
-//                 totalRatings: totalCount,
-//                 averageRating: Math.round(avgRating * 10) / 10
-//             }
-//         });
-
-//     } catch (error: any) {
-//         console.error("Error in getUserRatings:", error);
-//         return response.error(res, error.message || "Something went wrong");
-//     }
-// };
-
-
-
-
-
-
 // Get all ratings for a specific order
 export const getOrderRatings = async (req: Request, res: Response): Promise<any> => {
     try {
         const { orderId } = req.body;
-
-        console.log("orderId from params:", orderId); // debug
 
         if (!orderId) {
             return res.status(400).json({ error: "Order ID is required" });

@@ -100,7 +100,6 @@ export const getByIdCountry = async (req: Request, res: Response): Promise<any> 
 export const getAllCountry = async (req: Request, res: Response): Promise<any> => {
     try {
         const countries = await paginate(req, prisma.country, {}, "countries");
-        // const countries = await prisma.country.findMany ();
 
         if (!countries || countries.countries.length === 0) {
             throw new Error("Country not Found");

@@ -2,8 +2,6 @@ const calculateProfileCompletion = (user: any): number => {
     let completedFields = 0;
     const totalFields = 16;
 
-    console.log(user.UserSubCategory, " >>>> Sub Category")
-
     if (user.type) completedFields++;
     if (user.name) completedFields++;
     if (user.emailAddress) completedFields++;
@@ -75,6 +73,5 @@ export const getProfileCompletionSuggestions = (user: any): string[] => {
     if (!user.sampleWorkLink) suggestions.push('Add your sample work link');
     if (!user.aboutYou) suggestions.push('Write something about yourself for your Profile Completion');
 
-    console.log(user, '>>>>>>>>>>>>>>>>>>> user.userSubCategories');
     return suggestions;
 };

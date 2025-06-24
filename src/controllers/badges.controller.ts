@@ -31,23 +31,6 @@ export const createBadge = async (req: Request, res: Response): Promise<any> => 
 }
 
 
-// export const getAllBadges = async (req: Request, res: Response): Promise<any> => {
-//     // try {
-//         const badge = await paginate(req, prisma.badges, {}, "Badges");
-//         // const countries = await prisma.country.findMany ();
-
-//         if(!badge || badge.badges.length === 0){
-//             throw new Error("Badges not Found");    
-//         }
-    
-//         response.success(res, 'Get All Badges successfully!', badge);
-
-// //     } catch (error: any) {
-// //         response.error(res, error.message);
-// //     }
-// }
-
-
 export const getAllBadges = async (req: Request, res: Response): Promise<any> => {
     try {
         const categories = await paginate(req, prisma.badges, {}, "categories");

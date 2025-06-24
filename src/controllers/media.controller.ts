@@ -25,7 +25,6 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                     orderId: mediaData.orderId,
                     mediaLink: mediaData.mediaLink || null,
                     status: statusEnumValue,
-                    // mediaType: mediaData.mediaType,
                     mediaType: mediaData.mediaType != null ? Number(mediaData.mediaType) : undefined,
                     videoThumbnail: mediaData.videoThumbnail,
 
@@ -33,7 +32,7 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                 },
             });
 
-            // ✅ Fetch the related order to find businessId
+            //  Fetch the related order to find businessId
             const order = await prisma.orders.findUnique({
                 where: { id: mediaData.orderId },
                 select: { businessId: true, title: true }
@@ -125,8 +124,6 @@ export const updateMediaStatus = async (req: Request, res: Response): Promise<an
             return response.error(res, 'Both id (string) and status (number) are required');
         }
 
-        // Map status code (number) to enum value
-
         const statusEnumValue = getCommonStatusName(status ?? 0);
 
         // Update the order
@@ -156,7 +153,6 @@ export const getAllMediaList = async (req: Request, res: Response): Promise<any>
             return response.error(res, 'Status is required');
         }
 
-        //  const statusEnumValue = getCommonStatusName(status ?? 0);
         const getOrder = await prisma.media.findMany({
             where: {
                 orderId: orderId

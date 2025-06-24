@@ -24,7 +24,4 @@ router.post('/deleteMember', authenticateToken, deleteMemberFromGroup);
 
 
 
-
-
-
 export default router;  

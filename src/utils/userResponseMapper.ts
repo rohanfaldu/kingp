@@ -9,13 +9,11 @@ export const mapUserWithLocationAndCategories = async (user: any): Promise<any> 
         user.cityId ? prisma.city.findUnique({ where: { id: user.cityId } }) : null,
     ]);
 
-    // const categories = await getUserCategoriesWithSubcategories(user.id);
 
     return {
         ...user,
         country: country ? { id: country.id, name: country.name } : null,
         state: state ? { id: state.id, name: state.name } : null,
         city: city ? { id: city.id, name: city.name } : null,
-        // categories,
     };
 };

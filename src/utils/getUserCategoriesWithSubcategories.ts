@@ -1,6 +1,3 @@
-// services/userCategory.service.ts
-
-// import { prisma } from '../prismaClient'; // adjust your path
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

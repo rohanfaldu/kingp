@@ -34,7 +34,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
 
         if (influencerId) {
             const influencer = await prisma.user.findUnique({
-                where: { id: influencerId, status: true }, // Optional: check only active users
+                where: { id: influencerId, status: true },
             });
 
             if (!influencer) {
@@ -166,12 +166,12 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             return response.error(res, 'Order not found');
         }
 
-        // ✅ Remove viewCount from influencerOrderData
+        //  Remove viewCount from influencerOrderData
         if (order.influencerOrderData?.socialMediaPlatforms) {
             order.influencerOrderData.socialMediaPlatforms = order.influencerOrderData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest);
         }
 
-        // ✅ Remove viewCount from businessOrderData
+        //  Remove viewCount from businessOrderData
         if (order.businessOrderData?.socialMediaPlatforms) {
             order.businessOrderData.socialMediaPlatforms = order.businessOrderData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest);
         }
@@ -442,7 +442,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         },
                     });
                 } else {
-                    // Create new UserStats record if it doesn't exist
                     await prisma.userStats.create({
                         data: {
                             userId,
@@ -495,14 +494,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 }
                 // ******  BADGE : 2 END Count total completed orders by the user *********//
 
+
                 // ******  BADGE : 3 Start Count total completed orders by the user *********//
-                // 1. Fetch user's total earnings
                 const userStats = await prisma.userStats.findFirst({
                     where: { userId },
                     select: { totalEarnings: true },
                 });
 
-                // 2. Count completed orders
+                //  Count completed orders
                 const completedOrder = await prisma.orders.count({
                     where: {
                         influencerId: userId,
@@ -515,7 +514,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     select: { ratings: true },
                 });
 
-                // 3. Check both conditions: ₹1L+ earnings AND 10+ completed orders
+                //  Check both conditions: ₹1L+ earnings AND 10+ completed orders
                 const hasMinEarnings = (userStats?.totalEarnings?.toNumber?.() ?? 0) >= 100000;
                 const hasMinOrder = completedOrder >= 10;
                 const hasHighRatings = (users?.ratings?.toNumber?.() ?? 0) >= 4.7;
@@ -545,8 +544,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 }
                 // ******  BADGE : 3 END Count total completed orders by the user *********//
 
-                // ******  BADGE : 4 START Count total completed orders by the user *********//
 
+                // ******  BADGE : 4 START Count total completed orders by the user *********//
                 const totalRatingsReceived = await prisma.ratings.count({
                     where: {
                         ratedToUserId: userId,
@@ -579,6 +578,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     }
                 }
                 // ******  BADGE : 4  END Count total completed orders by the user *********//
+
 
                 // ******  BADGE : 5 START Count total completed orders by the user *********//
                 const completedOnTimeOrders = await prisma.orders.findMany({
@@ -622,9 +622,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     }
                 }
                 // ******  BADGE : 5 END Count total completed orders by the user *********//
-
-
-
             }
         }
 
@@ -648,7 +645,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             data: { ...safeUpdateFields, status: statusEnumValue },
         });
 
-        // ✅ FCM NOTIFICATION LOGIC WITH DATABASE STORAGE
+        // FCM NOTIFICATION LOGIC WITH DATABASE STORAGE
         try {
             if ([1, 2, 5].includes(status)) {
                 const influencerUsers: any[] = [];
@@ -768,7 +765,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 groupOrderData: true,
                 influencerOrderData: {
                     include: {
-                        // socialMediaPlatforms: true,
                         socialMediaPlatforms: {
                             select: {
                                 id: true,
@@ -795,7 +791,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 },
                 businessOrderData: {
                     include: {
-                        // socialMediaPlatforms: true,
                         socialMediaPlatforms: {
                             select: {
                                 id: true,
@@ -984,7 +979,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     where: { userId: entry.userId },
                     select: { id: true, totalEarnings: true, totalDeals: true },
                 });
-                // console.log(existingUserStats, ">>>> existingUserStats");
 
                 if (existingUserStats) {
                     // Update existing UserStats record
@@ -994,7 +988,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     const updatedTotal = Number(currentTotal) + Number(entry.earningAmount);
 
                     const avarageAmount = (updatedTotal / currentTotalDeals);
-                    //const updatedTotal = currentTotal + Number(entry.earningAmount ?? 0);
 
                     await prisma.userStats.update({
                         where: { id: existingUserStats.id },
@@ -1013,11 +1006,10 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     });
                 }
             }
-            console.log(updated, "updated");
 
             // Update business totalExpenses
             if (updated.businessId) {
-                // 🎁 Reward business user with KringP Coins for spending
+                // Reward business user with KringP Coins for spending
                 const kringPCoins = Math.floor(Number(amount) / 100);
                 if (kringPCoins > 0) {
                     const coinSource = `Spending reward for ₹${amount}`;
@@ -1207,9 +1199,8 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             whereStatus = [statusEnumValue];
         }
 
-        // console.log(whereStatus, " >>>>>>> whereStatus");
         const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
-        //  console.log(existingUser, ">>>>>>>>>>> existingUser");
+
         if (!existingUser) {
             return response.error(res, 'User not found');
         }
@@ -1239,7 +1230,6 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             };
         }
 
-
         // Option 1: Simple approach - exclude only userId (your original approach)
         const getOrder = await prisma.orders.findMany({
             where: {
@@ -1249,15 +1239,13 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                 ...whereCondition
             },
             include: {
-                // groupOrderData: {},
                 groupOrderData: {
                     include: {
-                        groupUsersList: true // Include related data if needed
+                        groupUsersList: true 
                     }
                 },
                 influencerOrderData: {
                     include: {
-                        // socialMediaPlatforms: true,
                         socialMediaPlatforms: {
                             select: {
                                 id: true,
@@ -1312,8 +1300,6 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                 createdAt: 'desc'
             }
         });
-        // console.log(getOrder, " >>>>>>>> getOrder")
-
 
         return response.success(res, 'Get All order List', getOrder);
 
@@ -1342,11 +1328,6 @@ export const getAdminAllOrderList = async (req: Request, res: Response): Promise
 
         const currentUserId = req.user?.userId;
 
-        // if (status === "" || status === undefined || status === null) {
-        //     return response.error(res, 'Status is required');
-        // }
-
-
         let whereStatus;
         if (status === null) {
             const completedEnumValue = getStatusName(0);
@@ -1362,13 +1343,11 @@ export const getAdminAllOrderList = async (req: Request, res: Response): Promise
             whereStatus = [statusEnumValue];
         }
 
-        // console.log(whereStatus, " >>>>>>> whereStatus");
         const existingUser = await prisma.user.findUnique({ where: { id: currentUserId } });
-        //  console.log(existingUser, ">>>>>>>>>>> existingUser");
+
         if (!existingUser) {
             return response.error(res, 'User not found');
         }
-
 
         const parsedPage = Number(page) || 1;
         const parsedLimit = Number(limit) || 100;
@@ -1382,7 +1361,6 @@ export const getAdminAllOrderList = async (req: Request, res: Response): Promise
                 },
             }
         });
-
 
         // Option 1: Simple approach - exclude only userId (your original approach)
         const getOrder = await prisma.orders.findMany({
@@ -1500,7 +1478,6 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
                 groupOrderData: {},
                 influencerOrderData: {
                     include: {
-                        // socialMediaPlatforms: true,
                         socialMediaPlatforms: {
                             select: {
                                 id: true,
@@ -1527,7 +1504,6 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
                 },
                 businessOrderData: {
                     include: {
-                        // socialMediaPlatforms: true,
                         socialMediaPlatforms: {
                             select: {
                                 id: true,
@@ -1599,7 +1575,6 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                 groupOrderData: true,
                 influencerOrderData: {
                     include: {
-                        // socialMediaPlatforms: true,
                         socialMediaPlatforms: {
                             select: {
                                 id: true,
@@ -1654,13 +1629,12 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
 
         if (!order) return response.error(res, 'Order not found after update');
 
-        // ✅ Send notification to business user (if exists)
+        // Send notification to business user (if exists)
         if (order.businessId) {
             const businessUser = await prisma.user.findUnique({
                 where: { id: order.businessId },
                 select: { id: true, fcmToken: true, name: true },
             });
-            // console.log(businessUser, '>>>>>>>>>>>>>> businessUser');
 
             const notifTitle = 'Order Submitted!';
             const notifMessage = 'Your order has been submitted and is ready for review.';
@@ -1817,7 +1791,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             return response.error(res, 'userId and withdrawAmount are required');
         }
 
-        // 1. Fetch user stats
+        //  Fetch user stats
         const user = await prisma.userStats.findFirst({ where: { userId } });
         if (!user) return response.error(res, 'User stats not found');
 
@@ -1836,7 +1810,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             return response.error(res, 'Insufficient balance for withdrawal');
         }
 
-        // 2. Create withdrawal record
+        //  Create withdrawal record
         const newWithdraw = await prisma.withdraw.create({
             data: {
                 userId,
@@ -1846,7 +1820,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             },
         });
 
-        // 3. Update UserStats
+        //  Update UserStats
         await prisma.userStats.update({
             where: { id: user.id },
             data: {
@@ -1855,12 +1829,12 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             },
         });
 
-        // 4. KringP Coins reward calculation
+        //  KringP Coins reward calculation
         const kringPCoins = Math.floor(withdrawAmount / 100);
         const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
 
         if (kringPCoins > 0) {
-            // 4.1 Add CoinTransaction entry
+            //  Add CoinTransaction entry
             await prisma.coinTransaction.create({
                 data: {
                     userId,
@@ -1871,7 +1845,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
                 },
             });
 
-            // 4.2 Update or Create ReferralCoinSummary
+            // Update or Create ReferralCoinSummary
             const existingSummary = await prisma.referralCoinSummary.findUnique({
                 where: { userId },
             });
@@ -2191,11 +2165,6 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
             totalBusinessExpenses = formattedBusinessOrders.reduce((sum, t) => sum + Number(t.amount), 0);
         }
 
-
-
-
-
-
         const transactionData = [
             ...formattedEarnings,
             ...formattedWithdrawals,
@@ -2222,7 +2191,6 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
             totalExpenses = completedOrders.reduce((sum, order) => sum + Number(order.finalAmount), 0);
         }
 
-
         const responseData = {
             totalEarnings,
             totalWithdraw,
@@ -2230,7 +2198,6 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
             netEarnings: totalEarnings - totalWithdraw - totalBusinessExpenses,
             transactionData,
         };
-
 
         return response.success(res, 'Transaction history fetched successfully', responseData);
     } catch (error: any) {
@@ -2282,7 +2249,6 @@ export const withdrawCoins = async (req: Request, res: Response): Promise<any> =
             },
         });
 
-        // Return updated data in response
         return response.success(res, 'Referral coin withdrawal recorded successfully', updatedSummary);
 
 

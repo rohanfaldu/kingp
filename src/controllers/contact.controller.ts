@@ -46,12 +46,11 @@ export const submitContactForm = async (req: Request, res: Response): Promise<an
 
 export const getAllContactRequests = async (req: Request, res: Response): Promise<any> => {
     try {
-        const tokenUser = req.user; // contains userId, email, etc.
+        const tokenUser = req.user; 
         if (!tokenUser || !tokenUser.userId) {
             return response.error(res, "Invalid token payload");
         }
 
-        // Fetch full user from DB
         const loggedInUser = await prisma.user.findUnique({
             where: { id: tokenUser.userId },
         });
@@ -60,7 +59,6 @@ export const getAllContactRequests = async (req: Request, res: Response): Promis
             return response.error(res, "Unauthorized access. Only ADMIN can view contact requests.");
         }
 
-        // Now fetch contact requests
         const contacts = await paginate(req, prisma.contact, {}, "contactRequests");
 
         if (!contacts || contacts.contactRequests.length === 0) {

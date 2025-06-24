@@ -122,6 +122,8 @@ export const getByIdCity = async (req: Request, res: Response): Promise<any> => 
     }
 }
 
+
+
 // get city listing by StateId
 export const getCityByStateId = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -134,7 +136,7 @@ export const getCityByStateId = async (req: Request, res: Response): Promise<any
         const state = await prisma.state.findUnique({
             where: { id },
             include: {
-                stateKey: true // Include all cities under this state
+                stateKey: true 
             }
         });
 
@@ -179,6 +181,8 @@ export const getAllCity = async (req: Request, res: Response): Promise<any> => {
         return response.serverError(res, error.message || 'Failed to fetch Cities.');
     }
 };
+
+
 
 export const deleteCity = async (req: Request, res: Response): Promise<any> => {
     try {

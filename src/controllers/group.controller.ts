@@ -9,7 +9,6 @@ import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWi
 import { paginate } from '../utils/pagination';
 import admin from 'firebase-admin';
 import { sendFCMNotificationToUsers } from '../utils/notification';
-import { Console } from "console";
 
 
 const prisma = new PrismaClient();
@@ -21,18 +20,18 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
         const groupData: IGroup = req.body;
 
         const {
-            userId, // Admin user ID
-            invitedUserId = [], // Array of invited user IDs
+            userId, 
+            invitedUserId = [], 
             socialMediaPlatform = [],
             subCategoryId = [],
             ...groupFields
         } = groupData;
 
-        // ✅ Check: Limit group creation to 5 per user
+        // Check: Limit group creation to 5 per user
         const userGroupCount = await prisma.groupUsers.count({
             where: {
                 userId,
-                status: true, // Only admin-created groups
+                status: true, 
             },
         });
 
@@ -40,7 +39,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             return response.error(res, 'User can create a maximum of 5 groups only.');
         }
 
-        // ✅ Check: Group name uniqueness
+        // Check: Group name uniqueness
         const existingGroup = await prisma.group.findFirst({
             where: { groupName: groupData.groupName },
         });
@@ -50,7 +49,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
 
         const status = resolveStatus(groupData.status);
 
-        // ✅ Check: Admin user exists
+        //  Check: Admin user exists
         const adminUser = await prisma.user.findUnique({
             where: { id: userId, status: true },
             include: {
@@ -66,13 +65,13 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             return response.error(res, 'Admin user does not exist.');
         }
 
-        // ✅ Fetch subCategories with parent category
+        // Fetch subCategories with parent category
         const subCategoriesWithCategory = await prisma.subCategory.findMany({
             where: { id: { in: subCategoryId } },
             include: { categoryInformation: true },
         });
 
-        // ✅ Fetch invited users
+        //  Fetch invited users
         const invitedUsers = invitedUserId.length > 0
             ? await prisma.user.findMany({
                 where: { id: { in: invitedUserId } },
@@ -86,7 +85,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             })
             : [];
 
-        // ✅ Step 1: Create the group
+        //  Step 1: Create the group
         const newGroup = await prisma.group.create({
             data: {
                 ...groupFields,
@@ -96,7 +95,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             },
         });
 
-        // ✅ Step 2: Create GroupUsers entry for admin
+        //  Step 2: Create GroupUsers entry for admin
         const adminGroupUser = await prisma.groupUsers.create({
             data: {
                 groupId: newGroup.id,
@@ -106,7 +105,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             },
         });
 
-        // ✅ Step 3: Create GroupUsersList entries for invited users
+        //  Step 3: Create GroupUsersList entries for invited users
         await Promise.all(invitedUserId.map(async (invitedId) => {
             await prisma.groupUsersList.create({
                 data: {
@@ -120,7 +119,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             });
         }));
 
-        // ✅ Step 4: Re-fetch GroupUsersList entries for response mapping
+        //  Step 4: Re-fetch GroupUsersList entries for response mapping
         const updatedGroupUsersListEntries = await prisma.groupUsersList.findMany({
             where: {
                 groupId: newGroup.id,
@@ -129,7 +128,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             },
         });
 
-        // ✅ Send FCM to invited users
+        //  Send FCM to invited users
         await sendFCMNotificationToUsers(
             invitedUsers,
             'New group created!',
@@ -137,7 +136,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             'GROUP_INVITE'
         );
 
-        // ✅ Helper: Numeric requestStatus
+        //  Helper: Numeric requestStatus
         const getNumericStatus = (requestStatus: string) => {
             switch (requestStatus) {
                 case 'PENDING': return 0;
@@ -147,7 +146,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             }
         };
 
-        // ✅ Helper: Format user data
+        //  Helper: Format user data
         const formatUserData = async (user: any) => {
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
@@ -173,7 +172,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             };
         };
 
-        // ✅ Format admin and invited users
+        //  Format admin and invited users
         const formattedAdminUser = await formatUserData(adminUser);
 
         const formattedInvitedUsers = await Promise.all(invitedUsers.map(async (user) => {
@@ -186,7 +185,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
             };
         }));
 
-        // ✅ Final response
+        //  Final response
         return response.success(res, 'Group Created successfully!', {
             groupInformation: {
                 ...newGroup,
@@ -288,7 +287,7 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
                             adminUserId: userId || groupUserEntry.userId,
                             invitedUserId: inviteId,
                             status: true,
-                            requestAccept: RequestStatus.PENDING, // 👈 set to PENDING
+                            requestAccept: RequestStatus.PENDING, // set to PENDING
                         },
                     });
                 })
@@ -399,7 +398,6 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
             })
         );
 
-        // 8. Format final response
         const formattedResponse = {
             ...finalUpdatedGroup,
             subCategoryId: subCategoriesWithCategory,
@@ -553,7 +551,7 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
                                     : entry.requestAccept === 'REJECTED'
                                         ? 2
                                         : 0
-                                : status, // This is only used if filtering is applied, so just return it
+                                : status, 
                     };
                 })
             );
@@ -587,52 +585,6 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
 
 
 
-// HAED Delete Group
-// export const deleteGroup = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { id: groupId } = req.params;
-
-//         if (!isUuid(groupId)) {
-//             return response.error(res, 'Invalid UUID format');
-//         }
-
-//         if (!groupId) {
-//             return response.error(res, 'GroupId is required.');
-//         }
-
-//         // Check if group exists
-//         const existingGroup = await prisma.group.findUnique({
-//             where: { id: groupId },
-//             include: { groupData: true },
-//         });
-
-//         if (!existingGroup) {
-//             return response.error(res, 'Group not found with this Group ID.');
-//         }
-
-//         // Delete from GroupUsersList first
-//         await prisma.groupUsersList.deleteMany({
-//             where: { groupId },
-//         });
-
-//         // Then delete from GroupUsers
-//         await prisma.groupUsers.deleteMany({
-//             where: { groupId },
-//         });
-
-//         // Finally delete the group
-//         await prisma.group.delete({
-//             where: { id: groupId },
-//         });
-
-//         return response.success(res, 'Group deleted successfully!', null);
-
-//     } catch (error: any) {
-//         console.error('Delete group error:', error);
-//         return response.error(res, error.message || 'Failed to delete group');
-//     }
-// };
-
 
 export const deleteGroup = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -650,7 +602,7 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
         const existingGroup = await prisma.group.findFirst({
             where: {
                 id: groupId,
-                status: true, // ✅ Only fetch active groups
+                status: true, //  Only fetch active groups
             },
         });
 
@@ -689,7 +641,7 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
 
         await prisma.orders.updateMany({
             where: {
-                groupId: groupId, // specify the group ID
+                groupId: groupId, 
                 NOT: {
                     status: 'COMPLETED',
                 },
@@ -837,7 +789,7 @@ export const getAllGroups = async (req: Request, res: Response): Promise<any> =>
                                         : entry.requestAccept === 'REJECTED'
                                             ? 2
                                             : 0
-                                    : status, // This is only used if filtering is applied, so just return it
+                                    : status, 
                         };
 
                     })
@@ -1051,7 +1003,7 @@ export const respondToGroupInvite = async (req: Request, res: Response): Promise
             select: {
                 groupId: true,
             },
-            distinct: ['groupId'], // Ensure unique group participation
+            distinct: ['groupId'], 
         });
 
         if (participatingGroups.length >= 5) {
@@ -1074,8 +1026,6 @@ export const respondToGroupInvite = async (req: Request, res: Response): Promise
                         badgeId: badge.id,
                     },
                 });
-
-                console.log(`🏅 Badge (type 7) awarded to user ${userId} for participating in 5+ accepted groups`);
             }
         }
 
@@ -1389,9 +1339,9 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
             };
         };
 
-        // ✅ Send FCM notification to each invited user
+        //  Send FCM notification to each invited user
         await sendFCMNotificationToUsers(
-            invitedUsers, // array of users with id & fcmToken
+            invitedUsers, 
             'You’ve been invited to a group!',
             `You've been invited to join the group: ${group.groupName}`,
             'GROUP_INVITE'
@@ -1836,9 +1786,6 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
 
 
 
-
-
-
 export const deleteMemberFromGroup = async (req: Request, res: Response): Promise<any> => {
     try {
         const { groupId, userId, invitedUserId } = req.body;
@@ -1866,9 +1813,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                 },
                 orderBy: { updatedAt: 'asc' },
             });
-            // console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
             if (nextAdminEntry === null) {
-                // console.log(groupId, " >>>>>>>>>> groupId");
 
                 const updateGroupData = await prisma.groupUsers.findFirst({
                     where: {
@@ -1894,7 +1839,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
 
                 await prisma.orders.updateMany({
                     where: {
-                        groupId: groupId, // specify the group ID
+                        groupId: groupId, 
                         NOT: {
                             status: 'COMPLETED',
                         },
@@ -1933,9 +1878,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                             status: true
                         },
                     });
-                    // console.log(latestUpdateData, " >>>>>>>>>>>>>>>> Update New user Data");
                 }
-                console.log(updateGroupData, ">>>>>>>>>> Update Group Data");
 
                 // Deactivate GroupUsersList entry of promoted admin
                 const updateGroupInvitedData = await prisma.groupUsersList.updateMany({
@@ -1949,7 +1892,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         updatedAt: new Date(),
                     },
                 });
-                // console.log(updateGroupInvitedData, ">>>>>>>>>>>>>> update Group Invited Data");
 
                 const deleteGroupInvitedData = await prisma.groupUsersList.deleteMany({
                     where: {
@@ -1967,7 +1909,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
             if (!adminGroupUser) {
                 return response.error(res, 'Admin group entry not found.');
             }
-            // console.log(adminGroupUser, " >>>>>>>> adminGroupUser new");
             if (adminGroupUser) {
                 const updatedInvitedUserIds = adminGroupUser.invitedUserId.filter(
                     (id) => id !== invitedUserId
@@ -1981,7 +1922,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         status: true
                     },
                 });
-                // console.log(latestUpdateData, " >>>>>>>>>>>>>>>> Update New user Data");
             }
 
             const updateGroupData = await prisma.groupUsersList.deleteMany({
@@ -1991,8 +1931,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                     invitedUserId,
                 }
             });
-            // console.log(updateGroupData, " >>>>>>>> updateGroupData");
-
         }
 
         // Format response
@@ -2031,8 +1969,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
         });
 
         let formattedAdminUser = null;
-        console.log(userId, " >>>>>>>>>> userId");
-        console.log(formattedAdminUser, " >>>>>>>>>> formattedAdminUser");
         const allGroupInvitedUsers = await prisma.groupUsersList.findMany({
             where: { groupId },
             include: {
@@ -2048,7 +1984,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
 
             },
         });
-        console.log(allGroupInvitedUsers, " >>>>>>>>>> allGroupInvitedUsers");
         const getNumericStatus = (requestStatus: string) => {
             switch (requestStatus) {
                 case 'PENDING': return 0;
@@ -2079,7 +2014,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                 };
             })
         );
-        // console.log(formattedInvitedUsers, " >>>>>>>>>> formatted Invited Users");
         return response.success(res, 'Member removed from group successfully.', {
             groupInformation: {
                 ...group,
@@ -2090,7 +2024,6 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
         });
 
     } catch (error: any) {
-        console.error('Delete member error:', error);
         return response.error(res, error.message);
     }
 };
