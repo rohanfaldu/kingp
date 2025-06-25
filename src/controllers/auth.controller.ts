@@ -134,6 +134,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             loginType: normalizedLoginType,
             availability,
             profileCompletion: calculatedProfileCompletion,
+            // ratings: 0,
             type: userFields.type ?? UserType.BUSINESS,
             referralCode: generateUniqueReferralCode(userFields.name ?? 'USER'),
             ...(countryId && { countryData: { connect: { id: countryId } } }),
@@ -1409,6 +1410,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 prisma.user.count({ where: whereFilter })
             ]);
         }
+
         const newgroupWhereFilter: any[] = [];
         if (parsedSubtype === 0 || parsedSubtype === 2) {
             // Fetch groups when subtype is 0 (all) or 2 (group only)

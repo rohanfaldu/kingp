@@ -510,6 +510,19 @@ model UserCoinWithdraw {
   coinwithdrawUserData     User?          @relation(fields: [userId], references: [id])
 }
 
+model UserBankDetails {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String?             @db.Uuid
+  accountId           String?             @db.VarChar
+  accountNumber       Int?                
+  ifscCode            String?             @db.VarChar
+  razorpayAccountNo   Int?              
+  accountHolderName   String?             @db.VarChar
+  status              Boolean             @default(true)
+  createdAt           DateTime            @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime            @updatedAt @db.Timestamp(6)
+}
+
 enum Role {
   BUSINESS
   INFLUENCER

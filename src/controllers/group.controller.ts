@@ -1612,7 +1612,22 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
             ? requestStatusMap[status]
             : undefined;
 
-        // Step 1: Get groupIds where user is either admin or invited
+        let groupArray: string[] = [];
+
+        // Step 1: Get groups where user is admin
+        const getallGroups = await prisma.groupUsers.findMany({
+            where: {
+                userId: userId,
+                status: true,
+            }
+        });
+
+        // Collect group IDs from admin groups
+        getallGroups.forEach(groupMapData => {
+            groupArray.push(groupMapData.groupId);
+        });
+
+        // Step 2: Get group IDs where user is invited or admin
         const userGroupLinks = await prisma.groupUsersList.findMany({
             where: {
                 OR: [
@@ -1626,9 +1641,14 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
             select: { groupId: true },
         });
 
-        const groupIds = [...new Set(userGroupLinks.map(link => link.groupId))];
+        // Extract group IDs from the links
+        const groupIdsFromList = userGroupLinks.map(link => link.groupId);
 
-        if (groupIds.length === 0) {
+        // Merge both arrays and remove duplicates
+        const allGroupIds = [...new Set([...groupArray, ...groupIdsFromList])];
+
+
+        if (allGroupIds.length === 0) {
             return response.success(res, 'No groups found.', {
                 pagination: {
                     total: 0,
@@ -1643,7 +1663,7 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
         // Fetch all matching groups (before pagination)
         const allGroups = await prisma.group.findMany({
             where: {
-                id: { in: groupIds },
+                id: { in: allGroupIds },
                 status: true,
             },
             orderBy: { createsAt: 'desc' },
