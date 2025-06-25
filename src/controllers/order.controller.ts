@@ -1043,10 +1043,57 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 }
             }
 
-            // Update business totalExpenses
+            // // Update business totalExpenses
+            // if (updated.businessId) {
+            //     // Reward business user with KringP Coins for spending
+            //     const kringPCoins = Math.floor(Number(amount) / 100);
+            //     if (kringPCoins > 0) {
+            //         const coinSource = `Spending reward for ₹${amount}`;
+
+            //         // Create coin transaction
+            //         await prisma.coinTransaction.create({
+            //             data: {
+            //                 userId: updated.businessId,
+            //                 amount: kringPCoins,
+            //                 type: 'CASHOUT_BONUS',
+            //                 status: 'UNLOCKED',
+            //                 source: coinSource,
+            //             },
+            //         });
+
+            //         // Update or create ReferralCoinSummary for business user
+            //         const existingSummary = await prisma.referralCoinSummary.findUnique({
+            //             where: { userId: updated.businessId },
+            //         });
+
+            //         if (existingSummary) {
+            //             await prisma.referralCoinSummary.update({
+            //                 where: { userId: updated.businessId },
+            //                 data: {
+            //                     totalAmount: (Number(existingSummary.totalAmount) || 0) + 50,
+            //                     netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(50),
+            //                     unlocked: true,
+            //                     unlockedAt: new Date(),
+            //                 },
+            //             });
+            //         } else {
+            //             await prisma.referralCoinSummary.create({
+            //                 data: {
+            //                     userId: updated.businessId,
+            //                     totalAmount: kringPCoins,
+            //                     netAmount: kringPCoins,
+            //                     unlocked: true,
+            //                     unlockedAt: new Date(),
+            //                 },
+            //             });
+            //         }
+            //     }
+            // }
+
             if (updated.businessId) {
                 // Reward business user with KringP Coins for spending
                 const kringPCoins = Math.floor(Number(amount) / 100);
+
                 if (kringPCoins > 0) {
                     const coinSource = `Spending reward for ₹${amount}`;
 
@@ -1055,25 +1102,42 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         data: {
                             userId: updated.businessId,
                             amount: kringPCoins,
-                            type: 'CASHOUT_BONUS',
+                            type: CoinType.CASHOUT_BONUS, // Use enum if defined
                             status: 'UNLOCKED',
                             source: coinSource,
                         },
                     });
 
                     // Update or create ReferralCoinSummary for business user
-                    const existingSummary = await prisma.referralCoinSummary.findUnique({
+                    const businessSummary = await prisma.referralCoinSummary.findUnique({
                         where: { userId: updated.businessId },
                     });
 
-                    if (existingSummary) {
+
+                    if (businessSummary) {
+                        const totalAmount = Number(businessSummary.totalAmount ?? 0);
+                        const netAmount = Number(businessSummary.netAmount ?? 0);
+                        const withdrawAmount = Number(businessSummary.withdrawAmount ?? 0); // If this field exists
+
+                        const shouldUpdateNetAmount =
+                            businessSummary.netAmount === null ||
+                            businessSummary.withdrawAmount === null ||
+                            netAmount === totalAmount;
+                        const FinalTotalAmount = totalAmount + kringPCoins;
+                        const FinalNetAmount = FinalTotalAmount - withdrawAmount;
+                        /*
+                        shouldUpdateNetAmount
+                                    ? new Prisma.Decimal(netAmount + kringPCoins)
+                                    : new Prisma.Decimal(businessSummary.totalAmount ?? 0).minus(
+                                        new Prisma.Decimal(businessSummary.withdrawAmount ?? 0)
+                                    )
+                        */
                         await prisma.referralCoinSummary.update({
                             where: { userId: updated.businessId },
                             data: {
-                                totalAmount: (Number(existingSummary.totalAmount) || 0) + 50,
-                                netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(50),
+                                totalAmount: FinalTotalAmount,
+                                netAmount: FinalNetAmount,
                                 unlocked: true,
-                                unlockedAt: new Date(),
                             },
                         });
                     } else {
@@ -1082,14 +1146,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                 userId: updated.businessId,
                                 totalAmount: kringPCoins,
                                 netAmount: kringPCoins,
-                                unlocked: true,
-                                unlockedAt: new Date(),
                             },
                         });
                     }
                 }
-
             }
+
+
+
 
             // PERFECT REFERRAL REWARD LOGIC
             if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
