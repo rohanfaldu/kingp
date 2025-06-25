@@ -1729,9 +1729,11 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         });
 
         if (nextAdminEntry.length > 0) {
-            nextAdminEntry.map(async (groupData) => {
+            // Use for...of loop instead of map to properly handle async operations
+            for (const groupData of nextAdminEntry) {
                 if (groupData.invitedUserId.length > 0) {
-                    const groupUserListData = await prisma.groupUsersList.findFirst({
+                    // Check if any invited user has ACCEPTED status
+                    const acceptedGroupUser = await prisma.groupUsersList.findFirst({
                         where: {
                             groupId: groupData.groupId,
                             groupUserId: groupData.id,
@@ -1740,47 +1742,97 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         },
                         orderBy: { updatedAt: 'asc' },
                     });
-                    if (groupUserListData !== null) {
 
-                        const updateUserId = groupUserListData.invitedUserId;
+                    if (acceptedGroupUser !== null) {
+                        // Transfer admin rights to the accepted user
+                        const updateUserId = acceptedGroupUser.invitedUserId;
                         const filtered = groupData.invitedUserId.filter(id => id !== updateUserId);
                         console.log(filtered, "Filtered invitedUserId list");
 
-                        const updateGroupStatus = await prisma.groupUsersList.updateMany({
+                        // Update admin in groupUsersList
+                        await prisma.groupUsersList.updateMany({
                             where: {
                                 groupId: groupData.groupId,
                                 groupUserId: groupData.id,
                             },
                             data: {
-                                adminUserId: groupUserListData.invitedUserId
+                                adminUserId: acceptedGroupUser.invitedUserId
                             }
                         });
 
-                        const updateGroupUserStatus = await prisma.groupUsers.updateMany({
+                        // Update group user with new admin
+                        await prisma.groupUsers.updateMany({
                             where: {
                                 id: groupData.id,
                             },
                             data: {
-                                userId: groupUserListData.invitedUserId,
+                                userId: acceptedGroupUser.invitedUserId,
                                 invitedUserId: filtered
                             }
                         });
 
-                        const deleteGroupInvitedData = await prisma.groupUsersList.deleteMany({
+                        // Remove the accepted user from groupUsersList since they're now admin
+                        await prisma.groupUsersList.deleteMany({
                             where: {
                                 groupId: groupData.groupId,
                                 groupUserId: groupData.id,
-                                adminUserId: groupUserListData.invitedUserId,
-                                invitedUserId: groupUserListData.invitedUserId,
+                                invitedUserId: acceptedGroupUser.invitedUserId,
+                            },
+                        });
+                    } else {
+                        // No accepted users found - cleanup all group data
+                        console.log(`No accepted users found for group ${groupData.groupId}. Cleaning up group data.`);
+
+                        // Delete all group user list entries for this group
+                        await prisma.groupUsersList.deleteMany({
+                            where: {
+                                groupId: groupData.groupId,
+                                groupUserId: groupData.id,
+                            },
+                        });
+
+                        // Delete the group user entry
+                        await prisma.groupUsers.delete({
+                            where: {
+                                id: groupData.id,
+                            }
+                        });
+
+                        // Set group status to false
+                        await prisma.group.update({
+                            where: {
+                                id: groupData.groupId,
+                            },
+                            data: {
+                                status: false
+                            }
+                        });
+
+                        // Decline all non-completed orders for this group
+                        await prisma.orders.updateMany({
+                            where: {
+                                groupId: groupData.groupId,
+                                NOT: {
+                                    status: 'COMPLETED',
+                                },
+                            },
+                            data: {
+                                status: 'DECLINED',
                             },
                         });
                     }
                 } else {
-                    const updateGroupUserStatus = await prisma.groupUsers.delete({
+                    // No invited users - cleanup group data
+                    console.log(`No invited users for group ${groupData.groupId}. Cleaning up group data.`);
+
+                    // Delete the group user entry
+                    await prisma.groupUsers.delete({
                         where: {
                             id: groupData.id,
                         }
                     });
+
+                    // Set group status to false
                     await prisma.group.update({
                         where: {
                             id: groupData.groupId,
@@ -1789,6 +1841,8 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                             status: false
                         }
                     });
+
+                    // Decline all non-completed orders for this group
                     await prisma.orders.updateMany({
                         where: {
                             groupId: groupData.groupId,
@@ -1801,8 +1855,9 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         },
                     });
                 }
-            });
+            }
 
+            // Handle user deletion
             const existingUser = await prisma.user.findUnique({
                 where: { id, status: true },
                 select: { emailAddress: true },
@@ -1819,23 +1874,23 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                 data: {
                     status: false,
                 },
-            }),
+            });
 
-                await prisma.orders.updateMany({
-                    where: {
-                        OR: [
-                            { influencerId: id },
-                            { businessId: id }
-                        ],
-                        status: {
-                            not: 'COMPLETED',
-                        },
+            // Decline all non-completed orders for this user
+            await prisma.orders.updateMany({
+                where: {
+                    OR: [
+                        { influencerId: id },
+                        { businessId: id }
+                    ],
+                    status: {
+                        not: 'COMPLETED',
                     },
-                    data: {
-                        status: 'DECLINED',
-                    },
-                });
-
+                },
+                data: {
+                    status: 'DECLINED',
+                },
+            });
         } else {
             const existingUser = await prisma.user.findUnique({
                 where: { id, status: true },

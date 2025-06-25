@@ -109,16 +109,52 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             where: { id: newOrder.businessId },
         });
 
+        // if (businessUser?.fcmToken) {
+        //     const recipientId = businessUser.id;
+        //     const fcmToken = businessUser.fcmToken;
+
+        //     const influencerName = newOrder.influencerOrderData?.name || 'an influencer';
+
+        //     await sendFCMNotificationToUsers(
+        //         [{ id: recipientId, fcmToken }],
+        //         'New Offer Received',
+        //         `You have received a new Offer from ${influencerName}`,
+        //         'ORDER_CREATED'
+        //     );
+        // }
+
         if (businessUser?.fcmToken) {
             const recipientId = businessUser.id;
             const fcmToken = businessUser.fcmToken;
 
-            const influencerName = newOrder.influencerOrderData?.name || 'an influencer';
+            // Determine if order is from group or influencer
+            let senderName = '';
+            let senderType = '';
+
+            if (newOrder.influencerOrderData) {
+                senderName = newOrder.influencerOrderData?.name || 'an influencer';
+                senderType = 'Influencer';
+            } else if (newOrder.groupOrderData) {
+                const groupAdminId = newOrder.groupOrderData?.userId;
+
+                if (groupAdminId) {
+                    const groupAdminUser = await prisma.user.findUnique({
+                        where: { id: groupAdminId },
+                    });
+
+                    senderName = groupAdminUser?.name || 'a group';
+                    senderType = 'Group';
+                } else {
+                    senderName = 'a group';
+                    senderType = 'Group';
+                }
+            }
+
 
             await sendFCMNotificationToUsers(
                 [{ id: recipientId, fcmToken }],
                 'New Offer Received',
-                `You have received a new Offer from ${influencerName}`,
+                `You have received a new Offer from ${senderName}`,
                 'ORDER_CREATED'
             );
         }
@@ -1241,7 +1277,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             include: {
                 groupOrderData: {
                     include: {
-                        groupUsersList: true 
+                        groupUsersList: true
                     }
                 },
                 influencerOrderData: {
@@ -2195,7 +2231,7 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
             totalEarnings,
             totalWithdraw,
             totalBusinessExpenses,
-            netEarnings: totalEarnings - totalWithdraw - totalBusinessExpenses,
+            netEarnings: totalEarnings - totalWithdraw,
             transactionData,
         };
 
@@ -2231,6 +2267,7 @@ export const withdrawCoins = async (req: Request, res: Response): Promise<any> =
 
         const currentTotal = summary.totalAmount ?? 0;
         const currentWithdraw = summary.withdrawAmount ?? new Prisma.Decimal(0);
+        const decimalWithdraw = new Prisma.Decimal(withdrawAmount);
 
         // Calculate new withdraw and net amounts
         const updatedWithdraw = currentWithdraw.plus(withdrawAmount);
@@ -2240,16 +2277,27 @@ export const withdrawCoins = async (req: Request, res: Response): Promise<any> =
 
         const netAmount = new Prisma.Decimal(currentTotal).minus(updatedWithdraw);
 
-        // Update ReferralCoinSummary
-        const updatedSummary = await prisma.referralCoinSummary.update({
-            where: { userId },
-            data: {
-                withdrawAmount: updatedWithdraw,
-                netAmount: netAmount,
-            },
-        });
+        const [updatedSummary, newWithdrawRecord] = await prisma.$transaction([
+            prisma.referralCoinSummary.update({
+                where: { userId },
+                data: {
+                    withdrawAmount: updatedWithdraw,
+                    netAmount: netAmount,
+                },
+            }),
+            prisma.userCoinWithdraw.create({
+                data: {
+                    userId,
+                    withdrawalAmount: decimalWithdraw,
+                },
+            }),
+        ]);
 
-        return response.success(res, 'Referral coin withdrawal recorded successfully', updatedSummary);
+
+        return response.success(res, 'Referral coin withdrawal recorded successfully', {
+            withdrawalRecord: newWithdrawRecord,
+            updatedSummary,
+        });
 
 
     } catch (error: any) {
@@ -2269,14 +2317,13 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
             return res.status(400).json({ success: false, message: 'User ID is required' });
         }
 
-        // Get referral summary (single query for total + withdraw + unlock flag)
+        // Fetch referral summary
         const referralSummary = await prisma.referralCoinSummary.findUnique({
             where: { userId },
             select: {
                 totalAmount: true,
                 withdrawAmount: true,
                 unlocked: true,
-                updatedAt: true,
             },
         });
 
@@ -2284,7 +2331,7 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
         const withdrawAmount = referralSummary?.unlocked ? Number(referralSummary?.withdrawAmount || 0) : 0;
         const netAmount = totalAmount - withdrawAmount;
 
-        // Paginate all coin transactions (locked + unlocked)
+        // 1. Get all referral coin transactions (locked/unlocked)
         const paginated = await paginate(
             req,
             prisma.coinTransaction,
@@ -2305,39 +2352,48 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
 
         const coinTransactions = paginated.transactions;
 
-        // Format all coin transactions
         const history = coinTransactions.map(tx => ({
             id: tx.id,
             date: tx.createdAt,
             type: tx.type,
             source: tx.source || null,
             amount: tx.amount,
-            status: tx.status, // can be LOCKED or UNLOCKED
+            status: tx.status,
             isWithdrawal: false,
         }));
 
-        // Append withdrawal if unlocked and withdrawal exists
-        if (referralSummary?.unlocked && withdrawAmount > 0) {
-            history.push({
-                id: 'withdrawal',
-                date: referralSummary.updatedAt,
-                type: 'WITHDRAWAL',
-                source: null,
-                amount: withdrawAmount,
-                status: 'PROCESSED',
-                isWithdrawal: true,
-            });
-        }
+        // 2. Get all withdrawal entries
+        const withdrawals = await prisma.userCoinWithdraw.findMany({
+            where: { userId },
+            orderBy: { id: 'desc' }, // Optional
+            select: {
+                id: true,
+                withdrawalAmount: true,
+                createdAt: true,
+            },
+        });
 
-        // Sort by date descending
-        history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const formattedWithdrawals = withdrawals.map(w => ({
+            id: w.id,
+            date: w.createdAt,
+            type: 'WITHDRAWAL',
+            source: null,
+            amount: Number(w.withdrawalAmount ?? 0),
+            status: 'PROCESSED',
+            isWithdrawal: true,
+        }));
+
+        // 3. Merge & sort all history by date desc
+        const fullHistory = [...history, ...formattedWithdrawals].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
 
         // Final response
         return response.success(res, 'Referral coin history fetched successfully.', {
             totalAmount,
             withdrawAmount,
             netAmount,
-            data: history,
+            data: fullHistory,
             meta: paginated.meta,
         });
 
@@ -2349,10 +2405,6 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
         });
     }
 };
-
-
-
-
 
 
 

@@ -74,6 +74,7 @@ model User {
   userAuthTokenData        UserAuthToken[]   
   recentChatViewLoginUser  RecentChatView[]           @relation("recentChatViewLoginUserData")
   userBadgeData            UserBadges[]
+  coinwithdrawUserData     UserCoinWithdraw[]
 }
 
 model Category {
@@ -497,6 +498,16 @@ model UserBadges {
 
   userBadgeData       User?         @relation(fields: [userId], references: [id])
   userBadgeTitleData  Badges?       @relation(fields: [badgeId], references: [id])
+}
+
+model UserCoinWithdraw {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String?             @db.Uuid
+  withdrawalAmount    Decimal?            @db.Decimal
+  createdAt           DateTime            @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime            @updatedAt @db.Timestamp(6)
+
+  coinwithdrawUserData     User?          @relation(fields: [userId], references: [id])
 }
 
 enum Role {

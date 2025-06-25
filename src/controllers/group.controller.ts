@@ -20,8 +20,8 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
         const groupData: IGroup = req.body;
 
         const {
-            userId, 
-            invitedUserId = [], 
+            userId,
+            invitedUserId = [],
             socialMediaPlatform = [],
             subCategoryId = [],
             ...groupFields
@@ -31,7 +31,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
         const userGroupCount = await prisma.groupUsers.count({
             where: {
                 userId,
-                status: true, 
+                status: true,
             },
         });
 
@@ -551,7 +551,7 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
                                     : entry.requestAccept === 'REJECTED'
                                         ? 2
                                         : 0
-                                : status, 
+                                : status,
                     };
                 })
             );
@@ -641,7 +641,7 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
 
         await prisma.orders.updateMany({
             where: {
-                groupId: groupId, 
+                groupId: groupId,
                 NOT: {
                     status: 'COMPLETED',
                 },
@@ -789,7 +789,7 @@ export const getAllGroups = async (req: Request, res: Response): Promise<any> =>
                                         : entry.requestAccept === 'REJECTED'
                                             ? 2
                                             : 0
-                                    : status, 
+                                    : status,
                         };
 
                     })
@@ -1003,7 +1003,7 @@ export const respondToGroupInvite = async (req: Request, res: Response): Promise
             select: {
                 groupId: true,
             },
-            distinct: ['groupId'], 
+            distinct: ['groupId'],
         });
 
         if (participatingGroups.length >= 5) {
@@ -1341,7 +1341,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
 
         //  Send FCM notification to each invited user
         await sendFCMNotificationToUsers(
-            invitedUsers, 
+            invitedUsers,
             'You’ve been invited to a group!',
             `You've been invited to join the group: ${group.groupName}`,
             'GROUP_INVITE'
@@ -1790,7 +1790,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
     try {
         const { groupId, userId, invitedUserId } = req.body;
 
-        if (!groupId || !userId ) {
+        if (!groupId || !userId) {
             return response.error(res, 'groupId, userId, and invitedUserId are required.');
         }
 
@@ -1813,22 +1813,38 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                 },
                 orderBy: { updatedAt: 'asc' },
             });
-            if (nextAdminEntry === null) {
 
+            if (nextAdminEntry === null) {
+                // No accepted users found - cleanup all group data
+                console.log(`No accepted users found for group ${groupId}. Admin leaving will cause group cleanup.`);
+
+                // Find the current admin's group user data
                 const updateGroupData = await prisma.groupUsers.findFirst({
                     where: {
                         groupId: groupId,
                         userId: userId
                     }
                 });
+
                 if (updateGroupData) {
+                    // Delete all group user list entries for this group
+                    await prisma.groupUsersList.deleteMany({
+                        where: {
+                            groupId: groupId,
+                            groupUserId: updateGroupData.id,
+                        },
+                    });
+
+                    // Delete the group user entry
                     await prisma.groupUsers.delete({
                         where: {
                             id: updateGroupData.id
                         }
                     });
                 }
-                const updateGroupStatus = await prisma.group.update({
+
+                // Set group status to false
+                await prisma.group.update({
                     where: {
                         id: groupId
                     },
@@ -1837,9 +1853,10 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                     }
                 });
 
+                // Decline all non-completed orders for this group
                 await prisma.orders.updateMany({
                     where: {
-                        groupId: groupId, 
+                        groupId: groupId,
                         NOT: {
                             status: 'COMPLETED',
                         },
@@ -1848,14 +1865,16 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         status: 'DECLINED',
                     },
                 });
-            } else {
 
-                if (!nextAdminEntry) {
-                    return response.error(res, 'No invited user available to promote as new admin.');
-                }
+                console.log(`Group ${groupId} has been deactivated and all related data cleaned up.`);
+
+            } else {
+                // Found an accepted user to promote as new admin
+                console.log(`Promoting user ${nextAdminEntry.invitedUserId} as new admin for group ${groupId}`);
 
                 const newAdminUserId = nextAdminEntry.invitedUserId;
-                // Update adminUserId in Group
+
+                // Update the group user entry with new admin
                 const updateGroupData = await prisma.groupUsers.update({
                     where: {
                         id: nextAdminEntry.groupUserId
@@ -1865,13 +1884,15 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         status: true
                     },
                 });
+
                 if (updateGroupData) {
+                    // Remove the new admin from invitedUserId array
                     const updatedInvitedUserIds = updateGroupData.invitedUserId.filter(
                         (id) => id !== nextAdminEntry.invitedUserId
                     );
 
-                    // Step 2: Update the array
-                    const latestUpdateData = await prisma.groupUsers.update({
+                    // Update the invitedUserId array
+                    await prisma.groupUsers.update({
                         where: { id: nextAdminEntry.groupUserId },
                         data: {
                             invitedUserId: updatedInvitedUserIds,
@@ -1880,12 +1901,11 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                     });
                 }
 
-                // Deactivate GroupUsersList entry of promoted admin
-                const updateGroupInvitedData = await prisma.groupUsersList.updateMany({
+                // Update all group user list entries to reflect new admin
+                await prisma.groupUsersList.updateMany({
                     where: {
                         groupId: nextAdminEntry.groupId,
                         groupUserId: nextAdminEntry.groupUserId,
-                        adminUserId: nextAdminEntry.adminUserId,
                     },
                     data: {
                         adminUserId: nextAdminEntry.invitedUserId,
@@ -1893,44 +1913,53 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                     },
                 });
 
-                const deleteGroupInvitedData = await prisma.groupUsersList.deleteMany({
+                // Remove the promoted user's entry from groupUsersList since they're now admin
+                await prisma.groupUsersList.deleteMany({
                     where: {
                         groupId: nextAdminEntry.groupId,
                         groupUserId: nextAdminEntry.groupUserId,
-                        adminUserId: nextAdminEntry.invitedUserId,
                         invitedUserId: nextAdminEntry.invitedUserId,
                     },
                 });
+
+                console.log(`Successfully promoted user ${newAdminUserId} as new admin for group ${groupId}`);
             }
         } else {
+            // Admin is removing a specific invited user
+            console.log(`Admin removing invited user ${invitedUserId} from group ${groupId}`);
+
             const adminGroupUser = await prisma.groupUsers.findFirst({
                 where: { groupId, userId },
             });
+
             if (!adminGroupUser) {
                 return response.error(res, 'Admin group entry not found.');
             }
-            if (adminGroupUser) {
-                const updatedInvitedUserIds = adminGroupUser.invitedUserId.filter(
-                    (id) => id !== invitedUserId
-                );
 
-                // Step 2: Update the array
-                const latestUpdateData = await prisma.groupUsers.update({
-                    where: { id: adminGroupUser.id },
-                    data: {
-                        invitedUserId: updatedInvitedUserIds,
-                        status: true
-                    },
-                });
-            }
+            // Remove the invited user from the invitedUserId array
+            const updatedInvitedUserIds = adminGroupUser.invitedUserId.filter(
+                (id) => id !== invitedUserId
+            );
 
-            const updateGroupData = await prisma.groupUsersList.deleteMany({
+            // Update the group user entry
+            await prisma.groupUsers.update({
+                where: { id: adminGroupUser.id },
+                data: {
+                    invitedUserId: updatedInvitedUserIds,
+                    status: true
+                },
+            });
+
+            // Delete the user's entry from groupUsersList
+            await prisma.groupUsersList.deleteMany({
                 where: {
                     groupId,
                     groupUserId: adminGroupUser.id,
                     invitedUserId,
                 }
             });
+
+            console.log(`Successfully removed invited user ${invitedUserId} from group ${groupId}`);
         }
 
         // Format response
