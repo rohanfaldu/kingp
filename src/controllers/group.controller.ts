@@ -536,6 +536,10 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
                 },
             });
 
+            const activeInvitedEntries = invitedEntries.filter(
+                (entry) => entry.invitedUser?.status === true
+            );
+
             const formattedInvitedUsers = await Promise.all(
                 invitedEntries.map(async (entry) => {
                     if (!entry.invitedUser) return null;
