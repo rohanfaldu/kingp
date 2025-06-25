@@ -1876,8 +1876,11 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                 },
             });
 
-             await prisma.groupUsersList.update({
-                where: { id, status: true },
+            await prisma.groupUsersList.updateMany({
+                where: {
+                    invitedUserId: id,
+                    status: true,
+                },
                 data: {
                     status: false,
                 },
