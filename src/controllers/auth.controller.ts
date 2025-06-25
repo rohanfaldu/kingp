@@ -1403,7 +1403,8 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         stateData: true,
                         cityData: true,
                     },
-                    orderBy: { createsAt: 'desc' },
+                    // orderBy: { createsAt: 'desc' },
+                    orderBy: { ratings: 'desc', }
                 }),
                 prisma.user.count({ where: whereFilter })
             ]);
@@ -1892,16 +1893,16 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                 },
             });
         } else {
-             const groupUserEntry = await prisma.groupUsers.findMany({
+            const groupUserEntry = await prisma.groupUsers.findMany({
                 where: {
                     invitedUserId: {
                         has: id,
                     },
                 },
             });
-            
-            if(groupUserEntry.length > 0 ){
-                groupUserEntry.map( async (groupUserData) => {
+
+            if (groupUserEntry.length > 0) {
+                groupUserEntry.map(async (groupUserData) => {
                     const updatedInvitedUserIds = groupUserData.invitedUserId.filter((list) => list !== id);
                     await prisma.groupUsers.update({
                         where: { id: groupUserData.id },
