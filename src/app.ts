@@ -22,6 +22,7 @@ import RatingsRoutes from './routes/rating.routes';
 import NotificationRoutes from './routes/notification.routes';
 import ContactRoutes from './routes/contact.routes';
 import TipsRoutes from './routes/tips.routes';
+import BankDetailsRoutes from './routes/bankDetail.routes';
 
 
 import path from 'path';
@@ -77,6 +78,7 @@ app.use('/api/ratings', RatingsRoutes);
 app.use('/api/notification', NotificationRoutes);
 app.use('/api/contact', ContactRoutes);
 app.use('/api/tips', TipsRoutes);
+app.use('/api/bank', BankDetailsRoutes);
 
 
 
