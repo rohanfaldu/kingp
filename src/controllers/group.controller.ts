@@ -274,24 +274,61 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
 
         // 3. Sync GroupUsersList
         if (groupUserEntry) {
-            await prisma.groupUsersList.deleteMany({
-                where: { groupUserId: groupUserEntry.id },
-            });
+            // await prisma.groupUsersList.deleteMany({
+            //     where: { groupUserId: groupUserEntry.id },
+            // });
 
-            await Promise.all(
-                invitedUserId.map(async (inviteId) => {
-                    await prisma.groupUsersList.create({
-                        data: {
-                            groupId: updatedGroup.id,
-                            groupUserId: groupUserEntry.id,
-                            adminUserId: userId || groupUserEntry.userId,
-                            invitedUserId: inviteId,
-                            status: true,
-                            requestAccept: RequestStatus.PENDING, // set to PENDING
-                        },
-                    });
-                })
-            );
+            // await Promise.all(
+            //     invitedUserId.map(async (inviteId) => {
+            //         await prisma.groupUsersList.create({
+            //             data: {
+            //                 groupId: updatedGroup.id,
+            //                 groupUserId: groupUserEntry.id,
+            //                 adminUserId: userId || groupUserEntry.userId,
+            //                 invitedUserId: inviteId,
+            //                 status: true,
+            //                 requestAccept: RequestStatus.PENDING, // set to PENDING
+            //             },
+            //         });
+            //     })
+            // );
+
+            if (groupUserEntry) {
+                // Fetch existing invited user IDs
+                const existingInvites = await prisma.groupUsersList.findMany({
+                    where: { groupUserId: groupUserEntry.id, status: true },
+                });
+                const existingUserIds = existingInvites.map(invite => invite.invitedUserId);
+
+                // Find new users that need to be added
+                const newUserIds = invitedUserId.filter(id => !existingUserIds.includes(id));
+
+                // Add only new invited users to GroupUsersList
+                await Promise.all(
+                    newUserIds.map(async (inviteId) => {
+                        await prisma.groupUsersList.create({
+                            data: {
+                                groupId: updatedGroup.id,
+                                groupUserId: groupUserEntry.id,
+                                adminUserId: userId || groupUserEntry.userId,
+                                invitedUserId: inviteId,
+                                status: true,
+                                requestAccept: RequestStatus.PENDING,
+                            },
+                        });
+                    })
+                );
+
+                // Merge all invitedUserIds into GroupUsers
+                const mergedInvitedIds = Array.from(new Set([...existingUserIds, ...newUserIds]));
+
+                await prisma.groupUsers.update({
+                    where: { id: groupUserEntry.id },
+                    data: {
+                        invitedUserId: mergedInvitedIds,
+                    },
+                });
+            }
         }
 
         // 4. Fetch updated group

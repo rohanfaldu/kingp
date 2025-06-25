@@ -1727,9 +1727,9 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             },
             orderBy: { updatedAt: 'asc' },
         });
-
+        console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
         if (nextAdminEntry.length > 0) {
-            // Use for...of loop instead of map to properly handle async operations
+
             for (const groupData of nextAdminEntry) {
                 if (groupData.invitedUserId.length > 0) {
                     // Check if any invited user has ACCEPTED status
@@ -1742,7 +1742,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         },
                         orderBy: { updatedAt: 'asc' },
                     });
-
+                    console.log(acceptedGroupUser, " >>>>> acceptedGroupUser");
                     if (acceptedGroupUser !== null) {
                         // Transfer admin rights to the accepted user
                         const updateUserId = acceptedGroupUser.invitedUserId;
@@ -1892,6 +1892,34 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                 },
             });
         } else {
+             const groupUserEntry = await prisma.groupUsers.findMany({
+                where: {
+                    invitedUserId: {
+                        has: id,
+                    },
+                },
+            });
+            
+            if(groupUserEntry.length > 0 ){
+                groupUserEntry.map( async (groupUserData) => {
+                    const updatedInvitedUserIds = groupUserData.invitedUserId.filter((list) => list !== id);
+                    await prisma.groupUsers.update({
+                        where: { id: groupUserData.id },
+                        data: {
+                            invitedUserId: updatedInvitedUserIds,
+                        },
+                    });
+                    await prisma.groupUsersList.deleteMany({
+                        where: {
+                            groupUserId: groupUserData.id,
+                            adminUserId: groupUserData.userId,
+                            invitedUserId: id,
+                        },
+                    });
+                })
+
+            }
+
             const existingUser = await prisma.user.findUnique({
                 where: { id, status: true },
                 select: { emailAddress: true },
