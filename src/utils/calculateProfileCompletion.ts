@@ -29,7 +29,7 @@ export { calculateProfileCompletion };
 
 const calculateBusinessProfileCompletion = (user: any, loginType: string): number => {
     let completedFields = 0;
-    const totalFields = 16;
+    const totalFields = 15;
 
     if (user.type) completedFields++;
     if (user.name) completedFields++;
@@ -39,7 +39,7 @@ const calculateBusinessProfileCompletion = (user: any, loginType: string): numbe
     if (user.stateId) completedFields++;
     if (user.cityId) completedFields++;
     if (user.brandTypeId) completedFields++;
-    if (user.referralCode) completedFields++;
+    // if (user.referralCode) completedFields++;
     if (user.userImage) completedFields++;
     if (user.applicationLink) completedFields++;
     if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
