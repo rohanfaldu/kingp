@@ -1,25 +1,114 @@
+// const calculateProfileCompletion = (user: any): number => {
+//     let completedFields = 0;
+//     const totalFields = 15;
+
+//     if (user.type) completedFields++;
+//     if (user.name) completedFields++;
+//     if (user.emailAddress) completedFields++;
+//     if (user.password && user.password !== 'SOCIAL_LOGIN') completedFields++;
+//     if (user.countryId) completedFields++;
+//     if (user.stateId) completedFields++;
+//     if (user.cityId) completedFields++;
+//     if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
+//     // if (user.referralCode) completedFields++;
+//     if (user.userImage) completedFields++;
+//     if (user.contactPersonName) completedFields++;
+//     if (user.socialMediaPlatform && user.socialMediaPlatform.length > 0) completedFields++;
+//     if (user.birthDate) completedFields++;
+//     if (user.gender) completedFields++;
+//     if (user.sampleWorkLink) completedFields++;
+//     if (user.aboutYou) completedFields++;
+
+//     return Math.round((completedFields / totalFields) * 100);
+// };
+
+// export { calculateProfileCompletion };
+
 const calculateProfileCompletion = (user: any): number => {
     let completedFields = 0;
     const totalFields = 15;
 
-    if (user.type) completedFields++;
-    if (user.name) completedFields++;
-    if (user.emailAddress) completedFields++;
-    if (user.password && user.password !== 'SOCIAL_LOGIN') completedFields++;
-    if (user.countryId) completedFields++;
-    if (user.stateId) completedFields++;
-    if (user.cityId) completedFields++;
-    if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
-    // if (user.referralCode) completedFields++;
-    if (user.userImage) completedFields++;
-    if (user.contactPersonName) completedFields++;
-    if (user.socialMediaPlatform && user.socialMediaPlatform.length > 0) completedFields++;
-    if (user.birthDate) completedFields++;
-    if (user.gender) completedFields++;
-    if (user.sampleWorkLink) completedFields++;
-    if (user.aboutYou) completedFields++;
+    console.log("🔍 Starting profile completion calculation for user:", user.id || user.emailAddress || "unknown");
 
-    return Math.round((completedFields / totalFields) * 100);
+    if (user.type) {
+        completedFields++;
+        console.log("✅ type is filled");
+    }
+
+    if (user.name) {
+        completedFields++;
+        console.log("✅ name is filled");
+    }
+
+    if (user.emailAddress) {
+        completedFields++;
+        console.log("✅ emailAddress is filled");
+    }
+
+    if (user.password && user.password !== 'SOCIAL_LOGIN') {
+        completedFields++;
+        console.log("✅ password is filled and not SOCIAL_LOGIN");
+    }
+
+    if (user.countryId) {
+        completedFields++;
+        console.log("✅ countryId is filled");
+    }
+
+    if (user.stateId) {
+        completedFields++;
+        console.log("✅ stateId is filled");
+    }
+
+    if (user.cityId) {
+        completedFields++;
+        console.log("✅ cityId is filled");
+    }
+
+    if (user.userSubCategories && user.userSubCategories.length > 0) {
+        completedFields++;
+        console.log("✅ userSubCategories are filled");
+    }
+
+    if (user.userImage) {
+        completedFields++;
+        console.log("✅ userImage is filled");
+    }
+
+    if (user.contactPersonName) {
+        completedFields++;
+        console.log("✅ contactPersonName is filled");
+    }
+
+    if (user.socialMediaPlatform && user.socialMediaPlatform.length > 0) {
+        completedFields++;
+        console.log("✅ socialMediaPlatforms are filled");
+    }
+
+    if (user.birthDate) {
+        completedFields++;
+        console.log("✅ birthDate is filled");
+    }
+
+    if (user.gender) {
+        completedFields++;
+        console.log("✅ gender is filled");
+    }
+
+    if (user.sampleWorkLink) {
+        completedFields++;
+        console.log("✅ sampleWorkLink is filled");
+    }
+
+    if (user.aboutYou) {
+        completedFields++;
+        console.log("✅ aboutYou is filled");
+    }
+
+    const percentage = Math.round((completedFields / totalFields) * 100);
+    console.log(`🎯 Completed Fields: ${completedFields}/${totalFields} (${percentage}%)`);
+
+    return percentage;
 };
 
 export { calculateProfileCompletion };
