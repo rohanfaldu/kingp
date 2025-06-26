@@ -162,7 +162,7 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
             });
 
             const adminUserId = groupAdmin?.userId;
-
+            console.log(groupAdmin, '>>>>>>>>>>>>>>>>>>>> groupAdmin?.userId');
             if (adminUserId) {
                 await createRatingIfNotExists(adminUserId, null, "INFLUENCER");
             }
@@ -176,15 +176,29 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     await createRatingIfNotExists(member.invitedUserId, null, "INFLUENCER");
                 }
             }
+            console.log(groupOrder, '>>>>>> groupOrder');
         } else if (ratedToUserId) {
             // Validate user was part of the order (either influencer or business)
             let typeToUser: "INFLUENCER" | "BUSINESS" | null = null;
 
-            console.log(order.influencerId, '<<<<<<<<<<<<<< influencerId', order.businessId, '<<<<<<<<<<<<<<<<<< businessId');
+            console.log(order, '<<<<<<<<<<<<<< influencerId')
+
+            const groupAdmin = await prisma.groupUsers.findFirst({
+                where: {
+                    groupId: order.groupId
+                },
+                select: { userId: true },
+            });
+
+            const adminUserId = groupAdmin?.userId;
+            console.log(adminUserId, " >>>>>>>>> adminUserId");
+
             if (order.influencerId === ratedToUserId && order.businessId === ratedByUserId) {
                 typeToUser = "INFLUENCER";
             } else if (order.businessId === ratedToUserId && order.influencerId === ratedByUserId) {
                 typeToUser = "BUSINESS";
+            } else if (order.influencerId === null && order.groupId != null && ratedByUserId === adminUserId) {
+                typeToUser = "INFLUENCER";
             } else {
                 return response.error(res, "You can only rate a user that participated in this order.");
             }
@@ -196,6 +210,19 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
 
         // Update review status in order
         const updateData: any = {};
+
+        const groupAdmin = await prisma.groupUsers.findFirst({
+                where: {
+                    groupId: order.groupId
+                },
+                select: { userId: true },
+            });
+
+            const adminUserId = groupAdmin?.userId;
+
+        if (!order.influencerId && order.groupId && ratedByUserId === adminUserId) {
+            updateData.influencerReviewStatus = true;
+        }
 
         if (ratedByUserId === order.businessId) {
             updateData.businessReviewStatus = true;
