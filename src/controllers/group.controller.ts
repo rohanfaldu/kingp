@@ -296,7 +296,7 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
             if (groupUserEntry) {
                 // Fetch existing invited user IDs
                 const existingInvites = await prisma.groupUsersList.findMany({
-                    where: { groupUserId: groupUserEntry.id, status: true },
+                    where: { groupUserId: groupUserEntry.id},
                 });
                 const existingUserIds = existingInvites.map(invite => invite.invitedUserId);
 

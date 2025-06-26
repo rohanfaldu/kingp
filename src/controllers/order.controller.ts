@@ -371,6 +371,56 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
         if (!currentOrder) return response.error(res, 'Order not found');
 
+
+        // // REFUND LOGIC FOR CANCELED ORDERS
+        // if (status === 6 && statusEnumValue === OfferStatus.DECLINED) {
+        //     try {
+        //         const refundAmount = currentOrder.finalAmount ?? currentOrder.totalAmount;
+
+        //         const existingStats = await prisma.userStats.findFirst({
+        //             where: { userId: currentOrder.businessId },
+        //         });
+
+        //         let orederReturnValue;
+
+        //         if (existingStats) {
+        //             orederReturnValue = await prisma.userStats.update({
+        //                 where: { id: existingStats.id },
+        //                 data: {
+        //                     totalEarnings: { set: currentOrder.finalAmount },
+        //                 },
+        //             });
+        //         } else {
+        //             orederReturnValue = await prisma.userStats.create({
+        //                 data: {
+        //                     userId: currentOrder.businessId,
+        //                     totalEarnings: currentOrder.finalAmount,
+        //                 },
+        //             });
+        //         }
+
+        //         // ✅ Now calculate updatedExpenses
+        //         const updatedExpenses =
+        //             (orederReturnValue.totalExpenses || 0) - (orederReturnValue.totalEarnings || 0);
+
+        //         // ✅ Update totalExpenses in DB
+        //         await prisma.userStats.update({
+        //             where: { id: orederReturnValue.id },
+        //             data: {
+        //                 totalExpenses: updatedExpenses,
+        //             },
+        //         });
+
+        //         console.log('Refund processed successfully for order', orederReturnValue);
+
+        //     } catch (refundError: any) {
+        //         console.error('Refund processing failed:', refundError);
+        //         return response.error(res, `Failed to process refund: ${refundError.message}`);
+        //     }
+        // }
+
+
+
         // Handle COMPLETED status - update totalDeals, averageValue, onTimeDelivery, and repeatClient
         if (statusEnumValue === OfferStatus.COMPLETED) {
             const eligibleUserIds: string[] = [];
@@ -396,6 +446,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 });
                 groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
             }
+            // console.log(currentOrder, '>>>>>>>>>>>>>>>> currentOrder');
 
             // Update UserStats for each eligible user
             for (const userId of eligibleUserIds) {
@@ -410,7 +461,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         totalExpenses: true,
                     },
                 });
-
+                // console.log(existingUserStats, '>>>>>>>>>>>>>> existingUserStats');
                 // Check if delivery is on time (completionDate should be within the order completion timeline)
                 const isOnTime = currentOrder.completionDate ?
                     new Date(currentOrder.completionDate) >= new Date() : true;
@@ -451,10 +502,11 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     // This is a new repeat business if there's exactly 1 previous order (making this the 2nd order)
                     isNewRepeatBusiness = previousOrdersCount === 1;
                 }
+                // console.log(isNewRepeatBusiness, '>>>>>>>>>>>>>>>>>> isNewRepeatBusiness');
 
                 // console.log(existingUserStats, '>>>>>> existingUserStats');
                 let newTotalDeals = 1;
-
+                console.log(existingUserStats, '>>>>>>>>>>> existingUserStats');
                 if (existingUserStats) {
                     // Update existing UserStats record
                     const currentDeals = existingUserStats.totalDeals ?? 0;
@@ -719,15 +771,23 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     const groupAdmins = await prisma.groupUsers.findMany({
                         where: { groupId: currentOrder.groupId },
                         include: {
-                            user: {
+                            groupUserData: {
                                 select: { id: true, fcmToken: true, name: true }
                             }
                         }
                     });
+                    // console.log(currentOrder.groupId, '>>>>>>>>>> current groupId');
+                    // console.log(groupAdmins, '>>>>>>>>>>>>>>>> groupAdmins');
 
-                    groupAdmins.forEach(({ user }) => {
-                        if (user) {
-                            influencerUsers.push(user);
+                    // groupAdmins.forEach(({ user }) => {
+                    //     if (user) {
+                    //         influencerUsers.push(user);
+                    //     }
+                    // });
+
+                    groupAdmins.forEach(({ groupUserData }) => {
+                        if (groupUserData) {
+                            influencerUsers.push(groupUserData);
                         }
                     });
                 }
@@ -1043,54 +1103,96 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 }
             }
 
-            // // Update business totalExpenses
-            // if (updated.businessId) {
-            //     // Reward business user with KringP Coins for spending
-            //     const kringPCoins = Math.floor(Number(amount) / 100);
-            //     if (kringPCoins > 0) {
-            //         const coinSource = `Spending reward for ₹${amount}`;
-
-            //         // Create coin transaction
-            //         await prisma.coinTransaction.create({
-            //             data: {
-            //                 userId: updated.businessId,
-            //                 amount: kringPCoins,
-            //                 type: 'CASHOUT_BONUS',
-            //                 status: 'UNLOCKED',
-            //                 source: coinSource,
-            //             },
-            //         });
-
-            //         // Update or create ReferralCoinSummary for business user
-            //         const existingSummary = await prisma.referralCoinSummary.findUnique({
-            //             where: { userId: updated.businessId },
-            //         });
-
-            //         if (existingSummary) {
-            //             await prisma.referralCoinSummary.update({
-            //                 where: { userId: updated.businessId },
-            //                 data: {
-            //                     totalAmount: (Number(existingSummary.totalAmount) || 0) + 50,
-            //                     netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(50),
-            //                     unlocked: true,
-            //                     unlockedAt: new Date(),
-            //                 },
-            //             });
-            //         } else {
-            //             await prisma.referralCoinSummary.create({
-            //                 data: {
-            //                     userId: updated.businessId,
-            //                     totalAmount: kringPCoins,
-            //                     netAmount: kringPCoins,
-            //                     unlocked: true,
-            //                     unlockedAt: new Date(),
-            //                 },
-            //             });
-            //         }
-            //     }
-            // }
-
             if (updated.businessId) {
+                console.log(updated, " >>>>>>>>>>>>>>>> Order Business ID");
+
+
+
+
+
+
+
+                // Add Business Expenss Start
+
+                const existingBusinessUserStats = await prisma.userStats.findFirst({
+                    where: { userId: updated.businessId },
+                    select: {
+                        id: true,
+                        totalDeals: true,
+                        onTimeDelivery: true,
+                        totalEarnings: true,
+                        repeatClient: true,
+                        totalExpenses: true,
+                    },
+                });
+                console.log(currentOrder, '>>>>>>>>>>>>>> Busines currentOrder');
+                console.log(currentOrder.businessId, '>>>>>>>>>>>>>> Busines id');
+                // Check if delivery is on time (completionDate should be within the order completion timeline)
+                const isOnTime = currentOrder.completionDate ?
+                    new Date(currentOrder.completionDate) >= new Date() : true;
+
+                // Check for repeat client - check if this is the first time working with this business
+                let isNewRepeatBusiness = false;
+                if (currentOrder.businessId) {
+                    const previousOrdersCount = await prisma.orders.count({
+                        where: {
+                            businessId: updated.businessId,
+                            status: OfferStatus.COMPLETED,
+                            id: { not: updated.businessId }, // Exclude current order
+                        }
+                    });
+                    console.log(previousOrdersCount, '>>>>>>>>>>>> previousOrdersCount');
+
+                    // This is a new repeat business if there's exactly 1 previous order (making this the 2nd order)
+                    isNewRepeatBusiness = previousOrdersCount === 1;
+                }
+
+                // console.log(existingUserStats, '>>>>>> existingUserStats');
+                let newTotalDeals = 1;
+                //console.log(existingUserStats, '>>>>>>>>>>> existingUserStats');
+                if (existingBusinessUserStats) {
+                    // Update existing UserStats record
+                    const currentDeals = existingBusinessUserStats.totalDeals ?? 0;
+                    const currentOnTime = existingBusinessUserStats.onTimeDelivery ?? 0;
+                    const totalExpenses = existingBusinessUserStats.totalExpenses ?? 0;
+                    const newExpense = Number(updated.finalAmount);
+                    const finalExpenses = Number(totalExpenses) + Number(newExpense);
+                    const currentRepeatClient = existingBusinessUserStats.repeatClient ?? 0;
+                    console.log(" >>>>>>>> totalExpenses", totalExpenses, " >>>>>>>>>>>>> finalExpenses ", finalExpenses, ">>>>>>> newExpense", newExpense, ">>>>>>>>>> currentDeals", currentDeals);
+                    // Calculate average value after incrementing totalDeals
+                    const newTotalDeals = currentDeals + 1;
+                    const averageValue = newTotalDeals  > 0
+                        ? Math.floor(finalExpenses / newTotalDeals)
+                        : 0;
+
+                    await prisma.userStats.update({
+                        where: { id: existingBusinessUserStats.id },
+                        data: {
+                            totalDeals: newTotalDeals ,
+                            totalExpenses: finalExpenses,
+                            averageValue,
+                        },
+                    });
+                } else {
+                    await prisma.userStats.create({
+                        data: {
+                            userId: updated.businessId,
+                            totalDeals: newTotalDeals ,
+                            totalExpenses: Number(updated.finalAmount),
+                            averageValue:
+                                newTotalDeals  > 0
+                                    ? Number(updated.finalAmount) / (newTotalDeals)
+                                    : 0,
+                        },
+                    });
+
+
+                }
+
+
+                // Add Business Expenss End
+
+
                 // Reward business user with KringP Coins for spending
                 const kringPCoins = Math.floor(Number(amount) / 100);
 
@@ -1150,9 +1252,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         });
                     }
                 }
+
+
             }
-
-
 
 
             // PERFECT REFERRAL REWARD LOGIC
