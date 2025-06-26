@@ -1552,7 +1552,16 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
         const [users, usersCount] = usersResult;
         const [groups, groupsCount] = groupsResult;
+
+
+
         const formattedUsers = await Promise.all(users.map(async (user: any) => {
+            const usersBadges = await prisma.userBadges.findMany({
+                where: { userId: user.id },
+                include: {
+                    userBadgeTitleData: true,
+                },
+            });
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
@@ -1561,6 +1570,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
                 cityName: user.cityData?.name ?? null,
+                badges: usersBadges.map(b => b.userBadgeTitleData),
                 groupInfo: null,
                 isGroup: false
             };
@@ -1589,6 +1599,13 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         select: { invitedUserId: true },
                         distinct: ['invitedUserId']  // Avoid duplicates
                     });
+
+                    // const userBadges = await prisma.userBadges.findMany({
+                    //     where: { userId: users.id },
+                    //     include: {
+                    //         userBadgeTitleData: true,
+                    //     },
+                    // });
 
                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
                     const invitedUsers = acceptedInvitedUserIds.length > 0
@@ -1622,13 +1639,28 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         })
                         : [];
 
+                    const adminBadges = await prisma.userBadges.findMany({
+                        where: { userId: adminUser.id },
+                        include: {
+                            userBadgeTitleData: true,
+                        },
+                    });
+
                     const formattedAdminUser = adminUser ? {
                         ...adminUser,
                         categories: await getUserCategoriesWithSubcategories(adminUser.id),
                         countryName: adminUser.countryData?.name ?? null,
                         stateName: adminUser.stateData?.name ?? null,
                         cityName: adminUser.cityData?.name ?? null,
+                        badges: adminBadges.map(b => b.userBadgeTitleData),
                     } : null;
+
+                    const influencerBadges = await prisma.userBadges.findMany({
+                        where: { userId: adminUser.id },
+                        include: {
+                            userBadgeTitleData: true,
+                        },
+                    });
 
                     const formattedInvitedUsers = await Promise.all(invitedUsers.map(async (user: any) => ({
                         ...user,
@@ -1636,6 +1668,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         countryName: user.countryData?.name ?? null,
                         stateName: user.stateData?.name ?? null,
                         cityName: user.cityData?.name ?? null,
+                        badges: influencerBadges.map(b => b.userBadgeTitleData),
                     })));
 
                     const { groupUserData, ...restGroupUser } = groupUser;
@@ -1685,6 +1718,8 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 };
             }
         }));
+
+
 
         const allResults = [...formattedUsers, ...formattedGroups];
         const totalCount = usersCount + groupsCount;

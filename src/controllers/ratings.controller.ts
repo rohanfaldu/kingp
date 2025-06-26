@@ -62,7 +62,8 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                         ratedByUserId,
                         ratedToUserId: toUserId,
                         groupId,
-                        rating,
+                        // rating,
+                        rating: Math.round(rating * 10) / 10,
                         review: review || null,
                         typeToUser,
                     },
@@ -96,7 +97,7 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     await prisma.user.update({
                         where: { id: toUserId },
                         data: {
-                            ratings: averageRating,
+                            ratings: Math.round(averageRating * 10) / 10,
                         },
                     });
                 }
@@ -179,6 +180,7 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
             // Validate user was part of the order (either influencer or business)
             let typeToUser: "INFLUENCER" | "BUSINESS" | null = null;
 
+            console.log(order.influencerId, '<<<<<<<<<<<<<< influencerId', order.businessId, '<<<<<<<<<<<<<<<<<< businessId');
             if (order.influencerId === ratedToUserId && order.businessId === ratedByUserId) {
                 typeToUser = "INFLUENCER";
             } else if (order.businessId === ratedToUserId && order.influencerId === ratedByUserId) {
