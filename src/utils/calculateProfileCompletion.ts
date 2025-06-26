@@ -1,6 +1,6 @@
 const calculateProfileCompletion = (user: any): number => {
     let completedFields = 0;
-    const totalFields = 16;
+    const totalFields = 15;
 
     if (user.type) completedFields++;
     if (user.name) completedFields++;
@@ -10,10 +10,10 @@ const calculateProfileCompletion = (user: any): number => {
     if (user.stateId) completedFields++;
     if (user.cityId) completedFields++;
     if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
-    if (user.referralCode) completedFields++;
+    // if (user.referralCode) completedFields++;
     if (user.userImage) completedFields++;
     if (user.contactPersonName) completedFields++;
-    if (user.socialMediaPlatforms && user.socialMediaPlatforms.length > 0) completedFields++;
+    if (user.socialMediaPlatform && user.socialMediaPlatform.length > 0) completedFields++;
     if (user.birthDate) completedFields++;
     if (user.gender) completedFields++;
     if (user.sampleWorkLink) completedFields++;
@@ -23,6 +23,8 @@ const calculateProfileCompletion = (user: any): number => {
 };
 
 export { calculateProfileCompletion };
+
+
 
 
 const calculateBusinessProfileCompletion = (user: any, loginType: string): number => {
@@ -62,7 +64,7 @@ export const getProfileCompletionSuggestions = (user: any): string[] => {
     if (!user.countryId) suggestions.push('Please select your country');
     if (!user.stateId) suggestions.push('Please select your state');
     if (!user.cityId) suggestions.push('Please select your city');
-    if (!Array.isArray(user.categories) || user.categories.length === 0 ||!user.categories.some(cat => Array.isArray(cat.subcategories) && cat.subcategories.length > 0)) {
+    if (!Array.isArray(user.categories) || user.categories.length === 0 || !user.categories.some(cat => Array.isArray(cat.subcategories) && cat.subcategories.length > 0)) {
         suggestions.push('Choose at least one sub-category');
     }
     if (!user.userImage) suggestions.push('Please upload a profile image');
