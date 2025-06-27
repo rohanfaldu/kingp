@@ -12,7 +12,7 @@ import { UserType } from '../enums/userType.enum';
 import { sendFCMNotificationToUsers } from '../utils/notification';
 import { CoinType } from '@prisma/client';
 import { paginate } from '../utils/pagination';
-
+import { paymentRefund } from "../utils/commonFunction";
 
 
 const prisma = new PrismaClient();
@@ -220,6 +220,12 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
         const group = order.groupOrderData;
 
         const formatUserData = async (user: any) => {
+            const usersBadges = await prisma.userBadges.findMany({
+                where: { userId: user.id },
+                include: {
+                    userBadgeTitleData: true,
+                },
+            });
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
             const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
@@ -232,6 +238,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
                 cityName: city?.name ?? null,
+                badges: usersBadges.map(b => b.userBadgeTitleData),
             };
         };
 
@@ -342,6 +349,13 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             return response.error(res, 'Both id (string) and status (number) are required');
         }
 
+        const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+        const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+
+        if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+            return response.error(res, 'Razorpay credentials are missing');
+        }
+
         const {
             id,
             status,
@@ -365,7 +379,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 completionDate: true,
                 status: true,
                 finalAmount: true,
-                totalAmount: true
+                totalAmount: true,
+                transactionId: true
             }
         });
 
@@ -373,51 +388,36 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
 
         // // REFUND LOGIC FOR CANCELED ORDERS
-        // if (status === 6 && statusEnumValue === OfferStatus.DECLINED) {
-        //     try {
-        //         const refundAmount = currentOrder.finalAmount ?? currentOrder.totalAmount;
+        if (status === 6 && statusEnumValue === OfferStatus.DECLINED) {
+            try {
+                console.log(currentOrder, " >>>>> currentOrder");
+                if (currentOrder.finalAmount) {
+                    const refundAmountInPaise = currentOrder.finalAmount;
+                    //const refundAmountInPaise = 1;
+                    const razorpayPaymentId = currentOrder.transactionId;
 
-        //         const existingStats = await prisma.userStats.findFirst({
-        //             where: { userId: currentOrder.businessId },
-        //         });
+                    const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                    if (paymentRefundResponse) {
+                        await prisma.orders.update({
+                            where: { id },
+                            data: {
+                                paymentStatus: PaymentStatus.REFUND
+                            }
+                        });
 
-        //         let orederReturnValue;
+                        
+                        return response.success(res, 'Order and Payment Refund Successfully', null);
+                    } else {
+                        return response.error(res, `Payment was not Decline`);
+                    }
 
-        //         if (existingStats) {
-        //             orederReturnValue = await prisma.userStats.update({
-        //                 where: { id: existingStats.id },
-        //                 data: {
-        //                     totalEarnings: { set: currentOrder.finalAmount },
-        //                 },
-        //             });
-        //         } else {
-        //             orederReturnValue = await prisma.userStats.create({
-        //                 data: {
-        //                     userId: currentOrder.businessId,
-        //                     totalEarnings: currentOrder.finalAmount,
-        //                 },
-        //             });
-        //         }
-
-        //         // ✅ Now calculate updatedExpenses
-        //         const updatedExpenses =
-        //             (orederReturnValue.totalExpenses || 0) - (orederReturnValue.totalEarnings || 0);
-
-        //         // ✅ Update totalExpenses in DB
-        //         await prisma.userStats.update({
-        //             where: { id: orederReturnValue.id },
-        //             data: {
-        //                 totalExpenses: updatedExpenses,
-        //             },
-        //         });
-
-        //         console.log('Refund processed successfully for order', orederReturnValue);
-
-        //     } catch (refundError: any) {
-        //         console.error('Refund processing failed:', refundError);
-        //         return response.error(res, `Failed to process refund: ${refundError.message}`);
-        //     }
-        // }
+                }
+                
+            } catch (refundError: any) {
+                console.error('Refund processing failed:', refundError);
+                return response.error(res, `Failed to process refund: ${refundError.message}`);
+            }
+        }
 
 
 
@@ -1161,14 +1161,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     console.log(" >>>>>>>> totalExpenses", totalExpenses, " >>>>>>>>>>>>> finalExpenses ", finalExpenses, ">>>>>>> newExpense", newExpense, ">>>>>>>>>> currentDeals", currentDeals);
                     // Calculate average value after incrementing totalDeals
                     const newTotalDeals = currentDeals + 1;
-                    const averageValue = newTotalDeals  > 0
+                    const averageValue = newTotalDeals > 0
                         ? Math.floor(finalExpenses / newTotalDeals)
                         : 0;
 
                     await prisma.userStats.update({
                         where: { id: existingBusinessUserStats.id },
                         data: {
-                            totalDeals: newTotalDeals ,
+                            totalDeals: newTotalDeals,
                             totalExpenses: finalExpenses,
                             averageValue,
                         },
@@ -1177,10 +1177,10 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     await prisma.userStats.create({
                         data: {
                             userId: updated.businessId,
-                            totalDeals: newTotalDeals ,
+                            totalDeals: newTotalDeals,
                             totalExpenses: Number(updated.finalAmount),
                             averageValue:
-                                newTotalDeals  > 0
+                                newTotalDeals > 0
                                     ? Number(updated.finalAmount) / (newTotalDeals)
                                     : 0,
                         },

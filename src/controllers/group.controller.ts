@@ -4,13 +4,12 @@ import { IGroup } from '../interfaces/group.interface';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { resolveStatus } from '../utils/commonFunction'
-import { RequestStatus } from '../enums/userType.enum';
+import { OfferStatus, PaymentStatus, RequestStatus, Role } from '../enums/userType.enum';
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
 import { paginate } from '../utils/pagination';
 import admin from 'firebase-admin';
 import { sendFCMNotificationToUsers } from '../utils/notification';
-
-
+import { paymentRefund } from "../utils/commonFunction";
 const prisma = new PrismaClient();
 
 
@@ -2206,8 +2205,33 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                             reason: 'Order cancelled due to deletion of the associated group.'
                         },
                     });
+                    const currentOrder = await prisma.orders.findMany({
+                        where: { groupId: groupId, status: 'DECLINED' },
+                    });
+                    if (currentOrder.length > 0) {
+                        currentOrder.map( async (orderInfo) => {
+                            if (orderInfo.finalAmount) {
+                                const refundAmountInPaise = orderInfo.finalAmount;
+                                //const refundAmountInPaise = 1;
+                                const razorpayPaymentId = orderInfo.transactionId;
 
-                    console.log(`Group ${groupId} deactivated and cleaned up`);
+                                const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                                if (paymentRefundResponse) {
+                                    await prisma.orders.update({
+                                        where: { id: orderInfo.id },
+                                        data: {
+                                            paymentStatus: PaymentStatus.REFUND
+                                        }
+                                    });
+                                   // return response.success(res, 'Order and Payment Refund Successfully', null);
+                                } else {
+                                    return response.error(res, `Payment was not Decline`);
+                                }
+
+                            }
+
+                        })
+                    }
 
                 } else {
                     // Promote next user as admin

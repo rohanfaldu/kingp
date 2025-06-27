@@ -212,6 +212,7 @@ model Group {
   subCategoryId            String[]
   socialMediaPlatform      Platform[]   
   Visibility               VisibilityType?
+  ratings                  Decimal? 
   status                   Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6) 
@@ -587,6 +588,7 @@ enum OfferStatus {
 enum PaymentStatus {
   PENDING
   COMPLETED
+  REFUND
 }
 
 enum TransactionType {

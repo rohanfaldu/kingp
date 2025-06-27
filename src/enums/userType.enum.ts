@@ -51,7 +51,8 @@ export enum OfferStatus{
 
 export enum PaymentStatus{
     PENDING = 'PENDING',
-    COMPLETED = 'COMPLETED'
+    COMPLETED = 'COMPLETED',
+    REFUND = 'REFUND'
 }
 
 export enum TransactionType {

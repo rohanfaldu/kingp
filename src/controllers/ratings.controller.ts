@@ -114,6 +114,46 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                         usersToNotify.push(userToNotify);
                     }
                 }
+
+                // NEW: Update group rating if this is a group rating
+                if (groupId && typeToUser === "GROUP") {
+                    // Get all ratings for this group
+                    const allGroupRatings = await prisma.ratings.findMany({
+                        where: {
+                            groupId: groupId,
+                            typeToUser: 'GROUP',
+                        },
+                        select: { rating: true },
+                    });
+
+                    // Calculate average rating for the group
+                    const totalGroupRatings = allGroupRatings.length;
+                    const sumGroupRatings = allGroupRatings.reduce((sum, r) => {
+                        return sum + (r.rating?.toNumber?.() ?? 0);
+                    }, 0);
+                    const averageGroupRating = totalGroupRatings > 0 ? sumGroupRatings / totalGroupRatings : rating;
+
+                    // Update the group table with the new average rating
+                    await prisma.group.update({
+                        where: { id: groupId },
+                        data: {
+                            ratings: Math.round(averageGroupRating * 10) / 10,
+                        },
+                    });
+                }
+
+                createdRatings.push(newRating);
+
+                if (toUserId) {
+                    const userToNotify = await prisma.user.findUnique({
+                        where: { id: toUserId },
+                        select: { id: true, fcmToken: true },
+                    });
+
+                    if (userToNotify?.fcmToken) {
+                        usersToNotify.push(userToNotify);
+                    }
+                }
             }
         };
 
@@ -212,13 +252,13 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
         const updateData: any = {};
 
         const groupAdmin = await prisma.groupUsers.findFirst({
-                where: {
-                    groupId: order.groupId
-                },
-                select: { userId: true },
-            });
+            where: {
+                groupId: order.groupId
+            },
+            select: { userId: true },
+        });
 
-            const adminUserId = groupAdmin?.userId;
+        const adminUserId = groupAdmin?.userId;
 
         if (!order.influencerId && order.groupId && ratedByUserId === adminUserId) {
             updateData.influencerReviewStatus = true;
