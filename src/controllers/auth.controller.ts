@@ -2098,6 +2098,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             skipDuplicates: true
         });
     } else {
+        await prisma.userSubCategory.deleteMany({ where: { userId: id } });
         updatedSubcategories = existingUser.subCategories.map(sc => sc.subCategory.id);
     }
 
@@ -2112,13 +2113,36 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         let calculatedProfileCompletion = 0;
 
         if (existingUser.type === UserType.INFLUENCER) {
-            const userSubCategories = (updatedSubcategories || []).map((id: string) => ({
-                subCategoryId: id
-            }));
+            // const userSubCategories = (updatedSubcategories || []).map((id: string) => ({
+            //     subCategoryId: id
+            // }));
 
+            // calculatedProfileCompletion = calculateProfileCompletion({
+            //     ...profileCompletionData,
+            //     userSubCategories,
+            // });
+            console.log(id,">>>>>>>>>>> Id")
+            const userData = await prisma.user.findFirst({
+                where: { id:id }
+            });
+
+            const userSubCategories = await prisma.userSubCategory.findMany({
+                where: {
+                    userId: id
+                }
+            })
+
+            const socialMediaPlatforms = await prisma.socialMediaPlatform.findMany({
+                where: {
+                    userId:id
+                }
+            })
+            
+            // Step 3: Prepare user for profile calculation
             calculatedProfileCompletion = calculateProfileCompletion({
-                ...profileCompletionData,
+                ...userData,
                 userSubCategories,
+                socialMediaPlatforms
             });
         } else {
             calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, existingUser.loginType);

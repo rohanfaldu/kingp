@@ -29,7 +29,7 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
                 cityData: true,
             },
             orderBy: {
-                createsAt: 'desc', 
+                createsAt: 'desc',
             },
             take: 4,
         });
@@ -42,7 +42,7 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
             users.map(async (userData: any) => {
                 const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(userData.id);
 
-                const { password, socialMediaPlatform, ...safeUserData } = userData; 
+                const { password, socialMediaPlatform, ...safeUserData } = userData;
 
                 return {
                     ...safeUserData,
@@ -66,7 +66,7 @@ export const getTopInfluencers = async (req: Request, res: Response): Promise<an
 // Business Dashboard Data
 export const getDashboardData = async (req: Request, res: Response): Promise<any> => {
     try {
-        const loginUserId = req.user?.userId; 
+        const loginUserId = req.user?.userId;
 
         // Fetch app settings
         const bannerData = await prisma.appSetting.findMany({
@@ -100,7 +100,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                 cityData: true,
             },
             orderBy: {
-                createsAt: 'desc', 
+                createsAt: 'desc',
             },
             take: 4,
         });
@@ -159,7 +159,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                         countryName: user.countryData?.name ?? null,
                         stateName: user.stateData?.name ?? null,
                         cityName: user.cityData?.name ?? null,
-                        viewedAt: view.updatedAt, 
+                        viewedAt: view.updatedAt,
                     };
                 })
             );
@@ -270,9 +270,15 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
+        const userSubCategories = await prisma.userSubCategory.findMany({
+            where: {
+                userId: loggedInUserId
+            }
+        })
+        console.log(userSubCategories, ">>>>>>>>>>>> userSubCategories")
         const responseUser = {
             ...authUser,
-            categories: userCategoriesWithSubcategories,
+            userSubCategories,
         };
 
         const profileSuggestions = getProfileCompletionSuggestions(responseUser);
@@ -295,8 +301,8 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             },
         });
 
-        const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); 
-        const endDate = endOfWeek(new Date(), { weekStartsOn: 1 });     
+        const startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
+        const endDate = endOfWeek(new Date(), { weekStartsOn: 1 });
 
         const topCreators = await prisma.referralCoinSummary.findMany({
             where: {
@@ -315,7 +321,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
                     select: {
                         id: true,
                         name: true,
-                        userImage: true, 
+                        userImage: true,
                     },
                 },
             }
@@ -418,7 +424,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
                 id: view.id,
                 chatCount: view.chatCount,
                 updatedAt: view.updatedAt,
-                viewer: view.recentChatViewLoginUser, 
+                viewer: view.recentChatViewLoginUser,
             })),
         };
 
@@ -538,7 +544,7 @@ export const getAdminDashboardStats = async (req: Request, res: Response): Promi
 
 export const getAdminEarningsList = async (req: Request, res: Response): Promise<any> => {
     try {
-        
+
         const adminUsers = await prisma.user.findMany({
             where: { type: 'ADMIN' },
             select: { id: true },
@@ -550,13 +556,13 @@ export const getAdminEarningsList = async (req: Request, res: Response): Promise
 
         const searchFilter = search
             ? {
-                  where: {
-                      name: {
-                          contains: String(search),
-                          mode: 'insensitive', 
-                      },
-                  },
-              }
+                where: {
+                    name: {
+                        contains: String(search),
+                        mode: 'insensitive',
+                    },
+                },
+            }
             : {};
 
         const earnings = await paginate(

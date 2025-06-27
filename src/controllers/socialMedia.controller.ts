@@ -46,12 +46,6 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
             },
         });
 
-
-
-
-
-
-
         // Recalculate profile completion
         const socialMediaAccounts = await prisma.socialMediaPlatform.findMany({
             where: { userId },
@@ -329,17 +323,70 @@ export const getAllSocialMediaPlatform = async (req: Request, res: Response): Pr
 
 
 export const deleteSocialMediaPlatform = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const { id } = req.params;
-        if (!isUuid(id)) {
-            response.error(res, 'Invalid UUID formate')
-        }
-        const deletedScialMediaPlatform = await prisma.socialMediaPlatform.delete({
-            where: { id: id },
-        });
-        response.success(res, 'Scial Media Platform Deleted successfully!', null);
+  try {
+    const { id } = req.params;
 
-    } catch (error: any) {
-        response.error(res, error.message);
+    if (!isUuid(id)) return response.error(res, "Invalid UUID format");
+
+    // Get the record first to extract userId
+    const existingPlatform = await prisma.socialMediaPlatform.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+
+    if (!existingPlatform) {
+      return response.error(res, "Social media platform not found.");
     }
-}
+
+    const userId = existingPlatform.userId;
+
+    // Delete the platform
+    await prisma.socialMediaPlatform.delete({
+      where: { id },
+    });
+
+    // Get updated social media accounts
+    const socialMediaAccounts = await prisma.socialMediaPlatform.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        platform: true,
+      },
+    });
+
+    // Get user and subcategories
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) return response.error(res, "User not found while updating profile completion.");
+
+    const userSubCategories = await prisma.userSubCategory.findMany({
+      where: { userId },
+      select: { subCategoryId: true },
+    });
+
+    const profileCompletionData = {
+      ...user,
+      socialMediaPlatforms: socialMediaAccounts,
+      userSubCategories: userSubCategories.map(item => ({ subCategoryId: item.subCategoryId })),
+    };
+
+    let calculatedProfileCompletion = 0;
+
+    if (user.type === UserType.INFLUENCER) {
+      calculatedProfileCompletion = calculateProfileCompletion(profileCompletionData);
+    } else {
+      calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, user.loginType);
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        profileCompletion: calculatedProfileCompletion,
+      },
+    });
+
+    return response.success(res, "Social media platform deleted and profile completion updated.", null);
+  } catch (error: any) {
+    return response.error(res, error.message || "Something went wrong.");
+  }
+};

@@ -4,10 +4,58 @@ import response from "../utils/response";
 import { IUserBankDetails } from "../interfaces/bankDetail.interface";
 import { encrypt, decrypt } from "../utils/encryption";
 import { validate as isUuid } from 'uuid';
+import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '../utils/calculateProfileCompletion';
 
 const prisma = new PrismaClient();
 
 // ✅ Create Bank Details
+// export const createUserBankDetails = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const data: IUserBankDetails = req.body;
+
+//     if (!data.userId) return response.error(res, "userId is required.");
+//     if (!data.accountNumber) return response.error(res, "accountNumber is required.");
+//     if (!data.ifscCode) return response.error(res, "IFSC Code is required.");
+
+//     const user = await prisma.user.findUnique({ where: { id: data.userId } });
+//     if (!user) return response.error(res, "Invalid userId: User not found.");
+
+//     const existingBank = await prisma.userBankDetails.findFirst({
+//       where: {
+//         userId: data.userId,
+//         accountNumber: encrypt(data.accountNumber.toString()),
+//       },
+//     });
+
+//     if (existingBank) return response.error(res, "Bank details already exist for this account number and user.");
+
+//     const [newBankDetails] = await prisma.$transaction([
+//       prisma.userBankDetails.create({
+//         data: {
+//           userId: data.userId,
+//           accountId: data.accountId || null, // now treated as plain string
+//           accountNumber: encrypt(data.accountNumber.toString()),
+//           ifscCode: data.ifscCode,
+//           accountHolderName: data.accountHolderName,
+//           status: true,
+//         },
+//       }),
+//       prisma.user.update({
+//         where: { id: data.userId },
+//         data: {
+//           bankDetails: true,
+//         },
+//       }),
+//     ]);
+
+//     return response.success(res, "Bank details saved successfully.", newBankDetails);
+//   } catch (error: any) {
+//     return response.error(res, error.message || "Something went wrong.");
+//   }
+// };
+
+//import { calculateProfileCompletion } from '../utils/profileCompletion'; // adjust the path as needed
+
 export const createUserBankDetails = async (req: Request, res: Response): Promise<any> => {
   try {
     const data: IUserBankDetails = req.body;
@@ -26,13 +74,16 @@ export const createUserBankDetails = async (req: Request, res: Response): Promis
       },
     });
 
-    if (existingBank) return response.error(res, "Bank details already exist for this account number and user.");
+    if (existingBank) {
+      return response.error(res, "Bank details already exist for this account number and user.");
+    }
 
+    // Step 1: Create bank details + update bankDetails flag
     const [newBankDetails] = await prisma.$transaction([
       prisma.userBankDetails.create({
         data: {
           userId: data.userId,
-          accountId: data.accountId || null, // now treated as plain string
+          accountId: data.accountId || null,
           accountNumber: encrypt(data.accountNumber.toString()),
           ifscCode: data.ifscCode,
           accountHolderName: data.accountHolderName,
@@ -47,11 +98,46 @@ export const createUserBankDetails = async (req: Request, res: Response): Promis
       }),
     ]);
 
+    // Step 2: Fetch updated user including userSubCategories and socialMediaPlatforms
+    const userData = await prisma.user.findFirst({
+      where: { id: data.userId }
+    });
+
+    const userSubCategories = await prisma.userSubCategory.findMany({
+      where: {
+        userId: data.userId
+      }
+    })
+
+    const socialMediaPlatforms = await prisma.socialMediaPlatform.findMany({
+      where: {
+        userId: data.userId
+      }
+    })
+
+
+    // Step 3: Prepare user for profile calculation
+    const profileCompletion = calculateProfileCompletion({
+      ...userData,
+      userSubCategories,
+      socialMediaPlatforms
+    });
+
+
+    // Step 4: Update user's profileCompletion %
+    await prisma.user.update({
+      where: { id: data.userId },
+      data: {
+        profileCompletion,
+      },
+    });
+
     return response.success(res, "Bank details saved successfully.", newBankDetails);
   } catch (error: any) {
     return response.error(res, error.message || "Something went wrong.");
   }
 };
+
 
 // ✅ Get Bank Details by UserId
 export const getUserBankDetailsByUserId = async (req: Request, res: Response): Promise<any> => {
@@ -118,6 +204,38 @@ export const editUserBankDetails = async (req: Request, res: Response): Promise<
     const updated = await prisma.userBankDetails.update({
       where: { id },
       data: updateData,
+    });
+
+    const userData = await prisma.user.findFirst({
+      where: { id: data.userId }
+    });
+
+    const userSubCategories = await prisma.userSubCategory.findMany({
+      where: {
+        userId: data.userId
+      }
+    })
+
+    const socialMediaPlatforms = await prisma.socialMediaPlatform.findMany({
+      where: {
+        userId: data.userId
+      }
+    })
+
+    // Step 3: Prepare user for profile calculation
+    const profileCompletion = calculateProfileCompletion({
+      ...userData,
+      userSubCategories,
+      socialMediaPlatforms
+    });
+
+
+    // Step 4: Update user's profileCompletion %
+    await prisma.user.update({
+      where: { id: data.userId },
+      data: {
+        bankDetails: true,
+      },
     });
 
     return response.success(res, "Bank details updated successfully.", updated);

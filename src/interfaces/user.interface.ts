@@ -34,6 +34,7 @@ export interface IUser {
   updatedAt: Date;
   createdBy: string;
   updatedBy: string;
+  bankDetails: Boolean;
 }
 
 
