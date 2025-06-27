@@ -1,7 +1,7 @@
 
 import { OfferStatus, RequestStatus } from '../enums/userType.enum';
 import axios from 'axios';
-
+import { PrismaClient, Prisma } from "@prisma/client";
 export const resolveStatus = (status: boolean | null | undefined): boolean => {
     return status === null || status === undefined ? true : status;
 };
@@ -79,3 +79,20 @@ export const paymentRefund = async (razorpayPaymentId: string, refundAmount: num
         return false;
     }
 };
+
+export const getBageData = async (userId: string): Promise<any> => {
+
+    const prisma = new PrismaClient();
+
+    const usersBadges = await prisma.userBadges.findMany({
+        where: { userId: userId },
+        include: {
+            userBadgeTitleData: true,
+        },
+    });
+    if(usersBadges){
+        const userBadgeTitleList =  usersBadges.map(b => b.userBadgeTitleData);
+        return userBadgeTitleList;
+    }
+
+}

@@ -13,7 +13,7 @@ import { UserType } from '../enums/userType.enum';
 import { sendFCMNotificationToUsers } from '../utils/notification';
 import { CoinType } from '@prisma/client';
 import { paginate } from '../utils/pagination';
-import { paymentRefund } from "../utils/commonFunction";
+import { paymentRefund, getBageData } from "../utils/commonFunction";
 
 
 const prisma = new PrismaClient();
@@ -189,6 +189,11 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             return response.error(res, 'Order not found');
         }
 
+        if (order?.influencerOrderData?.id) {
+            const businessBageData = await getBageData(order?.influencerOrderData?.id);
+            order.influencerOrderData.badges = businessBageData;
+        }
+
         //  Remove viewCount from influencerOrderData
         if (order.influencerOrderData?.socialMediaPlatforms) {
             order.influencerOrderData.socialMediaPlatforms = order.influencerOrderData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest);
@@ -198,6 +203,13 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
         if (order.businessOrderData?.socialMediaPlatforms) {
             order.businessOrderData.socialMediaPlatforms = order.businessOrderData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest);
         }
+
+        if (order?.businessOrderData?.id) {
+            const businessBageData = await getBageData(order?.businessOrderData?.id);
+            order.businessOrderData.badges = businessBageData;
+        }
+
+
 
         if (!order?.groupOrderData) {
             return response.success(res, 'Order fetched', order);
@@ -1489,6 +1501,19 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                 createdAt: 'desc'
             }
         });
+
+        for (const order of getOrder) {
+            if (order?.influencerOrderData?.id) {
+                const influencerBadgeData = await getBageData(order.influencerOrderData.id);
+                order.influencerOrderData.badges = influencerBadgeData;
+            }
+
+            if (order?.businessOrderData?.id) {
+                const businessBadgeData = await getBageData(order.businessOrderData.id);
+                order.businessOrderData.badges = businessBadgeData;
+            }
+        }
+
         console.log(getOrder, '>>>>>>>>>>>>>>>>>>>>>>>getOrder');
 
         return response.success(res, 'Get All order List', getOrder);
