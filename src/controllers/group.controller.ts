@@ -296,7 +296,7 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
             if (groupUserEntry) {
                 // Fetch existing invited user IDs
                 const existingInvites = await prisma.groupUsersList.findMany({
-                    where: { groupUserId: groupUserEntry.id},
+                    where: { groupUserId: groupUserEntry.id },
                 });
                 const existingUserIds = existingInvites.map(invite => invite.invitedUserId);
 
@@ -689,6 +689,7 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
             },
             data: {
                 status: 'DECLINED',
+                reason: 'Order cancelled due to deletion of the associated group.'
             },
         });
 
@@ -1995,7 +1996,7 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
                                     ...formattedUser,
                                     requestStatus:
                                         entry.requestAccept === 'ACCEPTED' ? 1 :
-                                        entry.requestAccept === 'REJECTED' ? 2 : 0,
+                                            entry.requestAccept === 'REJECTED' ? 2 : 0,
                                 };
                             })
                     );
@@ -2200,7 +2201,10 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                             groupId,
                             NOT: { status: 'COMPLETED' },
                         },
-                        data: { status: 'DECLINED' },
+                        data: {
+                            status: 'DECLINED',
+                            reason: 'Order cancelled due to deletion of the associated group.'
+                        },
                     });
 
                     console.log(`Group ${groupId} deactivated and cleaned up`);
