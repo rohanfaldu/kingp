@@ -25,6 +25,7 @@
 // export { calculateProfileCompletion };
 
 const calculateProfileCompletion = (user: any): number => {
+    // console.log(user," >>>>>>>>>>>>> socialMediaPlatformData")
     let completedFields = 0;
     const totalFields = 15;
 
@@ -80,7 +81,7 @@ const calculateProfileCompletion = (user: any): number => {
         console.log("✅ contactPersonName is filled");
     }
 
-    if (user.socialMediaPlatform && user.socialMediaPlatform.length > 0) {
+    if (user.socialMediaPlatforms && user.socialMediaPlatforms.length > 0) {
         completedFields++;
         console.log("✅ socialMediaPlatforms are filled");
     }

@@ -5,7 +5,8 @@ import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { resolveStatus } from '../utils/commonFunction'
 import { paginate } from '../utils/pagination';
-
+import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '../utils/calculateProfileCompletion';
+import { UserType } from '../enums/userType.enum';
 
 
 const prisma = new PrismaClient();
@@ -43,6 +44,48 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
                 platform,
                 ...otherFields,
             },
+        });
+
+
+
+
+
+
+
+        // Recalculate profile completion
+        const socialMediaAccounts = await prisma.socialMediaPlatform.findMany({
+            where: { userId },
+            select: {
+                id: true,
+                platform: true,
+            }
+        });
+
+        // Get user subcategories (for influencers)
+        const userSubCategories = await prisma.userSubCategory.findMany({
+            where: { userId },
+            select: { subCategoryId: true },
+        });
+
+        const profileCompletionData = {
+            ...user,
+            socialMediaPlatforms: socialMediaAccounts,
+            userSubCategories: userSubCategories.map(item => ({ subCategoryId: item.subCategoryId }))
+        };
+
+        let calculatedProfileCompletion = 0;
+
+        if (user.type === UserType.INFLUENCER) {
+            calculatedProfileCompletion = calculateProfileCompletion(profileCompletionData);
+        } else {
+            calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, UserType.BUSINESS);
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                profileCompletion: calculatedProfileCompletion,
+            }
         });
 
         //  Count total social media accounts after insertion
@@ -152,7 +195,7 @@ export const editSocialMediaPlatform = async (req: Request, res: Response): Prom
                 sanitizedData[key] = value;
             }
         }
-        
+
         // 1. Update social media platform
         const updated = await prisma.socialMediaPlatform.update({
             where: { id },

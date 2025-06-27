@@ -1,6 +1,6 @@
 export interface IUserBankDetails {
   userId: string;
-  accountId?: number;
+  accountId?: string;
   accountNumber: number;
   ifscCode: string;
   accountHolderName: string;

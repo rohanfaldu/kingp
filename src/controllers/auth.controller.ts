@@ -113,7 +113,8 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         calculatedProfileCompletion = calculateProfileCompletion({
             ...req.body,
             userSubCategories,
-            socialMediaPlatforms: socialMediaPlatform,
+            socialMediaPlatform: socialMediaPlatform,
+            socialMediaPlatformData: socialMediaPlatform,
         });
     } else {
         calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);

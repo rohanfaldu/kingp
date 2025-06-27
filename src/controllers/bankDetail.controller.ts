@@ -28,16 +28,24 @@ export const createUserBankDetails = async (req: Request, res: Response): Promis
 
     if (existingBank) return response.error(res, "Bank details already exist for this account number and user.");
 
-    const newBankDetails = await prisma.userBankDetails.create({
-      data: {
-        userId: data.userId,
-        accountId: data.accountId ? encrypt(data.accountId.toString()) : null,
-        accountNumber: encrypt(data.accountNumber.toString()),
-        ifscCode: data.ifscCode,
-        accountHolderName: data.accountHolderName,
-        status: true,
-      },
-    });
+    const [newBankDetails] = await prisma.$transaction([
+      prisma.userBankDetails.create({
+        data: {
+          userId: data.userId,
+          accountId: data.accountId || null, // now treated as plain string
+          accountNumber: encrypt(data.accountNumber.toString()),
+          ifscCode: data.ifscCode,
+          accountHolderName: data.accountHolderName,
+          status: true,
+        },
+      }),
+      prisma.user.update({
+        where: { id: data.userId },
+        data: {
+          bankDetails: true,
+        },
+      }),
+    ]);
 
     return response.success(res, "Bank details saved successfully.", newBankDetails);
   } catch (error: any) {
@@ -61,7 +69,7 @@ export const getUserBankDetailsByUserId = async (req: Request, res: Response): P
     const decryptedData = {
       ...bankDetails,
       accountNumber: bankDetails.accountNumber ? parseInt(decrypt(bankDetails.accountNumber)) : null,
-      accountId: bankDetails.accountId ? parseInt(decrypt(bankDetails.accountId)) : null,
+      accountId: bankDetails.accountId || null, // returned as-is (string)
     };
 
     return response.success(res, "Bank details fetched successfully.", decryptedData);
@@ -95,8 +103,8 @@ export const editUserBankDetails = async (req: Request, res: Response): Promise<
       updateData.accountNumber = encrypt(data.accountNumber.toString());
     }
 
-    if (data.accountId && data.accountId !== 0) {
-      updateData.accountId = encrypt(data.accountId.toString());
+    if (data.accountId) {
+      updateData.accountId = data.accountId; // now stored as plain string
     }
 
     if (typeof data.status === "boolean") {
@@ -128,12 +136,18 @@ export const deleteUserBankDetails = async (req: Request, res: Response): Promis
     const existing = await prisma.userBankDetails.findUnique({ where: { id } });
     if (!existing) return response.error(res, "Bank detail not found for the given ID.");
 
-    const updated = await prisma.userBankDetails.update({
-      where: { id },
-      data: { status: false },
-    });
+    const [updatedBank, updatedUser] = await prisma.$transaction([
+      prisma.userBankDetails.update({
+        where: { id },
+        data: { status: false },
+      }),
+      prisma.user.update({
+        where: { id: existing.userId },
+        data: { bankDetails: false },
+      }),
+    ]);
 
-    return response.success(res, "Bank details deleted successfully.", updated);
+    return response.success(res, "Bank details deleted successfully.", updatedBank);
   } catch (error: any) {
     return response.error(res, error.message || "Something went wrong.");
   }
