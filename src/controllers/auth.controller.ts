@@ -1857,6 +1857,8 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                             },
                             data: {
                                 status: 'DECLINED',
+                                reason: 'Order cancelled due to deletion of the associated group.'
+
                             },
                         });
                     }
@@ -1891,6 +1893,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         },
                         data: {
                             status: 'DECLINED',
+                            reason: 'Order cancelled due to deletion of the associated group.'
                         },
                     });
                 }
@@ -1928,6 +1931,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                 },
                 data: {
                     status: 'DECLINED',
+                    reason: 'Order cancelled due to deletion of the associated influencer.'
                 },
             });
         } else {
@@ -1989,6 +1993,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                     },
                     data: {
                         status: 'DECLINED',
+                        reason: 'Order cancelled due to deletion of the associated influencer.'
                     },
                 });
 
@@ -2121,9 +2126,9 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             //     ...profileCompletionData,
             //     userSubCategories,
             // });
-            console.log(id,">>>>>>>>>>> Id")
+            console.log(id, ">>>>>>>>>>> Id")
             const userData = await prisma.user.findFirst({
-                where: { id:id }
+                where: { id: id }
             });
 
             const userSubCategories = await prisma.userSubCategory.findMany({
@@ -2134,10 +2139,10 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
             const socialMediaPlatforms = await prisma.socialMediaPlatform.findMany({
                 where: {
-                    userId:id
+                    userId: id
                 }
             })
-            
+
             // Step 3: Prepare user for profile calculation
             calculatedProfileCompletion = calculateProfileCompletion({
                 ...userData,
