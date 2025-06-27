@@ -90,9 +90,50 @@ export const getBageData = async (userId: string): Promise<any> => {
             userBadgeTitleData: true,
         },
     });
-    if(usersBadges){
-        const userBadgeTitleList =  usersBadges.map(b => b.userBadgeTitleData);
+    if (usersBadges) {
+        const userBadgeTitleList = usersBadges.map(b => b.userBadgeTitleData);
         return userBadgeTitleList;
     }
+}
 
+
+export const initiateTransfer = async (amount: number, accountId: string, userName: string): Promise<any> => {
+    try {
+        const response = await axios.post(
+            'https://api.razorpay.com/v1/orders',
+            {
+                amount: amount * 100, // in paise (₹10)
+                currency: 'INR',
+                transfers: [
+                    {
+                        account: accountId, // ✅ Replace with real Razorpay sub-account ID
+                        amount: amount * 100,
+                        currency: 'INR',
+                        notes: {
+                            branch: 'Acme Corp Bangalore North',
+                            name: userName,
+                        },
+                        linked_account_notes: ['branch'],
+                        on_hold: false,
+                    },
+                ],
+            },
+            {
+                auth: {
+                    username: process.env.RAZORPAY_KEY_ID!,
+                    password: process.env.RAZORPAY_KEY_SECRET!,
+                },
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        //console.log('✅ Transfer successful:', response.data);
+
+        return true;
+    } catch (error: any) {
+        //console.error('❌ Transfer failed:', error.response?.data || error.message);
+        return false;
+    }
 }

@@ -13,7 +13,7 @@ import { UserType } from '../enums/userType.enum';
 import { sendFCMNotificationToUsers } from '../utils/notification';
 import { CoinType } from '@prisma/client';
 import { paginate } from '../utils/pagination';
-import { paymentRefund, getBageData } from "../utils/commonFunction";
+import { paymentRefund, getBageData, initiateTransfer } from "../utils/commonFunction";
 
 
 const prisma = new PrismaClient();
@@ -2002,6 +2002,7 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
     try {
         const { userId, withdrawAmount, withdrawalType } = req.body;
 
+
         if (!userId || typeof withdrawAmount !== 'number') {
             return response.error(res, 'userId and withdrawAmount are required');
         }
@@ -2088,11 +2089,24 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
             }
         }
 
-        return response.success(res, 'Withdrawal successful', {
-            withdraw: newWithdraw,
-            updatedBalance: earningsNumber - withdrawAmount,
-            kringPCoinsIssued: kringPCoins,
+        const userBandDetail = await prisma.userBankDetails.findFirst({
+            where: { userId }
         });
+        if (userBandDetail) {
+            const initiateTransferData = await initiateTransfer(withdrawAmount, userBandDetail?.accountId, userBandDetail?.accountHolderName);
+
+            if (initiateTransferData) {
+                return response.success(res, 'Withdrawal successfully and please check your account', {
+                    withdraw: newWithdraw,
+                    updatedBalance: earningsNumber - withdrawAmount,
+                    kringPCoinsIssued: kringPCoins,
+                });
+            } else {
+                return response.error(res, 'Insufficient balance for withdrawal');
+            }
+        } else {
+            return response.error(res, 'Please check bank Detail');
+        }
 
     } catch (error: any) {
         console.error('Withdraw API error:', error);
@@ -2472,12 +2486,23 @@ export const withdrawCoins = async (req: Request, res: Response): Promise<any> =
             }),
         ]);
 
-
-        return response.success(res, 'Referral coin withdrawal recorded successfully', {
-            withdrawalRecord: newWithdrawRecord,
-            updatedSummary,
+        const userBandDetail = await prisma.userBankDetails.findFirst({
+            where: { userId }
         });
+        if (userBandDetail) {
+            const initiateTransferData = await initiateTransfer(withdrawAmount, userBandDetail?.accountId, userBandDetail?.accountHolderName);
 
+            if (initiateTransferData) {
+                return response.success(res, 'Referral coin withdrawal recorded successfully', {
+                    withdrawalRecord: newWithdrawRecord,
+                    updatedSummary,
+                });
+            } else {
+                return response.error(res, 'Insufficient balance for withdrawal');
+            }
+        } else {
+            return response.error(res, 'Please check bank Detail');
+        }
 
     } catch (error: any) {
         console.error('Coin Withdrawal Error:', error);
