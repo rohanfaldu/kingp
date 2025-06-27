@@ -1,3 +1,4 @@
+import { Badges } from './../../node_modules/.prisma/client/index.d';
 import { Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import response from '../utils/response';
@@ -108,20 +109,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         const businessUser = await prisma.user.findUnique({
             where: { id: newOrder.businessId },
         });
-
-        // if (businessUser?.fcmToken) {
-        //     const recipientId = businessUser.id;
-        //     const fcmToken = businessUser.fcmToken;
-
-        //     const influencerName = newOrder.influencerOrderData?.name || 'an influencer';
-
-        //     await sendFCMNotificationToUsers(
-        //         [{ id: recipientId, fcmToken }],
-        //         'New Offer Received',
-        //         `You have received a new Offer from ${influencerName}`,
-        //         'ORDER_CREATED'
-        //     );
-        // }
 
         if (businessUser?.fcmToken) {
             const recipientId = businessUser.id;
@@ -405,14 +392,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                             }
                         });
 
-                        
+
                         return response.success(res, 'Order and Payment Refund Successfully', null);
                     } else {
                         return response.error(res, `Payment was not Decline`);
                     }
 
                 }
-                
+
             } catch (refundError: any) {
                 console.error('Refund processing failed:', refundError);
                 return response.error(res, `Failed to process refund: ${refundError.message}`);
@@ -1502,6 +1489,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                 createdAt: 'desc'
             }
         });
+        console.log(getOrder, '>>>>>>>>>>>>>>>>>>>>>>>getOrder');
 
         return response.success(res, 'Get All order List', getOrder);
 

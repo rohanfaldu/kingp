@@ -474,6 +474,12 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
         });
 
         const formatUserData = async (user: any) => {
+            const usersBadges = await prisma.userBadges.findMany({
+                where: { userId: user.id },
+                include: {
+                    userBadgeTitleData: true,
+                },
+            });
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
             const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
@@ -486,6 +492,7 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
                 cityName: city?.name ?? null,
+                badges: usersBadges.map(b => b.userBadgeTitleData),
             };
         };
 
