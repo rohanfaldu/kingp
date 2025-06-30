@@ -221,39 +221,27 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
             // Validate user was part of the order (either influencer or business)
             let typeToUser: "INFLUENCER" | "BUSINESS" | null = null;
 
-            console.log(order, '<<<<<<<<<<<<<< influencerId')
+            console.log(order, '<<<<<<<<<<<<<< influencerId');
 
-            // const groupAdmin = await prisma.groupUsers.findFirst({
-            //     where: {
-            //         groupId: order.groupId
-            //     },
-            //     select: { userId: true },
-            // });
+            // Check if order has a groupId before querying groupUsers
+            let adminUserId: string | undefined = undefined;
 
-            let adminUserId = null;
-
-            if (order?.groupId) {
+            if (order.groupId) {
                 const groupAdmin = await prisma.groupUsers.findFirst({
                     where: {
-                        groupId: order.groupId,
+                        groupId: order.groupId
                     },
                     select: { userId: true },
                 });
-
-                adminUserId = groupAdmin?.userId || null;
+                adminUserId = groupAdmin?.userId;
+                console.log(adminUserId, " >>>>>>>>> adminUserId");
             }
-
-            console.log(adminUserId, " >>>>>>>>> adminUserId");
-
-
-            // const adminUserId = groupAdmin?.userId;
-            console.log(adminUserId, " >>>>>>>>> adminUserId");
 
             if (order.influencerId === ratedToUserId && order.businessId === ratedByUserId) {
                 typeToUser = "INFLUENCER";
             } else if (order.businessId === ratedToUserId && order.influencerId === ratedByUserId) {
                 typeToUser = "BUSINESS";
-            } else if (order.influencerId === null && order.groupId != null && ratedByUserId === adminUserId) {
+            } else if (order.influencerId === null && order.groupId !== null && ratedByUserId === adminUserId) {
                 typeToUser = "INFLUENCER";
             } else {
                 return response.error(res, "You can only rate a user that participated in this order.");
