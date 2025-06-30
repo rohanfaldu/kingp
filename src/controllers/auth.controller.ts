@@ -1853,34 +1853,34 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
                             },
                         });
-                        //     const currentOrder = await prisma.orders.findMany({
-                        //         where: { groupId: groupData.groupId, status: 'DECLINED' },
-                        //     });
-                        //     console.log(currentOrder, '>>>>>>>>>> currentOrder');
-                        //     if (currentOrder.length > 0) {
-                        //         currentOrder.map(async (orderInfo) => {
-                        //             if (orderInfo.finalAmount) {
-                        //                 const refundAmountInPaise = orderInfo.finalAmount;
-                        //                 const razorpayPaymentId = orderInfo.transactionId;
-                        //                 console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
-                        //                 console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
+                            const currentOrder = await prisma.orders.findMany({
+                                where: { groupId: groupData.groupId, status: 'DECLINED' },
+                            });
+                            console.log(currentOrder, '>>>>>>>>>> currentOrder');
+                            if (currentOrder.length > 0) {
+                                currentOrder.map(async (orderInfo) => {
+                                    if (orderInfo.finalAmount) {
+                                        const refundAmountInPaise = orderInfo.finalAmount;
+                                        const razorpayPaymentId = orderInfo.transactionId;
+                                        console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
+                                        console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
 
-                        //                 const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
-                        //                 if (paymentRefundResponse) {
-                        //                     await prisma.orders.update({
-                        //                         where: { id: orderInfo.id },
-                        //                         data: {
-                        //                             paymentStatus: PaymentStatus.REFUND
-                        //                         }
-                        //                     });
-                        //                 } else {
-                        //                     return response.error(res, `Payment was not Decline`);
-                        //                 }
+                                        const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                                        if (paymentRefundResponse) {
+                                            await prisma.orders.update({
+                                                where: { id: orderInfo.id },
+                                                data: {
+                                                    paymentStatus: PaymentStatus.REFUND
+                                                }
+                                            });
+                                        } else {
+                                            return response.error(res, `Payment was not Decline`);
+                                        }
 
-                        //             }
+                                    }
 
-                        //         })
-                        // }
+                                })
+                        }
                     }
                 } else {
                     // No invited users - cleanup group data
@@ -1921,30 +1921,30 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                     });
                     console.log(currentOrder, '>>>>>>>>>> currentOrder 2');
 
-                    //     if (currentOrder.length > 0) {
-                    //         currentOrder.map(async (orderInfo) => {
-                    //             if (orderInfo.finalAmount) {
-                    //                 const refundAmountInPaise = orderInfo.finalAmount;
-                    //                 const razorpayPaymentId = orderInfo.transactionId;
-                    //                 console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 2');
-                    //                 console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 2');
+                        if (currentOrder.length > 0) {
+                            currentOrder.map(async (orderInfo) => {
+                                if (orderInfo.finalAmount) {
+                                    const refundAmountInPaise = orderInfo.finalAmount;
+                                    const razorpayPaymentId = orderInfo.transactionId;
+                                    console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 2');
+                                    console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 2');
 
-                    //                 const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
-                    //                 if (paymentRefundResponse) {
-                    //                     await prisma.orders.update({
-                    //                         where: { id: orderInfo.id },
-                    //                         data: {
-                    //                             paymentStatus: PaymentStatus.REFUND
-                    //                         }
-                    //                     });
-                    //                 } else {
-                    //                     return response.error(res, `Payment was not Decline`);
-                    //                 }
+                                    const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                                    if (paymentRefundResponse) {
+                                        await prisma.orders.update({
+                                            where: { id: orderInfo.id },
+                                            data: {
+                                                paymentStatus: PaymentStatus.REFUND
+                                            }
+                                        });
+                                    } else {
+                                        return response.error(res, `Payment was not Decline`);
+                                    }
 
-                    //             }
+                                }
 
-                    //         });
-                    //     }
+                            });
+                        }
                 }
             }
 
@@ -1988,31 +1988,31 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             });
             console.log(currentOrder, '>>>>>>>>>> currentOrder 3');
 
-            // if (currentOrder.length > 0) {
-            //     currentOrder.map(async (orderInfo) => {
-            //         if (orderInfo.finalAmount) {
-            //             const refundAmountInPaise = orderInfo.finalAmount;
-            //             const razorpayPaymentId = orderInfo.transactionId;
-            //             console.log(orderInfo, '>>>>>>>>>>>>>>> orderInfo 3');
-            //             console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 3');
-            //             console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 3');
+            if (currentOrder.length > 0) {
+                currentOrder.map(async (orderInfo) => {
+                    if (orderInfo.finalAmount) {
+                        const refundAmountInPaise = orderInfo.finalAmount;
+                        const razorpayPaymentId = orderInfo.transactionId;
+                        console.log(orderInfo, '>>>>>>>>>>>>>>> orderInfo 3');
+                        console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 3');
+                        console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 3');
 
-            //             const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
-            //             if (paymentRefundResponse) {
-            //                 await prisma.orders.update({
-            //                     where: { id: orderInfo.id },
-            //                     data: {
-            //                         paymentStatus: PaymentStatus.REFUND
-            //                     }
-            //                 });
-            //             } else {
-            //                 return response.error(res, `Payment was not Decline`);
-            //             }
+                        const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                        if (paymentRefundResponse) {
+                            await prisma.orders.update({
+                                where: { id: orderInfo.id },
+                                data: {
+                                    paymentStatus: PaymentStatus.REFUND
+                                }
+                            });
+                        } else {
+                            return response.error(res, `Payment was not Decline`);
+                        }
 
-            //         }
+                    }
 
-            //     });
-            // }
+                });
+            }
         } else {
             const groupUserEntry = await prisma.groupUsers.findMany({
                 where: {

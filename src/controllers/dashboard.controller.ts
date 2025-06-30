@@ -168,11 +168,29 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             recentViews = recentViews.filter(view => view !== null);
         }
 
+        const appVersionData = await prisma.appSetting.findMany({
+            where: {
+                slug: {
+                    in: [
+                        'android-min-version',
+                        'android-latest-version',
+                        'ios-min-version',
+                        'ios-latest-version',
+                        'is-force-stop',
+                        'app-under-maintenance',
+                        'under-maintenance-message',
+                        'message',
+                    ],
+                },
+            }
+        });
+
         // Send combined response
         return response.success(res, 'Dashboard data fetched successfully!', {
             bannerData,
             topInfluencers,
             recentViews,
+            appVersionData,
         });
 
     } catch (error: any) {
@@ -440,6 +458,23 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             },
         });
 
+         const appVersionData = await prisma.appSetting.findMany({
+            where: {
+                slug: {
+                    in: [
+                        'android-min-version',
+                        'android-latest-version',
+                        'ios-min-version',
+                        'ios-latest-version',
+                        'is-force-stop',
+                        'app-under-maintenance',
+                        'under-maintenance-message',
+                        'message',
+                    ],
+                },
+            }
+        });
+
         return response.success(res, "Influencer dashboard data fetched successfully", {
             profileCompletion: user.profileCompletion,
             dailyTips: dailyTips,
@@ -449,6 +484,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             leadBoard,
             analyticSummary,
             badges: userBadges.map(b => b.userBadgeTitleData),
+            appVersionData,
         });
     } catch (error: any) {
         return response.error(res, error.message);

@@ -722,6 +722,7 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
                     } else {
                         return response.error(res, `Payment was not Decline`);
                     }
+                    console.log(paymentRefundResponse, '>>>>>>>>>>>>>>> paymentRefundResponse');
 
                 }
 
