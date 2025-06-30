@@ -34,44 +34,62 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             return res.status(400).json({ error: 'businessId is required' });
         }
 
-        // if (groupId) {
-        //     const groupUsersList = await prisma.groupUsersList.findMany({
-        //         where: {
-        //             groupId,
-        //             status: true,
-        //         },
-        //         select: {
-        //             invitedUserId: true,
-        //             requestAccept: true,
-        //             adminUserId: true,
-        //         },
-        //     });
+        if (groupId) {
+            // Step 1: Fetch invited users (with requestAccept) and adminUserId for the group
+            const groupUsersList = await prisma.groupUsersList.findMany({
+                where: { groupId, status: true },
+                select: {
+                    invitedUserId: true,
+                    adminUserId: true,
+                    requestAccept: true,
+                },
+            });
 
-        //     const notAcceptedUsers = groupUsersList.filter(
-        //         (entry) => entry.requestAccept !== RequestStatus.ACCEPTED
-        //     );
+            if (groupUsersList.length === 0) {
+                return response.error(res, 'No group members found.');
+            }
 
-        //     if (notAcceptedUsers.length > 0) {
-        //         return response.error(res, 'All invited users must accept the group invitation before proceeding.');
-        //     }
+            // Step 2: Get adminUserId from first entry (assuming same across entries)
+            const adminUserId = groupUsersList[0].adminUserId;
 
-        //     const adminUserId = groupUsersList.adminUserId;
-        //     if (!adminUserId) {
-        //         return response.error(res, 'Admin user not found for the group.');
-        //     }
+            // Step 3: Collect only those invited users who are ACCEPTED
+            const acceptedInvitedUserIds = groupUsersList
+                .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
+                .map(u => u.invitedUserId);
 
-        //     const adminBankDetails = await prisma.userBankDetails.findFirst({
-        //         where: {
-        //             userId: adminUserId,
-        //             status: true,
-        //         },
-        //     });
+            // Step 4: Check bank details for admin
+            const adminBankDetails = await prisma.userBankDetails.findFirst({
+                where: { userId: adminUserId, status: true },
+            });
 
-        //     if (!adminBankDetails) {
-        //         return response.error(res, 'Admin must add bank details before proceeding.');
-        //     }
-        // }
+            if (!adminBankDetails) {
+                return response.error(res, 'Admin must add bank details before proceeding.');
+            }
 
+            // Step 5: If there are accepted invited users, check their bank details
+            if (acceptedInvitedUserIds.length > 0) {
+                const acceptedWithBankDetails = await prisma.userBankDetails.findMany({
+                    where: {
+                        userId: { in: acceptedInvitedUserIds },
+                        status: true,
+                    },
+                    select: { userId: true },
+                });
+
+                const bankUserIds = acceptedWithBankDetails.map(b => b.userId);
+
+                const missingBankDetails = acceptedInvitedUserIds.filter(
+                    id => !bankUserIds.includes(id)
+                );
+
+                if (missingBankDetails.length > 0) {
+                    return response.error(
+                        res,
+                        'All accepted invited users must add bank details before proceeding.'
+                    );
+                }
+            }
+        }
 
         if (influencerId) {
             const influencer = await prisma.user.findUnique({
