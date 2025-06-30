@@ -223,14 +223,30 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
 
             console.log(order, '<<<<<<<<<<<<<< influencerId')
 
-            const groupAdmin = await prisma.groupUsers.findFirst({
-                where: {
-                    groupId: order.groupId
-                },
-                select: { userId: true },
-            });
+            // const groupAdmin = await prisma.groupUsers.findFirst({
+            //     where: {
+            //         groupId: order.groupId
+            //     },
+            //     select: { userId: true },
+            // });
 
-            const adminUserId = groupAdmin?.userId;
+            let adminUserId = null;
+
+            if (order?.groupId) {
+                const groupAdmin = await prisma.groupUsers.findFirst({
+                    where: {
+                        groupId: order.groupId,
+                    },
+                    select: { userId: true },
+                });
+
+                adminUserId = groupAdmin?.userId || null;
+            }
+
+            console.log(adminUserId, " >>>>>>>>> adminUserId");
+
+
+            // const adminUserId = groupAdmin?.userId;
             console.log(adminUserId, " >>>>>>>>> adminUserId");
 
             if (order.influencerId === ratedToUserId && order.businessId === ratedByUserId) {
