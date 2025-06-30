@@ -185,12 +185,20 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             }
         });
 
+         // Transform into an object: { slug: value }
+        const appSettingsData = appVersionData.reduce((acc, setting) => {
+            if (setting.slug && setting.value != null) {
+                acc[setting.slug] = setting.value;
+            }
+            return acc;
+        }, {} as Record<string, string>);
+
         // Send combined response
         return response.success(res, 'Dashboard data fetched successfully!', {
             bannerData,
             topInfluencers,
             recentViews,
-            appVersionData,
+            appSettingsData,
         });
 
     } catch (error: any) {
@@ -458,7 +466,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             },
         });
 
-         const appVersionData = await prisma.appSetting.findMany({
+        const appVersionData = await prisma.appSetting.findMany({
             where: {
                 slug: {
                     in: [
@@ -475,6 +483,14 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             }
         });
 
+        // Transform into an object: { slug: value }
+        const appSettingsData = appVersionData.reduce((acc, setting) => {
+            if (setting.slug && setting.value != null) {
+                acc[setting.slug] = setting.value;
+            }
+            return acc;
+        }, {} as Record<string, string>);
+
         return response.success(res, "Influencer dashboard data fetched successfully", {
             profileCompletion: user.profileCompletion,
             dailyTips: dailyTips,
@@ -484,7 +500,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             leadBoard,
             analyticSummary,
             badges: userBadges.map(b => b.userBadgeTitleData),
-            appVersionData,
+            appSettingsData,
         });
     } catch (error: any) {
         return response.error(res, error.message);
