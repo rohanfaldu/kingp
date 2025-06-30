@@ -2555,7 +2555,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         
         // Handle specific Prisma errors
         if (error.code === 'P2002') {
-            return response.error(res, 'Email address is already in use.');
+            return response.error(res, 'Email address and socialId are already in used.');
         }
         
         return response.error(res, error.message || 'Social login failed.');
