@@ -2439,18 +2439,17 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 //     }
 // };
 
-
 export const socialLogin = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { socialId, name, emailAddress, userImage } = req.body;
+        const { socialId, name, emailAddress, userImage, loginType = 'GOOGLE' } = req.body;
 
         if (!socialId) {
-            return response.error(res, 'Social ID is required.');
+            return response.error(res, 'socialId is required.');
         }
 
-        // Step 1: Try to find user by socialId
+        // Find user by socialId (including soft-deleted users)
         let user = await prisma.user.findFirst({
-            where: { socialId, status: true },
+            where: { socialId },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -2460,79 +2459,77 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
             },
         });
 
-        if (!user) {
-            // Step 2: Check if email already used by another user
+        // If user exists but is soft-deleted (status: false), reactivate them
+        if (user && !user.status) {
+            user = await prisma.user.update({
+                where: {
+                    id: user.id
+                },
+                data: {
+                    socialId,
+                    name: name || user.name || 'Social User',
+                    userImage: userImage || user.userImage,
+                    status: true,
+                    loginType: loginType,
+                    password: 'SOCIAL_LOGIN', // Required field for social login users
+                },
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
+                }
+            });
+        }
+        // If user doesn't exist at all, create a new one
+        else if (!user) {
             if (emailAddress) {
-                const existingEmailUser = await prisma.user.findFirst({
-                    where: { emailAddress },
+                const existingEmailUser = await prisma.user.findUnique({ 
+                    where: { emailAddress, status: true } 
                 });
-
                 if (existingEmailUser) {
-                    if (existingEmailUser.status === true) {
-                        return response.error(res, 'Email already registered with another active account.');
-                    }
-
-                    // Reactivate soft-deleted user
-                    user = await prisma.user.update({
-                        where: { id: existingEmailUser.id },
-                        data: {
-                            socialId,
-                            name: name || existingEmailUser.name || 'Social User',
-                            userImage: userImage || existingEmailUser.userImage,
-                            status: true,
-                            loginType: 'GOOGLE',
-                            password: null, // ✅ Set password null
-                        },
-                        include: {
-                            socialMediaPlatforms: true,
-                            brandData: true,
-                            countryData: true,
-                            stateData: true,
-                            cityData: true,
-                        },
-                    });
+                    return response.error(res, 'Email already registered with another account.');
                 }
             }
 
-            // Step 3: Create new user if no email match
-            if (!user) {
-                user = await prisma.user.create({
-                    data: {
-                        socialId,
-                        name: name || 'Social User',
-                        emailAddress: emailAddress || null,
-                        userImage: userImage || null,
-                        type: 'INFLUENCER',
-                        status: true,
-                        profileCompletion: 0,
-                        password: null, // ✅ Set password null
-                        loginType: 'GOOGLE',
-                    },
-                    include: {
-                        socialMediaPlatforms: true,
-                        brandData: true,
-                        countryData: true,
-                        stateData: true,
-                        cityData: true,
-                    },
-                });
-            }
+            user = await prisma.user.create({
+                data: {
+                    socialId,
+                    name: name || 'Social User',
+                    emailAddress: emailAddress || null,
+                    userImage: userImage || null,
+                    type: 'INFLUENCER',
+                    status: true,
+                    profileCompletion: 0,
+                    password: 'SOCIAL_LOGIN', // Required field for social login users
+                    loginType: loginType,
+                },
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
+                },
+            });
         }
 
-        // Step 4: Create JWT token
+        // Token handling
         const token = jwt.sign(
             { userId: user.id, email: user.emailAddress },
             process.env.JWT_SECRET || 'default_secret',
             { expiresIn: '7d' }
         );
 
-        // Step 5: Prepare user response
+        // Get formatted user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+
+        // Format user object
         const { password, socialMediaPlatform, ...userWithoutSensitive } = user as any;
 
         const userResponse = {
             ...userWithoutSensitive,
-            password: null, // Always null in social login
             countryName: user.countryData?.name || null,
             stateName: user.stateData?.name || null,
             cityName: user.cityData?.name || null,
@@ -2549,7 +2546,6 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message || 'Social login failed.');
     }
 };
-
 
 
 
