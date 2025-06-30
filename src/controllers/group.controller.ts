@@ -302,6 +302,7 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
 
                 // Find new users that need to be added
                 const newUserIds = invitedUserId.filter(id => !existingUserIds.includes(id));
+                console.log(newUserIds, '>>>>>>>>>> newUserIds');
 
                 // Add only new invited users to GroupUsersList
                 await Promise.all(
@@ -1378,7 +1379,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
                         groupUserId: adminGroupUser!.id,
                         adminUserId: userId,
                         invitedUserId: invitedId,
-                        status: false,
+                        status: true,
                         requestAccept: RequestStatus.PENDING,
                     },
                 });

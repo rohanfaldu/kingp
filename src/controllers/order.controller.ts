@@ -34,6 +34,45 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             return res.status(400).json({ error: 'businessId is required' });
         }
 
+        // if (groupId) {
+        //     const groupUsersList = await prisma.groupUsersList.findMany({
+        //         where: {
+        //             groupId,
+        //             status: true,
+        //         },
+        //         select: {
+        //             invitedUserId: true,
+        //             requestAccept: true,
+        //             adminUserId: true,
+        //         },
+        //     });
+
+        //     const notAcceptedUsers = groupUsersList.filter(
+        //         (entry) => entry.requestAccept !== RequestStatus.ACCEPTED
+        //     );
+
+        //     if (notAcceptedUsers.length > 0) {
+        //         return response.error(res, 'All invited users must accept the group invitation before proceeding.');
+        //     }
+
+        //     const adminUserId = groupUsersList.adminUserId;
+        //     if (!adminUserId) {
+        //         return response.error(res, 'Admin user not found for the group.');
+        //     }
+
+        //     const adminBankDetails = await prisma.userBankDetails.findFirst({
+        //         where: {
+        //             userId: adminUserId,
+        //             status: true,
+        //         },
+        //     });
+
+        //     if (!adminBankDetails) {
+        //         return response.error(res, 'Admin must add bank details before proceeding.');
+        //     }
+        // }
+
+
         if (influencerId) {
             const influencer = await prisma.user.findUnique({
                 where: { id: influencerId, status: true },
@@ -51,7 +90,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             });
 
             if (!bankDetails) {
-                return response.error(res, 'Influencer must add bank details before receiving offers.');
+                return response.error(res, 'Influencer must add bank details before Creating offers.');
             }
         }
 
