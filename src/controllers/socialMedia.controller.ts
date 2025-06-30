@@ -158,7 +158,7 @@ export const createSocialMediaPlatform = async (req: Request, res: Response): Pr
             }
         }
         // ******  BADGE : 6 END Count total completed orders by the user *********//
-        const { viewCount, ...filteredSocialMedia } = newSocialMedia;
+        const {  ...filteredSocialMedia } = newSocialMedia;
 
         return response.success(res, 'Social Media Platform created successfully!', filteredSocialMedia);
 
@@ -241,7 +241,7 @@ export const editSocialMediaPlatform = async (req: Request, res: Response): Prom
                 }
             }
         }
-        const { viewCount, ...filteredSocialMedia } = updated;
+        const {  ...filteredSocialMedia } = updated;
 
         response.success(res, 'Social Medial Platform Updated successfully!', filteredSocialMedia);
     } catch (error: any) {
@@ -261,7 +261,7 @@ export const getByIdeditSocialMediaPlatform = async (req: Request, res: Response
             where: { id: id },
         });
 
-        const { viewCount, ...filteredSocialMedia } = scialMediaPlatform;
+        const {  ...filteredSocialMedia } = scialMediaPlatform;
 
         response.success(res, 'Category Get successfully!', filteredSocialMedia);
     } catch (error: any) {
@@ -288,7 +288,7 @@ export const getSocialMediaPlatformsByUserId = async (req: Request, res: Respons
             },
         });
 
-        const sanitizedPlatforms = platforms.map(({ viewCount, ...rest }) => rest);
+        const sanitizedPlatforms = platforms.map(({ ...rest }) => rest);
 
         return response.success(res, 'Social Media Platforms fetched successfully!', sanitizedPlatforms);
     } catch (error: any) {
@@ -307,7 +307,7 @@ export const getAllSocialMediaPlatform = async (req: Request, res: Response): Pr
             throw new Error("Scial Media Platform not Found");
         }
 
-        const cleanedList = platformList.map(({ viewCount, ...rest }) => rest);
+        const cleanedList = platformList.map(({ ...rest }) => rest);
 
         const finalResponse = {
             ...result,

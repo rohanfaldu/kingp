@@ -160,7 +160,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
-                socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -302,7 +302,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             const { password: _, socialMediaPlatform: __, ...userData } = user;
             return {
                 ...userData,
-                socialMediaPlatforms: userData.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
+                // socialMediaPlatforms: userData.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -939,24 +939,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 groupOrderData: true,
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -965,24 +948,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1526,24 +1492,7 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                 },
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1552,24 +1501,8 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        }, brandData: true,
+                        socialMediaPlatforms: true,
+                        brandData: true,
                         countryData: true,
                         stateData: true,
                         cityData: true,
@@ -1671,24 +1604,7 @@ export const getAdminAllOrderList = async (req: Request, res: Response): Promise
                 },
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1697,24 +1613,7 @@ export const getAdminAllOrderList = async (req: Request, res: Response): Promise
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1772,24 +1671,7 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
                 groupOrderData: {},
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1798,24 +1680,7 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1869,24 +1734,7 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                 groupOrderData: true,
                 influencerOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1895,24 +1743,8 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        }, brandData: true,
+                        socialMediaPlatforms: true, 
+                        brandData: true,
                         countryData: true,
                         stateData: true,
                         cityData: true,
@@ -2320,24 +2152,7 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
                     groupOrderData: true,
                     influencerOrderData: {
                         include: {
-                            socialMediaPlatforms: {
-                                select: {
-                                    id: true,
-                                    image: true,
-                                    userId: true,
-                                    platform: true,
-                                    userName: true,
-                                    followerCount: true,
-                                    engagementRate: true,
-                                    averageLikes: true,
-                                    averageComments: true,
-                                    averageShares: true,
-                                    price: true,
-                                    status: true,
-                                    createsAt: true,
-                                    updatedAt: true,
-                                },
-                            },
+                            socialMediaPlatforms: true,
                             brandData: true,
                             countryData: true,
                             stateData: true,
@@ -2346,24 +2161,7 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
                     },
                     businessOrderData: {
                         include: {
-                            socialMediaPlatforms: {
-                                select: {
-                                    id: true,
-                                    image: true,
-                                    userId: true,
-                                    platform: true,
-                                    userName: true,
-                                    followerCount: true,
-                                    engagementRate: true,
-                                    averageLikes: true,
-                                    averageComments: true,
-                                    averageShares: true,
-                                    price: true,
-                                    status: true,
-                                    createsAt: true,
-                                    updatedAt: true,
-                                },
-                            },
+                            socialMediaPlatforms: true,
                             brandData: true,
                             countryData: true,
                             stateData: true,

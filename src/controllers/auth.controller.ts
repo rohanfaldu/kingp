@@ -322,7 +322,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(newUser.id);
     const userResponse = {
         ...newUsers,
-        socialMediaPlatforms: newUser.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+        // socialMediaPlatforms: newUser.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
         categories: userCategoriesWithSubcategories,
         countryName: newUser.countryData?.name ?? null,
         stateName: newUser.stateData?.name ?? null,
@@ -528,7 +528,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         const userResponse = {
             ...userWithoutPassword,
-            socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+            // socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -693,7 +693,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         const responseUser = {
             ...users,
-            socialMediaPlatforms: users.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+            // socialMediaPlatforms: users.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -1127,7 +1127,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
                 return {
                     ...userData,
-                    socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                    // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                     categories: userCategoriesWithSubcategories,
                     countryName: userData.countryData?.name ?? null,
                     stateName: userData.stateData?.name ?? null,
@@ -1426,25 +1426,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 prisma.user.findMany({
                     where: whereFilter,
                     include: {
-                        // socialMediaPlatforms: true,
-                        socialMediaPlatforms: {
-                            select: {
-                                id: true,
-                                image: true,
-                                userId: true,
-                                platform: true,
-                                userName: true,
-                                followerCount: true,
-                                engagementRate: true,
-                                averageLikes: true,
-                                averageComments: true,
-                                averageShares: true,
-                                price: true,
-                                status: true,
-                                createsAt: true,
-                                updatedAt: true,
-                            }
-                        },
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1559,25 +1541,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                             include: {
                                 groupUserData: {
                                     include: {
-                                        socialMediaPlatforms: {
-                                            select: {
-                                                id: true,
-                                                image: true,
-                                                userId: true,
-                                                platform: true,
-                                                userName: true,
-                                                followerCount: true,
-                                                engagementRate: true,
-                                                averageLikes: true,
-                                                averageComments: true,
-                                                averageShares: true,
-                                                price: true,
-                                                status: true,
-                                                createsAt: true,
-                                                updatedAt: true,
-                                                viewCount: true
-                                            }
-                                        },
+                                        socialMediaPlatforms: true,
                                         brandData: true,
                                         countryData: true,
                                         stateData: true,
@@ -1611,7 +1575,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
-                socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -1659,24 +1623,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                             where: { id: { in: acceptedInvitedUserIds } },
                             include: {
                                 UserDetail: true,
-                                socialMediaPlatforms: {
-                                    select: {
-                                        id: true,
-                                        image: true,
-                                        userId: true,
-                                        platform: true,
-                                        userName: true,
-                                        followerCount: true,
-                                        engagementRate: true,
-                                        averageLikes: true,
-                                        averageComments: true,
-                                        averageShares: true,
-                                        price: true,
-                                        status: true,
-                                        createsAt: true,
-                                        updatedAt: true,
-                                    }
-                                },
+                                socialMediaPlatforms: true,
                                 brandData: true,
                                 countryData: true,
                                 stateData: true,
@@ -2365,7 +2312,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
         const userResponse = {
             ...newUsers,
-            socialMediaPlatforms: newUsers.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+            // socialMediaPlatforms: newUsers.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,

@@ -164,7 +164,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
 
             return {
                 ...userData,
-                socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -355,7 +355,7 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
             const { password: _, socialMediaPlatform: __, ...userData } = user;
             return {
                 ...userData,
-                socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -489,7 +489,7 @@ export const getGroupById = async (req: Request, res: Response): Promise<any> =>
             const { password: _, socialMediaPlatform: __, ...userData } = user;
             return {
                 ...userData,
-                socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -791,7 +791,7 @@ export const getAllGroups = async (req: Request, res: Response): Promise<any> =>
             const { password: _, ...userData } = user;
             return {
                 ...userData,
-                socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -1013,7 +1013,7 @@ export const respondToGroupInvite = async (req: Request, res: Response): Promise
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
-                socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -1204,7 +1204,7 @@ export const listGroupInvitesByStatus = async (req: Request, res: Response): Pro
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
-                socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -1409,7 +1409,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<any
 
             return {
                 ...userData,
-                socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -1958,7 +1958,7 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
-                socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -2379,7 +2379,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
 
             return {
                 ...userData,
-                socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
+                // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
