@@ -179,7 +179,6 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
                         'is-force-stop',
                         'app-under-maintenance',
                         'under-maintenance-message',
-                        'message',
                     ],
                 },
             }
