@@ -113,7 +113,7 @@ export const groupCreate = async (req: Request, res: Response): Promise<any> => 
                     groupUserId: adminGroupUser.id,
                     adminUserId: userId,
                     invitedUserId: invitedId,
-                    status: false,
+                    status: true,
                     requestAccept: RequestStatus.PENDING,
                 },
             });
@@ -703,7 +703,9 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
         const currentOrder = await prisma.orders.findMany({
             where: { groupId: groupId, status: 'DECLINED' },
         });
+        console.log(currentOrder, ">>>>>>>>>> currentOrder")
         if (currentOrder.length > 0) {
+            
             currentOrder.map(async (orderInfo) => {
                 if (orderInfo.finalAmount) {
                     const refundAmountInPaise = orderInfo.finalAmount;
@@ -719,6 +721,8 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
                                 paymentStatus: PaymentStatus.REFUND
                             }
                         });
+                        console.log(paymentRefundResponse, '>>>>>>>>>>>>>>> paymentRefundResponse Success');
+
                     } else {
                         return response.error(res, `Payment was not Decline`);
                     }
@@ -728,8 +732,6 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
 
             })
         }
-
-
 
         return response.success(res, 'Group deleted successfully!', null);
 

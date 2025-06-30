@@ -185,10 +185,19 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             }
         });
 
-         // Transform into an object: { slug: value }
+        // Transform into an object: { slug: value }
         const appSettingsData = appVersionData.reduce((acc, setting) => {
             if (setting.slug && setting.value != null) {
-                acc[setting.slug] = setting.value;
+                if (setting.slug === "app-under-maintenance") {
+                    const value = (setting.value === "true") ? true : false;
+                    acc[setting.slug] = value;
+                } else if (setting.slug === "is-force-stop") {
+                    const value = (setting.value === "true") ? true : false;
+                    acc[setting.slug] = value;
+                } else {
+                    acc[setting.slug] = setting.value;
+                }
+
             }
             return acc;
         }, {} as Record<string, string>);
@@ -477,7 +486,6 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
                         'is-force-stop',
                         'app-under-maintenance',
                         'under-maintenance-message',
-                        'message',
                     ],
                 },
             }
@@ -486,7 +494,16 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
         // Transform into an object: { slug: value }
         const appSettingsData = appVersionData.reduce((acc, setting) => {
             if (setting.slug && setting.value != null) {
-                acc[setting.slug] = setting.value;
+                if (setting.slug === "app-under-maintenance") {
+                    const value = (setting.value === "true") ? true : false;
+                    acc[setting.slug] = value;
+                } else if (setting.slug === "is-force-stop") {
+                    const value = (setting.value === "true") ? true : false;
+                    acc[setting.slug] = value;
+                } else {
+                    acc[setting.slug] = setting.value;
+                }
+
             }
             return acc;
         }, {} as Record<string, string>);

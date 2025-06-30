@@ -23,7 +23,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
     try {
         const orderData: IOrder = req.body;
         const {
-            groupId,
             businessId,
             influencerId,
             completionDate,
@@ -33,18 +32,18 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         if (!businessId) {
             return res.status(400).json({ error: 'businessId is required' });
         }
-
-        if (groupId) {
+        
+        if (orderData.groupId) {
             // Step 1: Fetch invited users (with requestAccept) and adminUserId for the group
             const groupUsersList = await prisma.groupUsersList.findMany({
-                where: { groupId, status: true },
+                where: { groupId: orderData.groupId, status: true },
                 select: {
                     invitedUserId: true,
                     adminUserId: true,
                     requestAccept: true,
                 },
             });
-
+            console.log(groupUsersList, " >>>>>>>>>> groupUsersList")
             if (groupUsersList.length === 0) {
                 return response.error(res, 'No group members found.');
             }
@@ -122,6 +121,12 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         } else {
             parsedCompletionDate = completionDate;
         }
+        console.log(restFields, " >>>>>>>>>>> restFields");
+        console.log(businessId, " >>>>>>>>>>> businessId");
+        console.log(influencerId, " >>>>>>>>>>> influencerId");
+        console.log(parsedCompletionDate, " >>>>>>>>>>> parsedCompletionDate");
+        console.log(statusEnumValue, " >>>>>>>>>>> statusEnumValue");
+
 
         const newOrder = await prisma.orders.create({
             data: {
@@ -167,7 +172,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                 cityName: user.cityData?.name ?? null,
             };
         };
-
+        
         const responseData = {
             ...newOrder,
             influencerOrderData: await formatUser(newOrder.influencerOrderData),

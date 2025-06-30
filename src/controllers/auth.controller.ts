@@ -64,7 +64,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         subcategoriesId = [],
         ...userFields
     } = req.body;
-
+    // console.log(emailAddress, '>>>>>>>>>>>> emailAddress');
     const normalizedLoginType =
         loginType === null || loginType === 'NULL' || loginType === undefined
             ? LoginType.NONE
@@ -75,42 +75,68 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         return response.error(res, 'Password is required for email-password signup.');
     }
 
-    // const existingUser = await prisma.user.findUnique({ where: { emailAddress, status: true } });
-    // if (existingUser) {
-    //     const message =
-    //         existingUser.loginType === 'NONE'
-    //             ? 'Email already registered with email & password.'
-    //             : `Email already registered via ${existingUser.loginType}.`;
-
-
-    //     return response.error(res, message);
-    // }
-
     const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
-
     if (existingUser) {
-        // Case 1: Block signup if active user exists
-        if (existingUser.status === true) {
-            const message =
-                existingUser.loginType === 'NONE'
-                    ? 'Email already registered with email & password.'
-                    : `Email already registered via ${existingUser.loginType}.`;
-            return response.error(res, message);
-        }
+        const message =
+            existingUser.loginType === 'NONE'
+                ? 'Email already registered with email & password.'
+                : `Email already registered via ${existingUser.loginType}.`;
 
-        // Case 2: If inactive/deleted user found, delete it so we can create a new one
-        await prisma.user.deleteMany({
-            where: {
-                OR: [{ emailAddress }],
-                status: false,
-            },
-        });
+
+        return response.error(res, message);
     }
 
+    // const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
 
-    console.log(existingUser, '>>>>>>>>>>>> existingUser');
+    // console.log(existingUser, '>>>>>>>>>>>> existingUser');
+    // return false;
 
+    // if (existingUser) {
+    //     // Case 1: Block signup if active user exists
+    //     if (existingUser.status === true) {
+    //         const message =
+    //             existingUser.loginType === 'NONE'
+    //                 ? 'Email already registered with email & password.'
+    //                 : `Email already registered via ${existingUser.loginType}.`;
+    //         return response.error(res, message);
+    //     }
 
+    //     // Case 2: If inactive/deleted user found, delete it so we can create a new one
+
+    //     await prisma.$transaction([
+    //         prisma.userDetail.deleteMany({
+    //             where: { userId: existingUser.id },
+    //         }),
+    //         prisma.socialMediaPlatform.deleteMany({
+    //             where: { userId: existingUser.id },
+    //         }),
+    //         prisma.userSubCategory.deleteMany({
+    //             where: { userId: existingUser.id },
+    //         }),
+    //         prisma.otpVerify.deleteMany({
+    //             where: { emailAddress: existingUser.emailAddress },
+    //         }),
+    //         prisma.referralCoinSummary.deleteMany({
+    //             where: { userId: existingUser.id },
+    //         }),
+    //         prisma.referral.deleteMany({
+    //             where: {
+    //                 OR: [
+    //                     { referrerId: existingUser.id },
+    //                     { referredUserId: existingUser.id }
+    //                 ]
+    //             }
+    //         }),
+    //         prisma.coinTransaction.deleteMany({
+    //             where: { userId: existingUser.id },
+    //         }),
+    //         prisma.userAuthToken.deleteMany({
+    //             where: { userId: existingUser.id },
+    //         }),
+    //     ]);
+    // }
+
+    // return false;
     const hashedPassword = normalizedLoginType === LoginType.NONE ? await bcrypt.hash(password, 10) : undefined;
     const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
     if (birthDate && !formattedBirthDate) {
@@ -1083,7 +1109,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             status: true,
             userData: {
                 some: {
-                    verified: true, 
+                    verified: true,
                 }
             },
         };
@@ -1853,33 +1879,33 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
                             },
                         });
-                            const currentOrder = await prisma.orders.findMany({
-                                where: { groupId: groupData.groupId, status: 'DECLINED' },
-                            });
-                            console.log(currentOrder, '>>>>>>>>>> currentOrder');
-                            if (currentOrder.length > 0) {
-                                currentOrder.map(async (orderInfo) => {
-                                    if (orderInfo.finalAmount) {
-                                        const refundAmountInPaise = orderInfo.finalAmount;
-                                        const razorpayPaymentId = orderInfo.transactionId;
-                                        console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
-                                        console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
+                        const currentOrder = await prisma.orders.findMany({
+                            where: { groupId: groupData.groupId, status: 'DECLINED' },
+                        });
+                        console.log(currentOrder, '>>>>>>>>>> currentOrder');
+                        if (currentOrder.length > 0) {
+                            currentOrder.map(async (orderInfo) => {
+                                if (orderInfo.finalAmount) {
+                                    const refundAmountInPaise = orderInfo.finalAmount;
+                                    const razorpayPaymentId = orderInfo.transactionId;
+                                    console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
+                                    console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
 
-                                        const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
-                                        if (paymentRefundResponse) {
-                                            await prisma.orders.update({
-                                                where: { id: orderInfo.id },
-                                                data: {
-                                                    paymentStatus: PaymentStatus.REFUND
-                                                }
-                                            });
-                                        } else {
-                                            return response.error(res, `Payment was not Decline`);
-                                        }
-
+                                    const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                                    if (paymentRefundResponse) {
+                                        await prisma.orders.update({
+                                            where: { id: orderInfo.id },
+                                            data: {
+                                                paymentStatus: PaymentStatus.REFUND
+                                            }
+                                        });
+                                    } else {
+                                        return response.error(res, `Payment was not Decline`);
                                     }
 
-                                })
+                                }
+
+                            })
                         }
                     }
                 } else {
@@ -1921,30 +1947,30 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                     });
                     console.log(currentOrder, '>>>>>>>>>> currentOrder 2');
 
-                        if (currentOrder.length > 0) {
-                            currentOrder.map(async (orderInfo) => {
-                                if (orderInfo.finalAmount) {
-                                    const refundAmountInPaise = orderInfo.finalAmount;
-                                    const razorpayPaymentId = orderInfo.transactionId;
-                                    console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 2');
-                                    console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 2');
+                    if (currentOrder.length > 0) {
+                        currentOrder.map(async (orderInfo) => {
+                            if (orderInfo.finalAmount) {
+                                const refundAmountInPaise = orderInfo.finalAmount;
+                                const razorpayPaymentId = orderInfo.transactionId;
+                                console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 2');
+                                console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 2');
 
-                                    const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
-                                    if (paymentRefundResponse) {
-                                        await prisma.orders.update({
-                                            where: { id: orderInfo.id },
-                                            data: {
-                                                paymentStatus: PaymentStatus.REFUND
-                                            }
-                                        });
-                                    } else {
-                                        return response.error(res, `Payment was not Decline`);
-                                    }
-
+                                const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                                if (paymentRefundResponse) {
+                                    await prisma.orders.update({
+                                        where: { id: orderInfo.id },
+                                        data: {
+                                            paymentStatus: PaymentStatus.REFUND
+                                        }
+                                    });
+                                } else {
+                                    return response.error(res, `Payment was not Decline`);
                                 }
 
-                            });
-                        }
+                            }
+
+                        });
+                    }
                 }
             }
 
@@ -2224,15 +2250,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         let calculatedProfileCompletion = 0;
 
         if (existingUser.type === UserType.INFLUENCER) {
-            // const userSubCategories = (updatedSubcategories || []).map((id: string) => ({
-            //     subCategoryId: id
-            // }));
-
-            // calculatedProfileCompletion = calculateProfileCompletion({
-            //     ...profileCompletionData,
-            //     userSubCategories,
-            // });
-            console.log(id, ">>>>>>>>>>> Id")
             const userData = await prisma.user.findFirst({
                 where: { id: id }
             });
