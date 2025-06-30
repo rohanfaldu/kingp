@@ -23,6 +23,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
     try {
         const orderData: IOrder = req.body;
         const {
+            groupId,
             businessId,
             influencerId,
             completionDate,
@@ -41,7 +42,19 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             if (!influencer) {
                 return response.error(res, 'Invalid influencer ID provided.');
             }
+            // ✅ Check if bank details exist for this influencer
+            const bankDetails = await prisma.userBankDetails.findFirst({
+                where: {
+                    userId: influencerId,
+                    status: true,
+                },
+            });
+
+            if (!bankDetails) {
+                return response.error(res, 'Influencer must add bank details before receiving offers.');
+            }
         }
+
 
         let parsedCompletionDate: Date | undefined = undefined;
         const statusEnumValue = getStatusName(restFields.status ?? 0);
@@ -385,6 +398,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
         if (!currentOrder) return response.error(res, 'Order not found');
 
+        if (status === 3 && statusEnumValue === OfferStatus.ACTIVATED) {
+            await prisma.orders.update({
+                where: { id },
+                data: {
+                    paymentStatus: PaymentStatus.COMPLETED
+                }
+            });
+        }
 
         // // REFUND LOGIC FOR CANCELED ORDERS
         if (status === 6 && statusEnumValue === OfferStatus.DECLINED) {
@@ -400,6 +421,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         await prisma.orders.update({
                             where: { id },
                             data: {
+                                status: OfferStatus.DECLINED,
                                 paymentStatus: PaymentStatus.REFUND
                             }
                         });

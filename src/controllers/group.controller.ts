@@ -4,12 +4,13 @@ import { IGroup } from '../interfaces/group.interface';
 import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { resolveStatus } from '../utils/commonFunction'
-import { OfferStatus, PaymentStatus, RequestStatus, Role } from '../enums/userType.enum';
+import { OfferStatus, PaymentStatus, RequestStatus } from '../enums/userType.enum';
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
 import { paginate } from '../utils/pagination';
 import admin from 'firebase-admin';
 import { sendFCMNotificationToUsers } from '../utils/notification';
 import { paymentRefund } from "../utils/commonFunction";
+
 const prisma = new PrismaClient();
 
 
@@ -698,6 +699,34 @@ export const deleteGroup = async (req: Request, res: Response): Promise<any> => 
                 reason: 'Order cancelled due to deletion of the associated group.'
             },
         });
+        const currentOrder = await prisma.orders.findMany({
+            where: { groupId: groupId, status: 'DECLINED' },
+        });
+        if (currentOrder.length > 0) {
+            currentOrder.map(async (orderInfo) => {
+                if (orderInfo.finalAmount) {
+                    const refundAmountInPaise = orderInfo.finalAmount;
+                    const razorpayPaymentId = orderInfo.transactionId;
+                    console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise');
+                    console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId');
+
+                    const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                    if (paymentRefundResponse) {
+                        await prisma.orders.update({
+                            where: { id: orderInfo.id },
+                            data: {
+                                paymentStatus: PaymentStatus.REFUND
+                            }
+                        });
+                    } else {
+                        return response.error(res, `Payment was not Decline`);
+                    }
+
+                }
+
+            })
+        }
+
 
 
         return response.success(res, 'Group deleted successfully!', null);
@@ -2216,7 +2245,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                         where: { groupId: groupId, status: 'DECLINED' },
                     });
                     if (currentOrder.length > 0) {
-                        currentOrder.map( async (orderInfo) => {
+                        currentOrder.map(async (orderInfo) => {
                             if (orderInfo.finalAmount) {
                                 const refundAmountInPaise = orderInfo.finalAmount;
                                 //const refundAmountInPaise = 1;
@@ -2230,7 +2259,7 @@ export const deleteMemberFromGroup = async (req: Request, res: Response): Promis
                                             paymentStatus: PaymentStatus.REFUND
                                         }
                                     });
-                                   // return response.success(res, 'Order and Payment Refund Successfully', null);
+                                    // return response.success(res, 'Order and Payment Refund Successfully', null);
                                 } else {
                                     return response.error(res, `Payment was not Decline`);
                                 }

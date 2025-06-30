@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { IUser } from '../interfaces/user.interface';
 import * as bcrypt from 'bcryptjs';
-import { UserType, Gender, LoginType, AvailabilityType } from '../enums/userType.enum';
+import { UserType, Gender, LoginType, AvailabilityType, PaymentStatus } from '../enums/userType.enum';
 import response from '../utils/response';
 import { resolveStatus } from '../utils/commonFunction'
 import jwt from 'jsonwebtoken';
@@ -19,6 +19,7 @@ import { contains } from "class-validator/types";
 import { generateUniqueReferralCode } from '../utils/referral';
 import { CoinType } from '@prisma/client';
 import { subMonths } from 'date-fns';
+import { paymentRefund } from "../utils/commonFunction";
 
 
 
@@ -74,15 +75,41 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         return response.error(res, 'Password is required for email-password signup.');
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { emailAddress, status: true } });
-    if (existingUser) {
-        const message =
-            existingUser.loginType === 'NONE'
-                ? 'Email already registered with email & password.'
-                : `Email already registered via ${existingUser.loginType}.`;
+    // const existingUser = await prisma.user.findUnique({ where: { emailAddress, status: true } });
+    // if (existingUser) {
+    //     const message =
+    //         existingUser.loginType === 'NONE'
+    //             ? 'Email already registered with email & password.'
+    //             : `Email already registered via ${existingUser.loginType}.`;
 
-        return response.error(res, message);
+
+    //     return response.error(res, message);
+    // }
+
+    const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
+
+    if (existingUser) {
+        // Case 1: Block signup if active user exists
+        if (existingUser.status === true) {
+            const message =
+                existingUser.loginType === 'NONE'
+                    ? 'Email already registered with email & password.'
+                    : `Email already registered via ${existingUser.loginType}.`;
+            return response.error(res, message);
+        }
+
+        // Case 2: If inactive/deleted user found, delete it so we can create a new one
+        await prisma.user.deleteMany({
+            where: {
+                OR: [{ emailAddress }],
+                status: false,
+            },
+        });
     }
+
+
+    console.log(existingUser, '>>>>>>>>>>>> existingUser');
+
 
     const hashedPassword = normalizedLoginType === LoginType.NONE ? await bcrypt.hash(password, 10) : undefined;
     const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
@@ -1368,7 +1395,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const whereFilter: any = { ...filter, status: true, };
         if (andFilters.length > 0) whereFilter.AND = andFilters;
         if (search) {
-            whereFilter.name = { contains: search, mode: 'insensitive' };
+            whereFilter.name = { startsWith: search, mode: 'insensitive' };
         }
 
         // Determine what data to fetch based on subtype
@@ -1766,7 +1793,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             },
             orderBy: { updatedAt: 'asc' },
         });
-        console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
+        // console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
         if (nextAdminEntry.length > 0) {
 
             for (const groupData of nextAdminEntry) {
@@ -1861,6 +1888,34 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
                             },
                         });
+                    //     const currentOrder = await prisma.orders.findMany({
+                    //         where: { groupId: groupData.groupId, status: 'DECLINED' },
+                    //     });
+                    //     console.log(currentOrder, '>>>>>>>>>> currentOrder');
+                    //     if (currentOrder.length > 0) {
+                    //         currentOrder.map(async (orderInfo) => {
+                    //             if (orderInfo.finalAmount) {
+                    //                 const refundAmountInPaise = orderInfo.finalAmount;
+                    //                 const razorpayPaymentId = orderInfo.transactionId;
+                    //                 console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
+                    //                 console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
+
+                    //                 const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                    //                 if (paymentRefundResponse) {
+                    //                     await prisma.orders.update({
+                    //                         where: { id: orderInfo.id },
+                    //                         data: {
+                    //                             paymentStatus: PaymentStatus.REFUND
+                    //                         }
+                    //                     });
+                    //                 } else {
+                    //                     return response.error(res, `Payment was not Decline`);
+                    //                 }
+
+                    //             }
+
+                    //         })
+                        // }
                     }
                 } else {
                     // No invited users - cleanup group data
@@ -1896,6 +1951,35 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                             reason: 'Order cancelled due to deletion of the associated group.'
                         },
                     });
+                    const currentOrder = await prisma.orders.findMany({
+                        where: { groupId: groupData.groupId, status: 'DECLINED' },
+                    });
+                    console.log(currentOrder, '>>>>>>>>>> currentOrder 2');
+
+                    //     if (currentOrder.length > 0) {
+                    //         currentOrder.map(async (orderInfo) => {
+                    //             if (orderInfo.finalAmount) {
+                    //                 const refundAmountInPaise = orderInfo.finalAmount;
+                    //                 const razorpayPaymentId = orderInfo.transactionId;
+                    //                 console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 2');
+                    //                 console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 2');
+
+                    //                 const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                    //                 if (paymentRefundResponse) {
+                    //                     await prisma.orders.update({
+                    //                         where: { id: orderInfo.id },
+                    //                         data: {
+                    //                             paymentStatus: PaymentStatus.REFUND
+                    //                         }
+                    //                     });
+                    //                 } else {
+                    //                     return response.error(res, `Payment was not Decline`);
+                    //                 }
+
+                    //             }
+
+                    //         });
+                    //     }
                 }
             }
 
@@ -1934,6 +2018,36 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                     reason: 'Order cancelled due to deletion of the associated influencer.'
                 },
             });
+            const currentOrder = await prisma.orders.findMany({
+                where: { influencerId: id },
+            });
+            console.log(currentOrder, '>>>>>>>>>> currentOrder 3');
+
+            // if (currentOrder.length > 0) {
+            //     currentOrder.map(async (orderInfo) => {
+            //         if (orderInfo.finalAmount) {
+            //             const refundAmountInPaise = orderInfo.finalAmount;
+            //             const razorpayPaymentId = orderInfo.transactionId;
+            //             console.log(orderInfo, '>>>>>>>>>>>>>>> orderInfo 3');
+            //             console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 3');
+            //             console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 3');
+
+            //             const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+            //             if (paymentRefundResponse) {
+            //                 await prisma.orders.update({
+            //                     where: { id: orderInfo.id },
+            //                     data: {
+            //                         paymentStatus: PaymentStatus.REFUND
+            //                     }
+            //                 });
+            //             } else {
+            //                 return response.error(res, `Payment was not Decline`);
+            //             }
+
+            //         }
+
+            //     });
+            // }
         } else {
             const groupUserEntry = await prisma.groupUsers.findMany({
                 where: {
@@ -1996,7 +2110,34 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         reason: 'Order cancelled due to deletion of the associated influencer.'
                     },
                 });
+            const currentOrder = await prisma.orders.findMany({
+                where: { influencerId: id, status: 'DECLINED' },
+            });
+            console.log(currentOrder, '>>>>>>>>>>>>>> currentOrder');
+            if (currentOrder.length > 0) {
+                currentOrder.map(async (orderInfo) => {
+                    if (orderInfo.finalAmount) {
+                        const refundAmountInPaise = orderInfo.finalAmount;
+                        const razorpayPaymentId = orderInfo.transactionId;
+                        console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise');
+                        console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId');
 
+                        const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                        if (paymentRefundResponse) {
+                            await prisma.orders.update({
+                                where: { id: orderInfo.id },
+                                data: {
+                                    paymentStatus: PaymentStatus.REFUND
+                                }
+                            });
+                        } else {
+                            return response.error(res, `Payment was not Decline`);
+                        }
+
+                    }
+
+                });
+            }
         }
         response.success(res, 'User Deleted successfully', null);
 
