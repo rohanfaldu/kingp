@@ -255,12 +255,18 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
         // Update review status in order
         const updateData: any = {};
 
-        const groupAdmin = await prisma.groupUsers.findFirst({
-            where: {
-                groupId: order.groupId
-            },
-            select: { userId: true },
-        });
+        // Before querying, check if groupId exists
+        let groupAdmin = null;
+        if (order.groupId) {  // or whatever variable contains the groupId
+            groupAdmin = await prisma.groupUsers.findFirst({
+                where: {
+                    groupId: order.groupId
+                },
+                select: {
+                    userId: true
+                }
+            });
+        }
 
         const adminUserId = groupAdmin?.userId;
 
