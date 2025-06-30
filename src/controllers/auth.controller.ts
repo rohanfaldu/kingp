@@ -2460,28 +2460,28 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         });
 
         // If user exists with socialId
-        // if (user) {
-        //     // If user is inactive, reactivate them
-        //     if (!user.status) {
-        //         user = await prisma.user.update({
-        //             where: { id: user.id },
-        //             data: {
-        //                 name: name || user.name,
-        //                 userImage: userImage || user.userImage,
-        //                 status: true,
-        //                 // Update email if provided and different
-        //                 ...(emailAddress && emailAddress !== user.emailAddress && { emailAddress }),
-        //             },
-        //             include: {
-        //                 socialMediaPlatforms: true,
-        //                 brandData: true,
-        //                 countryData: true,
-        //                 stateData: true,
-        //                 cityData: true,
-        //             },
-        //         });
-        //     }
-        // } else {
+        if (user) {
+            // If user is inactive, reactivate them
+            if (!user.status) {
+                user = await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        name: name || user.name,
+                        userImage: userImage || user.userImage,
+                        // status: true,
+                        // Update email if provided and different
+                        ...(emailAddress && emailAddress !== user.emailAddress && { emailAddress }),
+                    },
+                    include: {
+                        socialMediaPlatforms: true,
+                        brandData: true,
+                        countryData: true,
+                        stateData: true,
+                        cityData: true,
+                    },
+                });
+            }
+        } else {
             // No user found with socialId, check if email is already taken
             if (emailAddress) {
                 const existingEmailUser = await prisma.user.findFirst({
@@ -2522,7 +2522,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                     cityData: true,
                 },
             });
-        // }
+        }
 
         // Generate JWT token
         const token = jwt.sign(
