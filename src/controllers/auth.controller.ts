@@ -1077,7 +1077,16 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
             });
         }
 
-        const whereFilter: any = { ...filter, status: true, };
+        // const whereFilter: any = { ...filter, status: true, };
+        const whereFilter: any = {
+            ...filter,
+            status: true,
+            userData: {
+                some: {
+                    verified: true, 
+                }
+            },
+        };
         if (andFilters.length > 0) {
             whereFilter.AND = andFilters;
         }
@@ -1392,7 +1401,16 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         }
 
 
-        const whereFilter: any = { ...filter, status: true, };
+        // const whereFilter: any = { ...filter, status: true, };
+        const whereFilter: any = {
+            ...filter,
+            status: true,
+            userData: {
+                some: {
+                    verified: true, // ✅ only verified users
+                }
+            },
+        };
         if (andFilters.length > 0) whereFilter.AND = andFilters;
         if (search) {
             whereFilter.name = { startsWith: search, mode: 'insensitive' };
@@ -1888,33 +1906,33 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
                             },
                         });
-                    //     const currentOrder = await prisma.orders.findMany({
-                    //         where: { groupId: groupData.groupId, status: 'DECLINED' },
-                    //     });
-                    //     console.log(currentOrder, '>>>>>>>>>> currentOrder');
-                    //     if (currentOrder.length > 0) {
-                    //         currentOrder.map(async (orderInfo) => {
-                    //             if (orderInfo.finalAmount) {
-                    //                 const refundAmountInPaise = orderInfo.finalAmount;
-                    //                 const razorpayPaymentId = orderInfo.transactionId;
-                    //                 console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
-                    //                 console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
+                        //     const currentOrder = await prisma.orders.findMany({
+                        //         where: { groupId: groupData.groupId, status: 'DECLINED' },
+                        //     });
+                        //     console.log(currentOrder, '>>>>>>>>>> currentOrder');
+                        //     if (currentOrder.length > 0) {
+                        //         currentOrder.map(async (orderInfo) => {
+                        //             if (orderInfo.finalAmount) {
+                        //                 const refundAmountInPaise = orderInfo.finalAmount;
+                        //                 const razorpayPaymentId = orderInfo.transactionId;
+                        //                 console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
+                        //                 console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
 
-                    //                 const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
-                    //                 if (paymentRefundResponse) {
-                    //                     await prisma.orders.update({
-                    //                         where: { id: orderInfo.id },
-                    //                         data: {
-                    //                             paymentStatus: PaymentStatus.REFUND
-                    //                         }
-                    //                     });
-                    //                 } else {
-                    //                     return response.error(res, `Payment was not Decline`);
-                    //                 }
+                        //                 const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
+                        //                 if (paymentRefundResponse) {
+                        //                     await prisma.orders.update({
+                        //                         where: { id: orderInfo.id },
+                        //                         data: {
+                        //                             paymentStatus: PaymentStatus.REFUND
+                        //                         }
+                        //                     });
+                        //                 } else {
+                        //                     return response.error(res, `Payment was not Decline`);
+                        //                 }
 
-                    //             }
+                        //             }
 
-                    //         })
+                        //         })
                         // }
                     }
                 } else {
