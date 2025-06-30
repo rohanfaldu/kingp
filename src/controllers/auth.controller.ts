@@ -2441,7 +2441,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
 export const socialLogin = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { socialId, name, emailAddress, userImage } = req.body;
+        const { socialId, name, emailAddress, userImage, loginType } = req.body;
 
         if (!socialId) {
             return response.error(res, 'socialId is required.');
@@ -2496,7 +2496,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                 }
             }
 
-            // Create new user
+            // Create new user with required fields
             const createData: any = {
                 socialId,
                 name: name || 'Social User',
@@ -2504,17 +2504,13 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                 type: 'INFLUENCER',
                 status: true,
                 profileCompletion: 0,
+                password: 'SOCIAL_LOGIN_NO_PASSWORD', // Default password
+                loginType: loginType || 'GOOGLE', // Default to GOOGLE if not specified
             };
 
-            // Only add emailAddress if provided
             if (emailAddress) {
                 createData.emailAddress = emailAddress;
             }
-
-            // Add password and loginType only if they are required fields
-            // Uncomment these if your schema requires them:
-            // createData.password = 'SOCIAL_LOGIN';
-            // createData.loginType = 'GOOGLE';
 
             user = await prisma.user.create({
                 data: createData,
@@ -2539,7 +2535,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
         // Remove sensitive data from response
-        const { password, socialMediaPlatform, ...userWithoutSensitive } = user as any;
+        const { password, ...userWithoutSensitive } = user as any;
 
         const userResponse = {
             ...userWithoutSensitive,
