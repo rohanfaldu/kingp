@@ -16,7 +16,8 @@ export const sendFCMNotificationToUsers = async (
   users: { id: number, fcmToken?: string | null }[],
   title: string,
   body: string,
-  type: string = 'INFO'
+  type: string = 'INFO',
+  orderId?: string,
 ) => {
   await Promise.all(users.map(async (user) => {
     if (!user.fcmToken) return;
@@ -30,6 +31,7 @@ export const sendFCMNotificationToUsers = async (
         title,
         body,
         type,
+        orderId: orderId?.toString() || '',
       },
       token: user.fcmToken,
     };
@@ -44,6 +46,7 @@ export const sendFCMNotificationToUsers = async (
           message: body,
           type,
           status: 'SENT',
+          orderId,
         },
       });
     } catch (error: any) {
@@ -57,6 +60,7 @@ export const sendFCMNotificationToUsers = async (
           type,
           status: 'FAILED',
           error: error.message,
+          orderId,
         },
       });
     }

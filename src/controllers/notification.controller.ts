@@ -22,7 +22,7 @@ if (!admin.apps.length) {
 const prisma = new PrismaClient();
 
 export const sendNotification = async (req: Request, res: Response): Promise<any> => {
-    const { userId, message, type, fcmToken, title } = req.body;
+    const { userId, message, type, fcmToken, title, orderId  } = req.body;
 
     if (!userId || !message || !fcmToken) {
         return res.status(400).json({
@@ -41,6 +41,7 @@ export const sendNotification = async (req: Request, res: Response): Promise<any
             title: title || 'Notification Title',
             body: message,
             type: type || 'INFO',
+            orderId: orderId || '',
         },
         token: fcmToken,
     };
@@ -55,6 +56,7 @@ export const sendNotification = async (req: Request, res: Response): Promise<any
                 message,
                 type: type || 'INFO',
                 status: 'SENT',
+                orderId,
             },
         });
 
@@ -75,6 +77,7 @@ export const sendNotification = async (req: Request, res: Response): Promise<any
                 type: type || 'INFO',
                 status: 'FAILED',
                 error: error.message,
+                orderId,
             },
         });
 

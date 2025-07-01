@@ -419,6 +419,7 @@ model Notification {
   message               String?
   type                  String?   @default("INFO")
   status                String    @default("SENT")
+  orderId               String?   @db.VarChar
   error                 String?
   createdAt             DateTime? @default(now()) @db.Timestamp(6)
   updatedAt             DateTime? @default(now()) @db.Timestamp(6)

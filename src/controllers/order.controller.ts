@@ -32,7 +32,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         if (!businessId) {
             return res.status(400).json({ error: 'businessId is required' });
         }
-        
+
         if (orderData.groupId) {
             // Step 1: Fetch invited users (with requestAccept) and adminUserId for the group
             const groupUsersList = await prisma.groupUsersList.findMany({
@@ -121,12 +121,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         } else {
             parsedCompletionDate = completionDate;
         }
-        console.log(restFields, " >>>>>>>>>>> restFields");
-        console.log(businessId, " >>>>>>>>>>> businessId");
-        console.log(influencerId, " >>>>>>>>>>> influencerId");
-        console.log(parsedCompletionDate, " >>>>>>>>>>> parsedCompletionDate");
-        console.log(statusEnumValue, " >>>>>>>>>>> statusEnumValue");
-
 
         const newOrder = await prisma.orders.create({
             data: {
@@ -172,13 +166,14 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                 cityName: user.cityData?.name ?? null,
             };
         };
-        
+
         const responseData = {
             ...newOrder,
             influencerOrderData: await formatUser(newOrder.influencerOrderData),
             businessOrderData: await formatUser(newOrder.businessOrderData),
             groupOrderData: await formatUser(newOrder.groupOrderData),
         };
+
 
         // Send Notification to Business (from Influencer)
         const businessUser = await prisma.user.findUnique({
@@ -212,12 +207,13 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                 }
             }
 
-
             await sendFCMNotificationToUsers(
                 [{ id: recipientId, fcmToken }],
                 'New Offer Received',
                 `You have received a new Offer from ${senderName}`,
-                'ORDER_CREATED'
+                'ORDER_CREATED',
+                responseData.id
+
             );
         }
 
@@ -585,11 +581,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     // This is a new repeat business if there's exactly 1 previous order (making this the 2nd order)
                     isNewRepeatBusiness = previousOrdersCount === 1;
                 }
-                // console.log(isNewRepeatBusiness, '>>>>>>>>>>>>>>>>>> isNewRepeatBusiness');
 
-                // console.log(existingUserStats, '>>>>>> existingUserStats');
                 let newTotalDeals = 1;
-                console.log(existingUserStats, '>>>>>>>>>>> existingUserStats');
                 if (existingUserStats) {
                     // Update existing UserStats record
                     const currentDeals = existingUserStats.totalDeals ?? 0;
@@ -874,12 +867,13 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         }
                     });
                 }
-
+                console.log(updated, ">>>>>>>>>>>>>>>>> updated");
                 // Send notification to influencers
                 if (influencerUsers.length > 0) {
                     let notificationTitle = '';
                     let notificationBody = '';
                     let notificationType = '';
+                    const orderId = updated.id;
 
                     switch (status) {
                         case 1: // ACCEPTED
@@ -909,7 +903,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                     [user],
                                     notificationTitle,
                                     notificationBody,
-                                    notificationType
+                                    notificationType,
+                                    orderId,
                                 );
                             }
                         } catch (error: any) {
@@ -922,7 +917,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                     message: notificationBody,
                                     type: notificationType,
                                     status: 'ERROR',
-                                    error: error.message || 'FCM notification failed'
+                                    error: error.message || 'FCM notification failed',
+                                    orderId,
                                 }
                             });
                         }
@@ -1153,13 +1149,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             }
 
             if (updated.businessId) {
-                console.log(updated, " >>>>>>>>>>>>>>>> Order Business ID");
-
-
-
-
-
-
 
                 // Add Business Expenss Start
 
@@ -1174,8 +1163,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         totalExpenses: true,
                     },
                 });
-                console.log(currentOrder, '>>>>>>>>>>>>>> Busines currentOrder');
-                console.log(currentOrder.businessId, '>>>>>>>>>>>>>> Busines id');
+
                 // Check if delivery is on time (completionDate should be within the order completion timeline)
                 const isOnTime = currentOrder.completionDate ?
                     new Date(currentOrder.completionDate) >= new Date() : true;
@@ -1190,7 +1178,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                             id: { not: updated.businessId }, // Exclude current order
                         }
                     });
-                    console.log(previousOrdersCount, '>>>>>>>>>>>> previousOrdersCount');
 
                     // This is a new repeat business if there's exactly 1 previous order (making this the 2nd order)
                     isNewRepeatBusiness = previousOrdersCount === 1;
@@ -1207,7 +1194,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     const newExpense = Number(updated.finalAmount);
                     const finalExpenses = Number(totalExpenses) + Number(newExpense);
                     const currentRepeatClient = existingBusinessUserStats.repeatClient ?? 0;
-                    console.log(" >>>>>>>> totalExpenses", totalExpenses, " >>>>>>>>>>>>> finalExpenses ", finalExpenses, ">>>>>>> newExpense", newExpense, ">>>>>>>>>> currentDeals", currentDeals);
+
                     // Calculate average value after incrementing totalDeals
                     const newTotalDeals = currentDeals + 1;
                     const averageValue = newTotalDeals > 0
@@ -1234,12 +1221,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                                     : 0,
                         },
                     });
-
-
                 }
-
-
-                // Add Business Expenss End
 
 
                 // Reward business user with KringP Coins for spending
@@ -1531,8 +1513,6 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             }
         }
 
-        console.log(getOrder, '>>>>>>>>>>>>>>>>>>>>>>>getOrder');
-
         return response.success(res, 'Get All order List', getOrder);
 
     } catch (error: any) {
@@ -1748,7 +1728,7 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                 },
                 businessOrderData: {
                     include: {
-                        socialMediaPlatforms: true, 
+                        socialMediaPlatforms: true,
                         brandData: true,
                         countryData: true,
                         stateData: true,
@@ -1777,7 +1757,8 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
                         [businessUser],
                         notifTitle,
                         notifMessage,
-                        notifType
+                        notifType,
+                        order.id
                     );
                 }
             } catch (error: any) {

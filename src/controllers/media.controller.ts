@@ -37,6 +37,7 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                 where: { id: mediaData.orderId },
                 select: { businessId: true, title: true }
             });
+            console.log(order, '>>>>>>>>>>>>>>>> order');
 
             if (order?.businessId) {
                 const businessUser = await prisma.user.findUnique({
@@ -58,6 +59,7 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                             type: notifType,
                             status: businessUser?.fcmToken ? 'SENT' : 'ERROR',
                             error: businessUser?.fcmToken ? null : 'No FCM token found',
+                            orderId: mediaData.orderId,
                         },
                     });
 
@@ -67,7 +69,8 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                             [businessUser],
                             notifTitle,
                             notifMessage,
-                            notifType
+                            notifType,
+                            mediaData.orderId
                         );
                     }
                 } catch (error: any) {
@@ -80,6 +83,7 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                             type: notifType,
                             status: 'ERROR',
                             error: error.message || 'FCM failed',
+                            orderId: mediaData.orderId,
                         },
                     });
                 }
@@ -225,7 +229,8 @@ export const updateMediaStatus = async (req: Request, res: Response): Promise<an
                 uniqueRecipients,
                 notifTitle,
                 notifMessage,
-                notifType
+                notifType,
+                mediaData.orderId,
             );
         }
 
