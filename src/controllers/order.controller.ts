@@ -256,6 +256,114 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             },
         });
 
+        let businessReview = null;
+        if (order?.businessId) {
+            businessReview = await prisma.ratings.findFirst({
+                where: {
+                    ratedToUserId: order.businessId,
+                    orderId: order.id,
+                },
+                include: {
+                    ratedByUserData: {
+                        select: {
+                            id: true,
+                            type: true,
+                            name: true,
+                            emailAddress: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    createdAt: 'desc', // optional: latest review if more than one
+                },
+            });
+
+            order.businessReviews = businessReview ?? null;
+        } else {
+            order.businessReviews = null;
+        }
+
+        let influencerReview = null;
+        if (order?.influencerId) {
+            influencerReview = await prisma.ratings.findFirst({
+                where: {
+                    ratedToUserId: order.influencerId,
+                    orderId: order.id,
+                },
+                include: {
+                    ratedByUserData: {
+                        select: {
+                            id: true,
+                            type: true,
+                            name: true,
+                            emailAddress: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            });
+
+            order.influencerReviews = influencerReview ?? null;
+        } else {
+            order.influencerReviews = null;
+        }
+
+        let groupReview = null;
+        if (order?.groupId) {
+            groupReview = await prisma.ratings.findFirst({
+                where: {
+                    groupId: order.groupId,
+                    orderId: order.id,
+                },
+                include: {
+                    ratedByUserData: {
+                        select: {
+                            id: true,
+                            type: true,
+                            name: true,
+                            emailAddress: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    createdAt: 'desc', // latest first
+                },
+            });
+
+            order.groupReviews = groupReview ?? null;
+        } else {
+            order.groupReviews = null;
+        }
+
+        if (order?.id) {
+            const submittedMedia = await prisma.media.findMany({
+                where: {
+                    orderId: order.id,
+                },
+                select: {
+                    id: true,
+                    mediaLink: true,
+                    reason: true,
+                    status: true,
+                    mediaType: true,
+                    videoThumbnail: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            });
+
+            order.submittedMediaDetails = submittedMedia.length > 0 ? submittedMedia : [];
+        } else {
+            order.submittedMediaDetails = [];
+        }
+
+
+
         if (!order) {
             return response.error(res, 'Order not found');
         }
@@ -398,7 +506,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             ...order,
             groupOrderData: formattedGroup,
         };
-        // console.log(finalResponse, '>>>>finalResponse')
+        console.log(finalResponse, '>>>>finalResponse')
 
         return response.success(res, 'Order fetched with group data', finalResponse);
     } catch (error: any) {
@@ -1501,17 +1609,115 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             }
         });
 
+        // for (const order of getOrder) {
+        //     if (order?.influencerOrderData?.id) {
+        //         const influencerBadgeData = await getBageData(order.influencerOrderData.id);
+        //         order.influencerOrderData.badges = influencerBadgeData;
+        //     }
+
+        //     if (order?.businessOrderData?.id) {
+        //         const businessBadgeData = await getBageData(order.businessOrderData.id);
+        //         order.businessOrderData.badges = businessBadgeData;
+        //     }
+        // }
+
         for (const order of getOrder) {
+            const orderId = order.id;
+
+            // Add influencer badge
             if (order?.influencerOrderData?.id) {
                 const influencerBadgeData = await getBageData(order.influencerOrderData.id);
                 order.influencerOrderData.badges = influencerBadgeData;
             }
 
+            // Add business badge
             if (order?.businessOrderData?.id) {
                 const businessBadgeData = await getBageData(order.businessOrderData.id);
                 order.businessOrderData.badges = businessBadgeData;
             }
+
+            // Business Review (single)
+            order.businessReviews = order.businessId
+                ? await prisma.ratings.findFirst({
+                    where: {
+                        ratedToUserId: order.businessId,
+                        orderId,
+                    },
+                    include: {
+                        ratedByUserData: {
+                            select: {
+                                id: true,
+                                type: true,
+                                name: true,
+                                emailAddress: true,
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                })
+                : null;
+
+            // Influencer Review (single)
+            order.influencerReviews = order.influencerId
+                ? await prisma.ratings.findFirst({
+                    where: {
+                        ratedToUserId: order.influencerId,
+                        orderId,
+                    },
+                    include: {
+                        ratedByUserData: {
+                            select: {
+                                id: true,
+                                type: true,
+                                name: true,
+                                emailAddress: true,
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                })
+                : null;
+
+            // Group Review (single)
+            order.groupReviews = order.groupId
+                ? await prisma.ratings.findFirst({
+                    where: {
+                        groupId: order.groupId,
+                        orderId,
+                    },
+                    include: {
+                        ratedByUserData: {
+                            select: {
+                                id: true,
+                                type: true,
+                                name: true,
+                                emailAddress: true,
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                })
+                : null;
+
+            // Submitted Media (array)
+            order.submittedMediaDetails = await prisma.media.findMany({
+                where: { orderId },
+                select: {
+                    id: true,
+                    mediaLink: true,
+                    reason: true,
+                    status: true,
+                    mediaType: true,
+                    videoThumbnail: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            }) || [];
         }
+
 
         return response.success(res, 'Get All order List', getOrder);
 

@@ -64,7 +64,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         subcategoriesId = [],
         ...userFields
     } = req.body;
-    // console.log(emailAddress, '>>>>>>>>>>>> emailAddress');
+
     const normalizedLoginType =
         loginType === null || loginType === 'NULL' || loginType === undefined
             ? LoginType.NONE
@@ -188,7 +188,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             loginType: normalizedLoginType,
             availability,
             profileCompletion: calculatedProfileCompletion,
-            // ratings: 0,
             type: userFields.type ?? UserType.BUSINESS,
             referralCode: generateUniqueReferralCode(userFields.name ?? 'USER'),
             ...(countryId && { countryData: { connect: { id: countryId } } }),
@@ -254,7 +253,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         },
     });
 
-    // If 2 or more accounts, assign badge type 1
     if (socialMediaPlatform.length >= 2) {
         const badge = await prisma.badges.findFirst({
             where: { type: '1' },
@@ -342,13 +340,11 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         }
     }
 
-    //  const { password: _, socialMediaPlatform: __, ...newUsers } = newUser as any;
     const newUsers = omit(newUser, ['password', 'socialMediaPlatform']);
 
     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(newUser.id);
     const userResponse = {
         ...newUsers,
-        // socialMediaPlatforms: newUser.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
         categories: userCategoriesWithSubcategories,
         countryName: newUser.countryData?.name ?? null,
         stateName: newUser.stateData?.name ?? null,
@@ -524,7 +520,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             });
         }
 
-        // Fetch country, state, city names
         const country = user.countryId ? await prisma.country.findUnique({ where: { id: user.countryId }, select: { name: true } }) : null;
         const state = user.stateId ? await prisma.state.findUnique({ where: { id: user.stateId }, select: { name: true } }) : null;
         const city = user.cityId ? await prisma.city.findUnique({ where: { id: user.cityId }, select: { name: true } }) : null;
@@ -532,14 +527,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         // Get user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        // Generate JWT token
         const token = jwt.sign(
             { userId: user.id, email: user.emailAddress },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
 
-        // Store token in `UserAuthToken` table (upsert = create if not exists)
         await prisma.userAuthToken.upsert({
             where: { userId: user.id },
             update: { UserAuthToken: token },
@@ -549,12 +542,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             },
         });
 
-        // Build user response and replace IDs with names
         const { password: _, socialMediaPlatform: __, ...userWithoutPassword } = user as any;
 
         const userResponse = {
             ...userWithoutPassword,
-            // socialMediaPlatforms: userWithoutPassword.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -589,7 +580,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             return response.error(res, 'Invalid UUID format');
         }
 
-        // Check if the viewed user is different from the logged-in user
         if (loginUserId && loginUserId !== id) {
             const existingView = await prisma.recentView.findFirst({
                 where: {
@@ -599,7 +589,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             });
 
             if (existingView) {
-                //  Update viewCount and updatedAt
                 await prisma.recentView.update({
                     where: { id: existingView.id },
                     data: {
@@ -608,8 +597,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                     }
                 });
             } else {
-                // Create new view entry with viewCount 1
-                console.log(loginUserId, '>>>>>>>>>> loginUserId');
                 await prisma.recentView.create({
                     data: {
                         loginUserId,
@@ -620,7 +607,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
             }
         }
 
-        //  Increment total view count on user's profile
         await prisma.user.update({
             where: { id, status: true },
             data: {
@@ -719,7 +705,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
 
         const responseUser = {
             ...users,
-            // socialMediaPlatforms: users.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -829,7 +814,6 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         });
 
         const totalAmount = transactionSum._sum.amount ?? 0;
-
 
         const transactions = await prisma.coinTransaction.findMany({
             where: { userId: id },
@@ -1153,7 +1137,6 @@ export const getAllUsers = async (req: Request, res: Response): Promise<any> => 
 
                 return {
                     ...userData,
-                    // socialMediaPlatforms: userData.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                     categories: userCategoriesWithSubcategories,
                     countryName: userData.countryData?.name ?? null,
                     stateName: userData.stateData?.name ?? null,
@@ -1193,7 +1176,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
         const allowedBadgeTypes = ['1', '2', '3', '4', '5', '6', '7', '8'];
         const allowedTypes = ["BUSINESS", "INFLUENCER"];
-        const allowedSubtypes = [0, 1, 2]; // 0: all, 1: influencer only, 2: group only
+        const allowedSubtypes = [0, 1, 2]; 
 
         // Validate subtype parameter
         const parsedSubtype = subtype !== undefined ? parseInt(subtype.toString()) : 0;
@@ -1433,7 +1416,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             status: true,
             userData: {
                 some: {
-                    verified: true, // ✅ only verified users
+                    verified: true, 
                 }
             },
         };
@@ -1601,7 +1584,6 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
-                // socialMediaPlatforms: user.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -1635,13 +1617,6 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                         select: { invitedUserId: true },
                         distinct: ['invitedUserId']  // Avoid duplicates
                     });
-
-                    // const userBadges = await prisma.userBadges.findMany({
-                    //     where: { userId: users.id },
-                    //     include: {
-                    //         userBadgeTitleData: true,
-                    //     },
-                    // });
 
                     const acceptedInvitedUserIds = acceptedInvites.map(invite => invite.invitedUserId);
                     const invitedUsers = acceptedInvitedUserIds.length > 0
@@ -1784,9 +1759,8 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             },
             orderBy: { updatedAt: 'asc' },
         });
-        // console.log(nextAdminEntry, " >>>>>>>> nextAdminEntry");
-        if (nextAdminEntry.length > 0) {
 
+        if (nextAdminEntry.length > 0) {
             for (const groupData of nextAdminEntry) {
                 if (groupData.invitedUserId.length > 0) {
                     // Check if any invited user has ACCEPTED status
@@ -1828,7 +1802,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                             }
                         });
 
-                        // Remove the accepted user from groupUsersList since they're now admin
                         await prisma.groupUsersList.deleteMany({
                             where: {
                                 groupId: groupData.groupId,
@@ -1837,9 +1810,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                             },
                         });
                     } else {
-                        // No accepted users found - cleanup all group data
-                        console.log(`No accepted users found for group ${groupData.groupId}. Cleaning up group data.`);
-
                         // Delete all group user list entries for this group
                         await prisma.groupUsersList.deleteMany({
                             where: {
@@ -1865,7 +1835,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                             }
                         });
 
-                        // Decline all non-completed orders for this group
                         await prisma.orders.updateMany({
                             where: {
                                 groupId: groupData.groupId,
@@ -1882,14 +1851,11 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         const currentOrder = await prisma.orders.findMany({
                             where: { groupId: groupData.groupId, status: 'DECLINED' },
                         });
-                        console.log(currentOrder, '>>>>>>>>>> currentOrder');
                         if (currentOrder.length > 0) {
                             currentOrder.map(async (orderInfo) => {
                                 if (orderInfo.finalAmount) {
                                     const refundAmountInPaise = orderInfo.finalAmount;
                                     const razorpayPaymentId = orderInfo.transactionId;
-                                    console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 1');
-                                    console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 1');
 
                                     const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
                                     if (paymentRefundResponse) {
@@ -1909,9 +1875,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                         }
                     }
                 } else {
-                    // No invited users - cleanup group data
-                    console.log(`No invited users for group ${groupData.groupId}. Cleaning up group data.`);
-
                     // Delete the group user entry
                     await prisma.groupUsers.delete({
                         where: {
@@ -1945,15 +1908,12 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                     const currentOrder = await prisma.orders.findMany({
                         where: { groupId: groupData.groupId, status: 'DECLINED' },
                     });
-                    console.log(currentOrder, '>>>>>>>>>> currentOrder 2');
 
                     if (currentOrder.length > 0) {
                         currentOrder.map(async (orderInfo) => {
                             if (orderInfo.finalAmount) {
                                 const refundAmountInPaise = orderInfo.finalAmount;
                                 const razorpayPaymentId = orderInfo.transactionId;
-                                console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 2');
-                                console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 2');
 
                                 const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
                                 if (paymentRefundResponse) {
@@ -2012,16 +1972,12 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             const currentOrder = await prisma.orders.findMany({
                 where: { influencerId: id },
             });
-            console.log(currentOrder, '>>>>>>>>>> currentOrder 3');
 
             if (currentOrder.length > 0) {
                 currentOrder.map(async (orderInfo) => {
                     if (orderInfo.finalAmount) {
                         const refundAmountInPaise = orderInfo.finalAmount;
                         const razorpayPaymentId = orderInfo.transactionId;
-                        console.log(orderInfo, '>>>>>>>>>>>>>>> orderInfo 3');
-                        console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise 3');
-                        console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId 3');
 
                         const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
                         if (paymentRefundResponse) {
@@ -2104,14 +2060,11 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
             const currentOrder = await prisma.orders.findMany({
                 where: { influencerId: id, status: 'DECLINED' },
             });
-            console.log(currentOrder, '>>>>>>>>>>>>>> currentOrder');
             if (currentOrder.length > 0) {
                 currentOrder.map(async (orderInfo) => {
                     if (orderInfo.finalAmount) {
                         const refundAmountInPaise = orderInfo.finalAmount;
                         const razorpayPaymentId = orderInfo.transactionId;
-                        console.log(refundAmountInPaise, '>>>>>>>>>>>>>>> refundAmountInPaise');
-                        console.log(razorpayPaymentId, '>>>>>>>>>>>>>>> razorpayPaymentId');
 
                         const paymentRefundResponse = await paymentRefund(razorpayPaymentId, refundAmountInPaise);
                         if (paymentRefundResponse) {
@@ -2329,7 +2282,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
         const newUsers = omit(editedUser, ['password', 'socialMediaPlatform']);
         const userResponse = {
             ...newUsers,
-            // socialMediaPlatforms: newUsers.socialMediaPlatforms.map(({ viewCount, ...rest }) => rest),
             categories: userCategoriesWithSubcategories,
             countryName: country?.name ?? null,
             stateName: state?.name ?? null,
@@ -2356,88 +2308,6 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
 
 
 
-// export const socialLogin = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { socialId, name, emailAddress, userImage } = req.body;
-
-//         if (!socialId) {
-//             return response.error(res, 'socialId is required.');
-//         }
-
-//         // Find user by socialId (include socialMediaPlatforms for response)
-//         let user = await prisma.user.findFirst({
-//             where: { socialId, status: true },
-//             include: {
-//                 socialMediaPlatforms: true,
-//                 brandData: true,
-//                 countryData: true,
-//                 stateData: true,
-//                 cityData: true,
-//             },
-//         });
-
-//         // If user doesn't exist, create one
-//         if (!user) {
-//             if (emailAddress) {
-//                 const existingEmailUser = await prisma.user.findUnique({ where: { emailAddress, status: true } });
-//                 if (existingEmailUser) {
-//                     return response.error(res, 'Email already registered with another account.');
-//                 }
-//             }
-
-//             user = await prisma.user.create({
-//                 data: {
-//                     socialId,
-//                     name: name || 'Social User',
-//                     emailAddress: emailAddress || null,
-//                     userImage: userImage || null,
-//                     type: 'INFLUENCER',
-//                     status: true,
-//                     profileCompletion: 0,
-//                     // password: 'SOCIAL_LOGIN', 
-//                     // loginType: 'GOOGLE',
-//                 },
-//                 include: {
-//                     socialMediaPlatforms: true,
-//                     brandData: true,
-//                     countryData: true,
-//                     stateData: true,
-//                     cityData: true,
-//                 },
-//             });
-//         }
-
-//         // Token handling (optional)
-//         const token = jwt.sign(
-//             { userId: user.id, email: user.emailAddress },
-//             process.env.JWT_SECRET || 'default_secret',
-//             { expiresIn: '7d' }
-//         );
-
-//         // Get formatted user categories
-//         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-
-//         // Format user object
-//         const { password, socialMediaPlatform, ...userWithoutSensitive } = user as any;
-
-//         const userResponse = {
-//             ...userWithoutSensitive,
-//             countryName: user.countryData?.name || null,
-//             stateName: user.stateData?.name || null,
-//             cityName: user.cityData?.name || null,
-//             categories: userCategoriesWithSubcategories,
-//         };
-
-//         return response.success(res, 'Social login successful!', {
-//             user: userResponse,
-//             token,
-//         });
-
-//     } catch (error: any) {
-//         console.error('Social login error:', error);
-//         return response.error(res, error.message || 'Social login failed.');
-//     }
-// };
 
 export const socialLogin = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -2461,15 +2331,12 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
 
         // If user exists with socialId
         if (user) {
-            // If user is inactive, reactivate them
             if (!user.status) {
                 user = await prisma.user.update({
                     where: { id: user.id },
                     data: {
                         name: name || user.name,
                         userImage: userImage || user.userImage,
-                        // status: true,
-                        // Update email if provided and different
                         ...(emailAddress && emailAddress !== user.emailAddress && { emailAddress }),
                     },
                     include: {
@@ -2504,8 +2371,8 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                 type: 'INFLUENCER',
                 status: true,
                 profileCompletion: 0,
-                password: 'SOCIAL_LOGIN_NO_PASSWORD', // Default password
-                loginType: loginType || 'GOOGLE', // Default to GOOGLE if not specified
+                password: 'SOCIAL_LOGIN_NO_PASSWORD', 
+                loginType: loginType || 'GOOGLE', 
             };
 
             if (emailAddress) {
@@ -2524,17 +2391,14 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
             });
         }
 
-        // Generate JWT token
         const token = jwt.sign(
             { userId: user.id, email: user.emailAddress },
             process.env.JWT_SECRET || 'default_secret',
             { expiresIn: '7d' }
         );
 
-        // Get user categories
         const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
 
-        // Remove sensitive data from response
         const { password, ...userWithoutSensitive } = user as any;
 
         const userResponse = {
@@ -2551,9 +2415,7 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         });
 
     } catch (error: any) {
-        console.error('Social login error:', error);
         
-        // Handle specific Prisma errors
         if (error.code === 'P2002') {
             return response.error(res, 'Email address and socialId are already in used.');
         }
@@ -2751,7 +2613,7 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 
             filter.socialMediaPlatforms = {
                 some: {
-                    platform: platformValue, // must match enum value
+                    platform: platformValue, 
                 },
             };
         }
