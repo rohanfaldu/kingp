@@ -83,7 +83,7 @@ export const paymentRefund = async (razorpayPaymentId: string, refundAmount: num
 
 export const getBageData = async (userId: string): Promise<any> => {
 
-    const prisma = new PrismaClient();
+    //const prisma = new PrismaClient();
 
     const usersBadges = await prisma.userBadges.findMany({
         where: { userId: userId },
