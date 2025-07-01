@@ -1,7 +1,8 @@
 
 import { OfferStatus, RequestStatus } from '../enums/userType.enum';
 import axios from 'axios';
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
 export const resolveStatus = (status: boolean | null | undefined): boolean => {
     return status === null || status === undefined ? true : status;
 };
