@@ -1775,7 +1775,7 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
 
                 if (
                     matchesSearch(group.groupName ?? '', searchTerm) ||
-                    matchesSearch(group.groupBio ?? '', searchTerm) ||
+                    matchesSearch(group.groupBio ?? '', searchTerm) 
                 ) return true;
 
                 if (group.subCategoryId?.some(subCat =>
