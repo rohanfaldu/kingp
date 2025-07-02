@@ -1621,6 +1621,8 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             }
         }
 
+        // console.log(getOrder, '>>>>>>>>>>>>>>>>>>>>>>>getOrder');
+
         return response.success(res, 'Get All order List', getOrder);
 
     } catch (error: any) {
