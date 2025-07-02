@@ -337,18 +337,17 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             order.groupReviews = null;
         }
 
+        let submittedMediaDetail = null;
         if (order?.id) {
-            const submittedMedia = await prisma.media.findMany({
+            const submittedMedia = await prisma.orders.findFirst({
                 where: {
-                    orderId: order.id,
+                    id: order.id,
                 },
                 select: {
                     id: true,
-                    mediaLink: true,
-                    reason: true,
-                    status: true,
-                    mediaType: true,
-                    videoThumbnail: true,
+                    submittedDescription: true,
+                    socialMediaLink: true,
+                    submittedAttachment: true,
                     createdAt: true,
                     updatedAt: true,
                 },
@@ -357,13 +356,13 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                 },
             });
 
-            order.submittedMediaDetails = submittedMedia.length > 0 ? submittedMedia : [];
+            submittedMediaDetail = submittedMedia;
+            order.submittedMediaDetails = submittedMediaDetail ?? null;
         } else {
-            order.submittedMediaDetails = [];
+            order.submittedMediaDetails = null;
         }
 
-
-
+        
         if (!order) {
             return response.error(res, 'Order not found');
         }
