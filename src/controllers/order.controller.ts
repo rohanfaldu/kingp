@@ -1609,115 +1609,17 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             }
         });
 
-        // for (const order of getOrder) {
-        //     if (order?.influencerOrderData?.id) {
-        //         const influencerBadgeData = await getBageData(order.influencerOrderData.id);
-        //         order.influencerOrderData.badges = influencerBadgeData;
-        //     }
-
-        //     if (order?.businessOrderData?.id) {
-        //         const businessBadgeData = await getBageData(order.businessOrderData.id);
-        //         order.businessOrderData.badges = businessBadgeData;
-        //     }
-        // }
-
         for (const order of getOrder) {
-            const orderId = order.id;
-
-            // Add influencer badge
             if (order?.influencerOrderData?.id) {
                 const influencerBadgeData = await getBageData(order.influencerOrderData.id);
                 order.influencerOrderData.badges = influencerBadgeData;
             }
 
-            // Add business badge
             if (order?.businessOrderData?.id) {
                 const businessBadgeData = await getBageData(order.businessOrderData.id);
                 order.businessOrderData.badges = businessBadgeData;
             }
-
-            // Business Review (single)
-            order.businessReviews = order.businessId
-                ? await prisma.ratings.findFirst({
-                    where: {
-                        ratedToUserId: order.businessId,
-                        orderId,
-                    },
-                    include: {
-                        ratedByUserData: {
-                            select: {
-                                id: true,
-                                type: true,
-                                name: true,
-                                emailAddress: true,
-                            },
-                        },
-                    },
-                    orderBy: { createdAt: 'desc' },
-                })
-                : null;
-
-            // Influencer Review (single)
-            order.influencerReviews = order.influencerId
-                ? await prisma.ratings.findFirst({
-                    where: {
-                        ratedToUserId: order.influencerId,
-                        orderId,
-                    },
-                    include: {
-                        ratedByUserData: {
-                            select: {
-                                id: true,
-                                type: true,
-                                name: true,
-                                emailAddress: true,
-                            },
-                        },
-                    },
-                    orderBy: { createdAt: 'desc' },
-                })
-                : null;
-
-            // Group Review (single)
-            order.groupReviews = order.groupId
-                ? await prisma.ratings.findFirst({
-                    where: {
-                        groupId: order.groupId,
-                        orderId,
-                    },
-                    include: {
-                        ratedByUserData: {
-                            select: {
-                                id: true,
-                                type: true,
-                                name: true,
-                                emailAddress: true,
-                            },
-                        },
-                    },
-                    orderBy: { createdAt: 'desc' },
-                })
-                : null;
-
-            // Submitted Media (array)
-            order.submittedMediaDetails = await prisma.media.findMany({
-                where: { orderId },
-                select: {
-                    id: true,
-                    mediaLink: true,
-                    reason: true,
-                    status: true,
-                    mediaType: true,
-                    videoThumbnail: true,
-                    createdAt: true,
-                    updatedAt: true,
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-            }) || [];
         }
-
 
         return response.success(res, 'Get All order List', getOrder);
 
