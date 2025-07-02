@@ -4,4 +4,5 @@ export interface IUserBankDetails {
   accountNumber: number;
   ifscCode: string;
   accountHolderName: string;
+  status: Boolean;
 }

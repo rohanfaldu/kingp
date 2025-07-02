@@ -43,7 +43,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                     requestAccept: true,
                 },
             });
-            console.log(groupUsersList, " >>>>>>>>>> groupUsersList")
             if (groupUsersList.length === 0) {
                 return response.error(res, 'No group members found.');
             }
@@ -65,7 +64,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                 return response.error(res, 'Admin must add bank details before proceeding.');
             }
 
-            // Step 5: If there are accepted invited users, check their bank details
             if (acceptedInvitedUserIds.length > 0) {
                 const acceptedWithBankDetails = await prisma.userBankDetails.findMany({
                     where: {
@@ -98,7 +96,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             if (!influencer) {
                 return response.error(res, 'Invalid influencer ID provided.');
             }
-            // ✅ Check if bank details exist for this influencer
+            //  Check if bank details exist for this influencer
             const bankDetails = await prisma.userBankDetails.findFirst({
                 where: {
                     userId: influencerId,
@@ -159,7 +157,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
             return {
                 ...user,
-                // socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest),
                 categories: userCategoriesWithSubcategories,
                 countryName: user.countryData?.name ?? null,
                 stateName: user.stateData?.name ?? null,
@@ -173,7 +170,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             businessOrderData: await formatUser(newOrder.businessOrderData),
             groupOrderData: await formatUser(newOrder.groupOrderData),
         };
-
 
         // Send Notification to Business (from Influencer)
         const businessUser = await prisma.user.findUnique({
@@ -216,7 +212,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
 
             );
         }
-
 
         return response.success(res, 'Order created successfully!', responseData);
     } catch (error: any) {
@@ -274,7 +269,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                     },
                 },
                 orderBy: {
-                    createdAt: 'desc', // optional: latest review if more than one
+                    createdAt: 'desc',
                 },
             });
 
@@ -328,7 +323,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                     },
                 },
                 orderBy: {
-                    createdAt: 'desc', // latest first
+                    createdAt: 'desc',
                 },
             });
 
@@ -362,7 +357,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             order.submittedMediaDetails = null;
         }
 
-        
+
         if (!order) {
             return response.error(res, 'Order not found');
         }
@@ -387,12 +382,9 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             order.businessOrderData.badges = businessBageData;
         }
 
-
-
         if (!order?.groupOrderData) {
             return response.success(res, 'Order fetched', order);
         }
-
 
         const group = order.groupOrderData;
 
@@ -410,7 +402,6 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             const { password: _, socialMediaPlatform: __, ...userData } = user;
             return {
                 ...userData,
-                // socialMediaPlatforms: userData.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
                 categories: userCategoriesWithSubcategories,
                 countryName: country?.name ?? null,
                 stateName: state?.name ?? null,
@@ -505,11 +496,9 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
             ...order,
             groupOrderData: formattedGroup,
         };
-        console.log(finalResponse, '>>>>finalResponse')
 
         return response.success(res, 'Order fetched with group data', finalResponse);
     } catch (error: any) {
-        console.error('getByIdOrder error:', error);
         return response.error(res, error.message);
     }
 };
@@ -575,7 +564,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
         // // REFUND LOGIC FOR CANCELED ORDERS
         if (status === 6 && statusEnumValue === OfferStatus.DECLINED) {
             try {
-                console.log(currentOrder, " >>>>> currentOrder");
                 if (currentOrder.finalAmount) {
                     const refundAmountInPaise = currentOrder.finalAmount;
                     //const refundAmountInPaise = 1;
@@ -591,7 +579,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                             }
                         });
 
-
                         return response.success(res, 'Order and Payment Refund Successfully', null);
                     } else {
                         return response.error(res, `Payment was not Decline`);
@@ -600,12 +587,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 }
 
             } catch (refundError: any) {
-                console.error('Refund processing failed:', refundError);
                 return response.error(res, `Failed to process refund: ${refundError.message}`);
             }
         }
-
-
 
         // Handle COMPLETED status - update totalDeals, averageValue, onTimeDelivery, and repeatClient
         if (statusEnumValue === OfferStatus.COMPLETED) {
@@ -632,7 +616,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 });
                 groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
             }
-            // console.log(currentOrder, '>>>>>>>>>>>>>>>> currentOrder');
 
             // Update UserStats for each eligible user
             for (const userId of eligibleUserIds) {
@@ -647,7 +630,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         totalExpenses: true,
                     },
                 });
-                // console.log(existingUserStats, '>>>>>>>>>>>>>> existingUserStats');
+
                 // Check if delivery is on time (completionDate should be within the order completion timeline)
                 const isOnTime = currentOrder.completionDate ?
                     new Date(currentOrder.completionDate) >= new Date() : true;
@@ -745,7 +728,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         where: { type: '2' },
                         select: { id: true },
                     });
-
 
                     const alreadyAssigned = await prisma.userBadges.findFirst({
                         where: {
@@ -959,14 +941,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                             }
                         }
                     });
-                    // console.log(currentOrder.groupId, '>>>>>>>>>> current groupId');
-                    // console.log(groupAdmins, '>>>>>>>>>>>>>>>> groupAdmins');
-
-                    // groupAdmins.forEach(({ user }) => {
-                    //     if (user) {
-                    //         influencerUsers.push(user);
-                    //     }
-                    // });
 
                     groupAdmins.forEach(({ groupUserData }) => {
                         if (groupUserData) {
@@ -974,7 +948,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                         }
                     });
                 }
-                console.log(updated, ">>>>>>>>>>>>>>>>> updated");
+
                 // Send notification to influencers
                 if (influencerUsers.length > 0) {
                     let notificationTitle = '';
@@ -1034,7 +1008,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     await Promise.allSettled(notificationPromises);
                 }
             }
-
         } catch (notificationError) {
             console.error('FCM notification process failed:', notificationError);
         }
@@ -1620,8 +1593,6 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             }
         }
 
-        console.log(getOrder, '>>>>>>>>>>>>>>>>>>>>>>>getOrder');
-
         return response.success(res, 'Get All order List', getOrder);
 
     } catch (error: any) {
@@ -2115,7 +2086,6 @@ export const withdrawAmount = async (req: Request, res: Response): Promise<any> 
         }
 
     } catch (error: any) {
-        console.error('Withdraw API error:', error);
         return response.error(res, error.message || 'Something went wrong');
     }
 };
@@ -2133,7 +2103,6 @@ const formatUserData = async (user: any) => {
 
     return {
         ...userData,
-        socialMediaPlatforms: user.socialMediaPlatforms?.map(({ viewCount, ...rest }) => rest) ?? [],
         categories: userCategoriesWithSubcategories,
         countryName: user.countryData?.name ?? null,
         stateName: user.stateData?.name ?? null,

@@ -8,53 +8,6 @@ import { calculateProfileCompletion, calculateBusinessProfileCompletion } from '
 
 const prisma = new PrismaClient();
 
-// ✅ Create Bank Details
-// export const createUserBankDetails = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const data: IUserBankDetails = req.body;
-
-//     if (!data.userId) return response.error(res, "userId is required.");
-//     if (!data.accountNumber) return response.error(res, "accountNumber is required.");
-//     if (!data.ifscCode) return response.error(res, "IFSC Code is required.");
-
-//     const user = await prisma.user.findUnique({ where: { id: data.userId } });
-//     if (!user) return response.error(res, "Invalid userId: User not found.");
-
-//     const existingBank = await prisma.userBankDetails.findFirst({
-//       where: {
-//         userId: data.userId,
-//         accountNumber: encrypt(data.accountNumber.toString()),
-//       },
-//     });
-
-//     if (existingBank) return response.error(res, "Bank details already exist for this account number and user.");
-
-//     const [newBankDetails] = await prisma.$transaction([
-//       prisma.userBankDetails.create({
-//         data: {
-//           userId: data.userId,
-//           accountId: data.accountId || null, // now treated as plain string
-//           accountNumber: encrypt(data.accountNumber.toString()),
-//           ifscCode: data.ifscCode,
-//           accountHolderName: data.accountHolderName,
-//           status: true,
-//         },
-//       }),
-//       prisma.user.update({
-//         where: { id: data.userId },
-//         data: {
-//           bankDetails: true,
-//         },
-//       }),
-//     ]);
-
-//     return response.success(res, "Bank details saved successfully.", newBankDetails);
-//   } catch (error: any) {
-//     return response.error(res, error.message || "Something went wrong.");
-//   }
-// };
-
-//import { calculateProfileCompletion } from '../utils/profileCompletion'; // adjust the path as needed
 
 export const createUserBankDetails = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -115,14 +68,12 @@ export const createUserBankDetails = async (req: Request, res: Response): Promis
       }
     })
 
-
     // Step 3: Prepare user for profile calculation
     const profileCompletion = calculateProfileCompletion({
       ...userData,
       userSubCategories,
       socialMediaPlatforms
     });
-
 
     // Step 4: Update user's profileCompletion %
     await prisma.user.update({
@@ -139,7 +90,8 @@ export const createUserBankDetails = async (req: Request, res: Response): Promis
 };
 
 
-// ✅ Get Bank Details by UserId
+
+// Get Bank Details by UserId
 export const getUserBankDetailsByUserId = async (req: Request, res: Response): Promise<any> => {
   try {
     const { userId } = req.body;
@@ -155,7 +107,7 @@ export const getUserBankDetailsByUserId = async (req: Request, res: Response): P
     const decryptedData = {
       ...bankDetails,
       accountNumber: bankDetails.accountNumber ? parseInt(decrypt(bankDetails.accountNumber)) : null,
-      accountId: bankDetails.accountId || null, // returned as-is (string)
+      accountId: bankDetails.accountId || null,
     };
 
     return response.success(res, "Bank details fetched successfully.", decryptedData);
@@ -164,7 +116,9 @@ export const getUserBankDetailsByUserId = async (req: Request, res: Response): P
   }
 };
 
-// ✅ Edit Bank Details
+
+
+//  Edit Bank Details
 export const editUserBankDetails = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
@@ -229,7 +183,6 @@ export const editUserBankDetails = async (req: Request, res: Response): Promise<
       socialMediaPlatforms
     });
 
-
     // Step 4: Update user's profileCompletion %
     await prisma.user.update({
       where: { id: data.userId },
@@ -244,7 +197,9 @@ export const editUserBankDetails = async (req: Request, res: Response): Promise<
   }
 };
 
-// ✅ Delete (Soft Delete) Bank Details
+
+
+// Delete (Soft Delete) Bank Details
 export const deleteUserBankDetails = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.body;
@@ -254,6 +209,9 @@ export const deleteUserBankDetails = async (req: Request, res: Response): Promis
     const existing = await prisma.userBankDetails.findUnique({ where: { id } });
     if (!existing) return response.error(res, "Bank detail not found for the given ID.");
 
+    if (!existing.userId) {
+      throw new Error("User ID is missing");
+    }
     const [updatedBank, updatedUser] = await prisma.$transaction([
       prisma.userBankDetails.update({
         where: { id },

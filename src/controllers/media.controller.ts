@@ -37,7 +37,6 @@ export const createMedia = async (req: Request, res: Response): Promise<any> => 
                 where: { id: mediaData.orderId },
                 select: { businessId: true, title: true }
             });
-            console.log(order, '>>>>>>>>>>>>>>>> order');
 
             if (order?.businessId) {
                 const businessUser = await prisma.user.findUnique({
@@ -177,7 +176,6 @@ export const updateMediaStatus = async (req: Request, res: Response): Promise<an
 
         // Step 5: Notify group admin + accepted users (if group order)
         if (order.groupId) {
-            // 5.1 Fetch group admin (GroupUsers.userId)
             const groupAdmin = await prisma.groupUsers.findFirst({
                 where: {
                     groupId: order.groupId,
@@ -234,7 +232,7 @@ export const updateMediaStatus = async (req: Request, res: Response): Promise<an
             );
         }
 
-        return response.success(res, 'Status updated and notifications sent');
+        return response.success(res, 'Status updated and notifications sent', null);
     } catch (error: any) {
         return response.error(res, error.message || 'Something went wrong');
     }

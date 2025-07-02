@@ -22,7 +22,6 @@ export const createBadge = async (req: Request, res: Response): Promise<any> => 
             data: {
                 ...badgesFields
             },
-
         });
         response.success(res, 'Badges Created successfully!', newBadges);
     } catch (error: any) {
@@ -37,10 +36,8 @@ export const getAllBadges = async (req: Request, res: Response): Promise<any> =>
 
         if (!categories || categories.length === 0) {
             throw new Error("badges not Found");
-
         }
         response.success(res, 'Get All badges successfully!', categories);
-
     } catch (error: any) {
         response.error(res, error.message);
     }

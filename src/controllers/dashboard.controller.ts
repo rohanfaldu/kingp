@@ -199,7 +199,7 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
 
             }
             return acc;
-        }, {} as Record<string, string>);
+        }, {} as Record<string, string | boolean>);
 
         // Send combined response
         return response.success(res, 'Dashboard data fetched successfully!', {
@@ -309,7 +309,6 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
                 userId: loggedInUserId
             }
         })
-        console.log(userSubCategories, ">>>>>>>>>>>> userSubCategories")
         const responseUser = {
             ...authUser,
             userSubCategories,
@@ -416,7 +415,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
         // 1. Fetch recent views
         const recentChatViews = await prisma.recentChatView.findMany({
             where: {
-                loginUserId: loggedInUserId, // people who viewed this user
+                loginUserId: loggedInUserId, 
                 updatedAt: {
                     gte: threeMonthsAgo,
                 },
@@ -505,7 +504,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
 
             }
             return acc;
-        }, {} as Record<string, string>);
+        }, {} as Record<string, string | boolean>);
 
         return response.success(res, "Influencer dashboard data fetched successfully", {
             profileCompletion: user.profileCompletion,

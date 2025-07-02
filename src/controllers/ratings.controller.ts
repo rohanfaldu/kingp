@@ -41,10 +41,24 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
         const createRatingIfNotExists = async (
             toUserId: string | null,
             groupId: string | null,
-            typeToUser: "GROUP" | "INFLUENCER" | "BUSINESS"
+            typeToUserParam: "GROUP" | "INFLUENCER" | "BUSINESS"
         ) => {
             if (toUserId && toUserId === ratedByUserId) return;
 
+            // Step 1: Dynamically determine typeToUser for user (if toUserId is present)
+            let typeToUser: "INFLUENCER" | "BUSINESS" | "GROUP" = typeToUserParam;
+            if (toUserId) {
+                const userData = await prisma.user.findUnique({
+                    where: { id: toUserId },
+                    select: { type: true },
+                });
+
+                if (userData?.type === "INFLUENCER" || userData?.type === "BUSINESS") {
+                    typeToUser = userData.type;
+                }
+            }
+
+            // Step 2: Check for existing rating
             const alreadyRated = await prisma.ratings.findFirst({
                 where: {
                     orderId,
@@ -56,13 +70,13 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
             });
 
             if (!alreadyRated) {
+                // Step 3: Create rating
                 const newRating = await prisma.ratings.create({
                     data: {
                         orderId,
                         ratedByUserId,
                         ratedToUserId: toUserId,
                         groupId,
-                        // rating,
                         rating: Math.round(rating * 10) / 10,
                         review: review || null,
                         typeToUser,
@@ -77,23 +91,24 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     },
                 });
 
-                if (toUserId) {
-                    // 1. Count total ratings for the user
+                createdRatings.push(newRating);
+
+                // Step 4: Update user rating avg if applicable
+                if (toUserId && typeToUser !== "GROUP") {
                     const allUserRatings = await prisma.ratings.findMany({
                         where: {
                             ratedToUserId: toUserId,
-                            typeToUser: 'INFLUENCER', // or whatever type is relevant
+                            typeToUser,
                         },
                         select: { rating: true },
                     });
 
-                    // 2. Calculate average
                     const totalRatings = allUserRatings.length;
                     const sumRatings = allUserRatings.reduce((sum, r) => {
                         return sum + (r.rating?.toNumber?.() ?? 0);
-                    }, 0); const averageRating = totalRatings > 0 ? sumRatings / totalRatings : rating;
+                    }, 0);
+                    const averageRating = totalRatings > 0 ? sumRatings / totalRatings : rating;
 
-                    // 3. Update the user with new average
                     await prisma.user.update({
                         where: { id: toUserId },
                         data: {
@@ -102,8 +117,7 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     });
                 }
 
-                createdRatings.push(newRating);
-
+                // Step 5: Notify user
                 if (toUserId) {
                     const userToNotify = await prisma.user.findUnique({
                         where: { id: toUserId },
@@ -115,9 +129,8 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     }
                 }
 
-                // NEW: Update group rating if this is a group rating
+                // Step 6: Update group average rating
                 if (groupId && typeToUser === "GROUP") {
-                    // Get all ratings for this group
                     const allGroupRatings = await prisma.ratings.findMany({
                         where: {
                             groupId: groupId,
@@ -126,33 +139,18 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                         select: { rating: true },
                     });
 
-                    // Calculate average rating for the group
                     const totalGroupRatings = allGroupRatings.length;
                     const sumGroupRatings = allGroupRatings.reduce((sum, r) => {
                         return sum + (r.rating?.toNumber?.() ?? 0);
                     }, 0);
                     const averageGroupRating = totalGroupRatings > 0 ? sumGroupRatings / totalGroupRatings : rating;
 
-                    // Update the group table with the new average rating
                     await prisma.group.update({
                         where: { id: groupId },
                         data: {
                             ratings: Math.round(averageGroupRating * 10) / 10,
                         },
                     });
-                }
-
-                createdRatings.push(newRating);
-
-                if (toUserId) {
-                    const userToNotify = await prisma.user.findUnique({
-                        where: { id: toUserId },
-                        select: { id: true, fcmToken: true },
-                    });
-
-                    if (userToNotify?.fcmToken) {
-                        usersToNotify.push(userToNotify);
-                    }
                 }
             }
         };
@@ -202,7 +200,6 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
             });
 
             const adminUserId = groupAdmin?.userId;
-            console.log(groupAdmin, '>>>>>>>>>>>>>>>>>>>> groupAdmin?.userId');
             if (adminUserId) {
                 await createRatingIfNotExists(adminUserId, null, "INFLUENCER");
             }
@@ -216,12 +213,9 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     await createRatingIfNotExists(member.invitedUserId, null, "INFLUENCER");
                 }
             }
-            console.log(groupOrder, '>>>>>> groupOrder');
         } else if (ratedToUserId) {
             // Validate user was part of the order (either influencer or business)
             let typeToUser: "INFLUENCER" | "BUSINESS" | null = null;
-
-            console.log(order, '<<<<<<<<<<<<<< influencerId');
 
             // Check if order has a groupId before querying groupUsers
             let adminUserId: string | undefined = undefined;
@@ -234,7 +228,6 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                     select: { userId: true },
                 });
                 adminUserId = groupAdmin?.userId;
-                console.log(adminUserId, " >>>>>>>>> adminUserId");
             }
 
             if (order.influencerId === ratedToUserId && order.businessId === ratedByUserId) {

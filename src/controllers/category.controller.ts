@@ -8,8 +8,6 @@ import { paginate } from '../utils/pagination';
 import { validate as isUuidValid } from 'uuid';
 
 
-
-
 const prisma = new PrismaClient();
 
 
@@ -103,12 +101,10 @@ export const deleteCategory = async (req: Request, res: Response): Promise<any> 
     try {
         const { id } = req.params;
 
-        // Validate UUID format
         if (!isUuid(id)) {
             return response.error(res, 'Invalid UUID format');
         }
 
-        // Check if category exists
         const category = await prisma.category.findUnique({
             where: { id },
         });
@@ -117,7 +113,6 @@ export const deleteCategory = async (req: Request, res: Response): Promise<any> 
             return response.error(res, 'No category found with the provided UUID.');
         }
 
-        // Check if category is used in UserSubCategory
         const relatedInUserSubCategory = await prisma.userSubCategory.count({
             where: { categoryId: id },
         });
@@ -126,7 +121,6 @@ export const deleteCategory = async (req: Request, res: Response): Promise<any> 
             return response.error(res, 'Cannot delete category because it is used in user-subcategory relations.');
         }
 
-        // Delete the category
         await prisma.category.delete({
             where: { id },
         });

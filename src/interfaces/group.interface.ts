@@ -7,7 +7,7 @@ export interface IGroup {
     subCategoryId?: string[];
     socialMediaPlatform?: Platform;
     Visibility?: VisibilityType;
-    userId?: string;
+    userId: string;
     invitedUserId?: string[];
     status?: boolean;
     createdAt?: Date;

@@ -117,7 +117,7 @@ if (user.socialId || (user.loginType && ['GOOGLE', 'APPLE'].includes(user.loginT
       const timeSinceLastUpdate = now.getTime() - new Date(existingOtp.updatedAt).getTime();
       const thirtyMinutes = 30 * 60 * 1000;
 
-      if (existingOtp.countMail >= 3 && timeSinceLastUpdate < thirtyMinutes) {
+      if ((existingOtp.countMail ?? 0) >= 3 && timeSinceLastUpdate < thirtyMinutes) {
         return response.error(res, 'Too many attempts. Please try again after 30 minutes.');
       }
 

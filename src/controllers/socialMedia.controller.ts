@@ -375,7 +375,7 @@ export const deleteSocialMediaPlatform = async (req: Request, res: Response): Pr
     if (user.type === UserType.INFLUENCER) {
       calculatedProfileCompletion = calculateProfileCompletion(profileCompletionData);
     } else {
-      calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, user.loginType);
+      calculatedProfileCompletion = calculateBusinessProfileCompletion(profileCompletionData, user.loginType ?? '');
     }
 
     await prisma.user.update({

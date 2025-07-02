@@ -173,7 +173,6 @@ export const getAllCity = async (req: Request, res: Response): Promise<any> => {
                 name: 'asc'
             }
         };
-        // console.log(1);
         const cities = await paginate(req, prisma.city, filter);
 
         return response.success(res, 'Fetched all Cities successfully.', cities);
