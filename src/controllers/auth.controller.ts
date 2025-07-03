@@ -669,20 +669,20 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                     ? Number(userStats.totalWithdraw).toFixed(2)
                     : "0.00",
                 totalDeals: userStats.totalDeals
-                    ? Number(userStats.totalDeals).toFixed(2)
-                    : "0.00",
+                    ? Number(userStats.totalDeals)
+                    : 0,
                 averageValue: userStats.averageValue
                     ? Number(userStats.averageValue).toFixed(2)
                     : "0.00",
                 repeatClient: userStats.repeatClient
-                    ? Number(userStats.repeatClient).toFixed(2)
-                    : "0.00",
+                    ? Number(userStats.repeatClient)
+                    : 0,
                 level: userStats.level
-                    ? Number(userStats.level).toFixed(2)
-                    : "0.00",
+                    ? Number(userStats.level)
+                    : 0,
                 onTimeDelivery: userStats.onTimeDelivery
-                    ? Number(userStats.onTimeDelivery).toFixed(2)
-                    : "0.00",
+                    ? Number(userStats.onTimeDelivery)
+                    : 0,
                 netEarning: (
                     (userStats.totalEarnings?.toNumber?.() ?? 0) -
                     (userStats.totalWithdraw?.toNumber?.() ?? 0)
@@ -693,11 +693,11 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
                 totalEarnings: "0.00",
                 totalExpenses: "0.00",
                 totalWithdraw: "0.00",
-                totalDeals: "0.00",
+                totalDeals: 0,
                 averageValue: "0.00",
-                repeatClient: "0.00",
-                level: "0.00",
-                onTimeDelivery: "0.00",
+                repeatClient: 0,
+                level: 0,
+                onTimeDelivery: 0,
                 netEarning: "0.00"
             };
 
@@ -1176,7 +1176,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const allowedGender = ['MALE', 'FEMALE', 'OTHER'];
         const allowedBadgeTypes = ['1', '2', '3', '4', '5', '6', '7', '8'];
         const allowedTypes = ["BUSINESS", "INFLUENCER"];
-        const allowedSubtypes = [0, 1, 2]; 
+        const allowedSubtypes = [0, 1, 2];
 
         // Validate subtype parameter
         const parsedSubtype = subtype !== undefined ? parseInt(subtype.toString()) : 0;
@@ -1416,7 +1416,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
             status: true,
             userData: {
                 some: {
-                    verified: true, 
+                    verified: true,
                 }
             },
         };
@@ -2352,12 +2352,12 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
             // No user found with socialId, check if email is already taken
             if (emailAddress) {
                 const existingEmailUser = await prisma.user.findFirst({
-                    where: { 
+                    where: {
                         emailAddress,
-                        status: true 
+                        status: true
                     }
                 });
-                
+
                 if (existingEmailUser) {
                     return response.error(res, 'Email already registered with another account.');
                 }
@@ -2371,8 +2371,8 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                 type: 'INFLUENCER',
                 status: true,
                 profileCompletion: 0,
-                password: 'SOCIAL_LOGIN_NO_PASSWORD', 
-                loginType: loginType || 'GOOGLE', 
+                password: 'SOCIAL_LOGIN_NO_PASSWORD',
+                loginType: loginType || 'GOOGLE',
             };
 
             if (emailAddress) {
@@ -2415,11 +2415,11 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
         });
 
     } catch (error: any) {
-        
+
         if (error.code === 'P2002') {
             return response.error(res, 'Email address and socialId are already in used.');
         }
-        
+
         return response.error(res, error.message || 'Social login failed.');
     }
 };
@@ -2613,7 +2613,7 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 
             filter.socialMediaPlatforms = {
                 some: {
-                    platform: platformValue, 
+                    platform: platformValue,
                 },
             };
         }
