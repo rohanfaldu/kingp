@@ -96,6 +96,11 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
   const uploadDir = path.resolve(__dirname, '../uploads/documents');
   const pdfPath = path.join(uploadDir, fileName);
 
+  const capitalizeStatus = (text: string) =>
+    text?.charAt(0).toUpperCase() + text?.slice(1).toLowerCase();
+
+
+
   // ✅ Ensure the folder exists
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -114,21 +119,31 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     doc.image(logoPath, 50, 30, { width: 80 });
   }
 
-  // Digital Invoice Title (top right)
+  // Digital Invoice Title (top-right)
   doc
     .fontSize(20)
     .fillColor('#333')
     .font('Helvetica-Bold')
     .text('Digital Invoice', 400, 50, { align: 'right' });
 
-  // Invoice details (top right)
+  // Invoice details under the title (right-aligned, spaced properly)
+  let infoY = 75; // Start a little lower to avoid overlap
+
   doc
     .fontSize(10)
     .fillColor('#666')
     .font('Helvetica')
-    .text(`Invoice no: ${order.invoiceId || order.id}`, 400, 80, { align: 'right' })
-    .text(`Invoice date: ${new Date().toLocaleDateString()}`, 400, 95, { align: 'right' })
-    .text(`Due: ${order.completionDate ? new Date(order.completionDate).toLocaleDateString() : 'N/A'}`, 400, 110, { align: 'right' });
+    .text(`Order ID: ${order.orderId || '-'}`, 400, infoY, { align: 'right' });
+
+  infoY += 15;
+  doc.text(`Invoice no: ${order.invoiceId || order.id}`, 400, infoY, { align: 'right' });
+
+  infoY += 15;
+  doc.text(`Invoice date: ${new Date().toLocaleDateString()}`, 400, infoY, { align: 'right' });
+
+  infoY += 15;
+  doc.text(`Completion Date: ${order.completionDate ? new Date(order.completionDate).toLocaleDateString() : 'N/A'}`, 400, infoY, { align: 'right' });
+
 
   // ✅ From Section
   doc
@@ -147,8 +162,8 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .fontSize(10)
     .fillColor('#666')
     .font('Helvetica')
-    .text('support@kringp.com', 50, 190)
-    .text('www.kringp.com', 50, 205)
+    .text('info@kringp.com', 50, 190)
+    .text('https://kringp.com/', 50, 205)
     .text('+91 XXXXXXXXXX', 50, 220)
     .text('India', 50, 235);
 
@@ -172,6 +187,8 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .text(order.businessOrderData?.emailAddress || 'customer@email.com', 400, 190)
     .text(order.businessOrderData?.contactPersonPhoneNumber || 'N/A', 400, 205)
     .text((order.businessOrderData?.cityData?.name && order.businessOrderData?.stateData?.name) ? `${order.businessOrderData.cityData.name}, ${order.businessOrderData.stateData.name}` : 'Address', 400, 220);
+
+
   // ✅ Ship To Section (if different from Bill To)
   doc
     .fontSize(12)
@@ -179,17 +196,38 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .font('Helvetica-Bold')
     .text('Ship to', 400, 260);
 
+  // Ship To / Group Section
   doc
-    .fontSize(10)
-    .fillColor('#666')
-    .font('Helvetica')
-    .text(order.influencerOrderData?.name || 'Same as billing', 400, 280)
-    .text(order.influencerOrderData?.emailAddress || '', 400, 295);
+    .fontSize(12)
+    .fillColor('#333')
+    .font('Helvetica-Bold')
+    .text('Ship to / Group', 400, 260);
 
-  // ✅ Table Header
+  if (order.groupOrderData) {
+    // If it’s a group order, show the group name
+    doc
+      .fontSize(10)
+      .fillColor('#666')
+      .font('Helvetica')
+      .text(order.groupOrderData.groupName, 400, 280);
+  } else {
+    // Otherwise fall back to the influencer “ship to” block
+    doc
+      .fontSize(10)
+      .fillColor('#666')
+      .font('Helvetica')
+      .text(order.influencerOrderData?.name || 'Same as billing', 400, 280)
+      .text(order.influencerOrderData?.emailAddress || '', 400, 295)
+      .text(order.influencerOrderData?.contactPersonPhoneNumber || 'N/A', 400, 310)
+      .text((order.influencerOrderData?.cityData?.name && order.influencerOrderData?.stateData?.name) ? `${order.influencerOrderData.cityData.name}, ${order.influencerOrderData.stateData.name}` : 'Address', 400, 220);
+
+  }
+
+  // …then your table header…
   const tableTop = 350;
   const tableLeft = 50;
   const tableWidth = 500;
+  // etc.
 
   // Table header background
   doc
@@ -289,7 +327,8 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .fillColor('#666')
     .font('Helvetica')
     .text('Payment Status:', 50, currentY + 50)
-    .text(order.paymentStatus || 'Pending', 150, currentY + 50)
+    // .text(order.paymentStatus || 'Pending', 150, currentY + 50)
+    .text(capitalizeStatus(order.paymentStatus) || 'Pending', 150, currentY + 50)
     .text('Transaction ID:', 50, currentY + 65)
     .text(order.transactionId || 'N/A', 150, currentY + 65)
     .text('Payment Method:', 50, currentY + 80)

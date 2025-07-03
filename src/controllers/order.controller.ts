@@ -14,7 +14,7 @@ import { sendFCMNotificationToUsers } from '../utils/notification';
 import { CoinType } from '@prisma/client';
 import { paginate } from '../utils/pagination';
 import { paymentRefund, getBageData, initiateTransfer } from "../utils/commonFunction";
-import { sendEmailWithOptionalPdf, generateInvoicePdf  } from "../utils/sendMail";
+import { sendEmailWithOptionalPdf, generateInvoicePdf } from "../utils/sendMail";
 import fs from 'fs';
 import path from 'path';
 
@@ -602,14 +602,31 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             <p>Thank you for using <strong>KringP</strong>.</p>
             `;
 
-            const fullOrder: any = await prisma.orders.findUnique({
+            const fullOrder = await prisma.orders.findUnique({
                 where: { id },
                 include: {
-                    businessOrderData: { select: { name: true, emailAddress: true } },
-                    influencerOrderData: { select: { name: true } },
+                    businessOrderData: {
+                        select: {
+                            name: true,
+                            emailAddress: true,
+                            contactPersonPhoneNumber: true,
+                            cityData: { select: { name: true } },
+                            stateData: { select: { name: true } },
+                        },
+                    },
+                    influencerOrderData: {
+                        select: {
+                            name: true,
+                            emailAddress: true,
+                            contactPersonPhoneNumber: true,
+                            cityData: { select: { name: true } },
+                            stateData: { select: { name: true } },
+                        },
+                    },
                     groupOrderData: { select: { groupName: true } },
                 },
             });
+
 
             if (!fullOrder?.businessOrderData) {
                 return response.error(res, 'Business user not found');
