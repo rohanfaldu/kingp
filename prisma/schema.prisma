@@ -278,6 +278,7 @@ model Badges {
 
 model Orders {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                 String?         @unique
   groupId                 String?         @db.Uuid
   influencerId            String?         @db.Uuid
   businessId              String          @db.Uuid
@@ -306,6 +307,7 @@ model Orders {
   businessOrderData       User?            @relation("businessOrderInfo", fields: [businessId], references: [id])
   mediaOrderData          Media[]         @relation("mediaOrderInfo")
   orderRatings            Ratings[]
+  orderInvoiceData        OrderInvoice[]
 }
 
 model Media {
@@ -523,6 +525,16 @@ model UserBankDetails {
   status              Boolean             @default(true)
   createdAt           DateTime            @default(now()) @db.Timestamp(6)
   updatedAt           DateTime            @updatedAt @db.Timestamp(6)
+}
+
+model OrderInvoice {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                 String          @db.Uuid
+  invoiceId               String          @db.VarChar
+  createdAt               DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime        @updatedAt @db.Timestamp(6)
+
+  orderInvoiceData        Orders?         @relation(fields: [orderId], references: [id])
 }
 
 enum Role {

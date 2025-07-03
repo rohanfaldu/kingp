@@ -1,6 +1,7 @@
 import { OfferStatus, PaymentStatus } from '../enums/userType.enum'; 
 
 export interface IOrder {
+    orderId?: string;
     groupId?: string;
     influencerId?: string;
     businessId: string;

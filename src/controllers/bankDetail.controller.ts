@@ -92,30 +92,65 @@ export const createUserBankDetails = async (req: Request, res: Response): Promis
 
 
 // Get Bank Details by UserId
+// export const getUserBankDetailsByUserId = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { userId } = req.body;
+
+//     if (!userId) return response.error(res, "userId is required.");
+
+//     const bankDetails = await prisma.userBankDetails.findFirst({
+//       where: { userId, status: true },
+//     });
+
+//     if (!bankDetails) return response.error(res, "No bank details found for this user.");
+
+//     const decryptedData = {
+//       ...bankDetails,
+//       accountNumber: bankDetails.accountNumber ? parseInt(decrypt(bankDetails.accountNumber)) : null,
+//       accountId: bankDetails.accountId || null,
+//     };
+
+//     return response.success(res, "Bank details fetched successfully.", decryptedData);
+//   } catch (error: any) {
+//     return response.error(res, error.message || "Something went wrong.");
+//   }
+// };
+
 export const getUserBankDetailsByUserId = async (req: Request, res: Response): Promise<any> => {
   try {
     const { userId } = req.body;
+    if (!userId) {
+      return response.error(res, "userId is required.");
+    }
 
-    if (!userId) return response.error(res, "userId is required.");
-
-    const bankDetails = await prisma.userBankDetails.findFirst({
+    // Fetch all active bank‑detail records for this user
+    const bankDetailsList = await prisma.userBankDetails.findMany({
       where: { userId, status: true },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!bankDetails) return response.error(res, "No bank details found for this user.");
+    if (!bankDetailsList || bankDetailsList.length === 0) {
+      return response.error(res, "No bank details found for this user.");
+    }
 
-    const decryptedData = {
-      ...bankDetails,
-      accountNumber: bankDetails.accountNumber ? parseInt(decrypt(bankDetails.accountNumber)) : null,
-      accountId: bankDetails.accountId || null,
-    };
+    // Decrypt sensitive fields for each record
+    const decryptedList = bankDetailsList.map((bd) => ({
+      ...bd,
+      accountNumber: bd.accountNumber
+        ? parseInt(decrypt(bd.accountNumber), 10)
+        : null,
+      accountId: bd.accountId || null,
+    }));
 
-    return response.success(res, "Bank details fetched successfully.", decryptedData);
+    return response.success(
+      res,
+      "Bank details fetched successfully.",
+      decryptedList
+    );
   } catch (error: any) {
     return response.error(res, error.message || "Something went wrong.");
   }
 };
-
 
 
 //  Edit Bank Details

@@ -14,6 +14,9 @@ import { sendFCMNotificationToUsers } from '../utils/notification';
 import { CoinType } from '@prisma/client';
 import { paginate } from '../utils/pagination';
 import { paymentRefund, getBageData, initiateTransfer } from "../utils/commonFunction";
+import { sendEmailWithOptionalPdf, generateInvoicePdf  } from "../utils/sendMail";
+import fs from 'fs';
+import path from 'path';
 
 
 const prisma = new PrismaClient();
@@ -120,8 +123,35 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             parsedCompletionDate = completionDate;
         }
 
+        const generateOrderId = (): string => {
+            const random1 = Math.floor(100 + Math.random() * 900); // 3-digit
+            const random2 = Math.floor(10000 + Math.random() * 90000); // 5-digit
+            return `ORD-${random1}-${random2}`;
+        };
+
+        const generateUniqueOrderId = async (): Promise<string> => {
+            let unique = false;
+            let orderId = '';
+
+            while (!unique) {
+                orderId = generateOrderId();
+
+                const existingOrder = await prisma.orders.findUnique({
+                    where: { orderId }
+                });
+
+                if (!existingOrder) {
+                    unique = true;
+                }
+            }
+
+            return orderId;
+        };
+
+        const orderId = await generateUniqueOrderId();
         const newOrder = await prisma.orders.create({
             data: {
+                orderId,
                 ...restFields,
                 businessId,
                 influencerId,
@@ -559,6 +589,75 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     paymentStatus: PaymentStatus.COMPLETED
                 }
             });
+
+            const user = await prisma.user.findUnique({
+                where: { id: currentOrder?.businessId },
+                select: { name: true, emailAddress: true },
+            });
+
+            const htmlContent = `
+            <p>Hello ${user?.name || 'User'},</p>
+            <p>Your order has been <strong>activated</strong> and payment is completed.</p>
+            <p>Please find the attached invoice for your reference.</p>
+            <p>Thank you for using <strong>KringP</strong>.</p>
+            `;
+
+            const fullOrder: any = await prisma.orders.findUnique({
+                where: { id },
+                include: {
+                    businessOrderData: { select: { name: true, emailAddress: true } },
+                    influencerOrderData: { select: { name: true } },
+                    groupOrderData: { select: { groupName: true } },
+                },
+            });
+
+            if (!fullOrder?.businessOrderData) {
+                return response.error(res, 'Business user not found');
+            }
+            //  Generate invoice ID before using it
+            const generateInvoiceId = (): string => {
+                const part1 = Math.floor(1000 + Math.random() * 9000);
+                const part2 = Math.floor(1000 + Math.random() * 9000);
+                return `INV-${part1}-${part2}`;
+            };
+
+            const generateUniqueInvoiceId = async (): Promise<string> => {
+                let unique = false;
+                let invoiceId = '';
+
+                while (!unique) {
+                    invoiceId = generateInvoiceId();
+                    const existing = await prisma.orderInvoice.findFirst({
+                        where: { invoiceId },
+                    });
+                    if (!existing) unique = true;
+                }
+
+                return invoiceId;
+            };
+
+            //  Get the unique invoice ID
+            const invoiceId = await generateUniqueInvoiceId();
+
+            //  Store invoice record in DB
+            await prisma.orderInvoice.create({
+                data: {
+                    orderId: id,
+                    invoiceId,
+                },
+            });
+
+            //  Generate invoice PDF (pass invoiceId for filename/content)
+            const invoicePath = await generateInvoicePdf({ ...fullOrder, invoiceId });
+
+            // const invoicePath = await generateInvoicePdf(fullOrder, invoiceId);
+
+            await sendEmailWithOptionalPdf(
+                user.emailAddress,
+                'Invoice for your Order - KringP',
+                htmlContent,
+                invoicePath
+            );
         }
 
         // // REFUND LOGIC FOR CANCELED ORDERS
