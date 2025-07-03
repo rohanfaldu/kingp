@@ -271,45 +271,106 @@ export const editGroup = async (req: Request, res: Response): Promise<any> => {
         }
 
         // 3. Sync GroupUsersList
+        // if (groupUserEntry) {
+
+        //     if (groupUserEntry) {
+        //         // Fetch existing invited user IDs
+        //         const existingInvites = await prisma.groupUsersList.findMany({
+        //             where: { groupUserId: groupUserEntry.id },
+        //         });
+        //         const existingUserIds = existingInvites.map(invite => invite.invitedUserId);
+
+        //         // Find new users that need to be added
+        //         const newUserIds = invitedUserId.filter(id => !existingUserIds.includes(id));
+
+        //         // Add only new invited users to GroupUsersList
+        //         await Promise.all(
+        //             newUserIds.map(async (inviteId) => {
+        //                 await prisma.groupUsersList.create({
+        //                     data: {
+        //                         groupId: updatedGroup.id,
+        //                         groupUserId: groupUserEntry.id,
+        //                         adminUserId: userId || groupUserEntry.userId,
+        //                         invitedUserId: inviteId,
+        //                         status: true,
+        //                         requestAccept: RequestStatus.PENDING,
+        //                     },
+        //                 });
+        //             })
+        //         );
+
+        //         // Merge all invitedUserIds into GroupUsers
+        //         const mergedInvitedIds = Array.from(new Set([...existingUserIds, ...newUserIds]));
+
+        //         await prisma.groupUsers.update({
+        //             where: { id: groupUserEntry.id },
+        //             data: {
+        //                 invitedUserId: mergedInvitedIds,
+        //             },
+        //         });
+        //     }
+        // }
+
+        // 3. Sync GroupUsersList
         if (groupUserEntry) {
+            // 🚫 Check if group has any active or pending orders
+            const restrictedStatuses = ['PENDING', 'ACCEPTED', 'ACTIVATED', 'ORDERSUBMITTED'];
+            const groupOrders = await prisma.orders.findMany({
+                where: {
+                    groupId: updatedGroup.id,
+                    status: { in: restrictedStatuses },
+                },
+            });
 
-            if (groupUserEntry) {
-                // Fetch existing invited user IDs
-                const existingInvites = await prisma.groupUsersList.findMany({
-                    where: { groupUserId: groupUserEntry.id },
-                });
-                const existingUserIds = existingInvites.map(invite => invite.invitedUserId);
-
-                // Find new users that need to be added
-                const newUserIds = invitedUserId.filter(id => !existingUserIds.includes(id));
-
-                // Add only new invited users to GroupUsersList
-                await Promise.all(
-                    newUserIds.map(async (inviteId) => {
-                        await prisma.groupUsersList.create({
-                            data: {
-                                groupId: updatedGroup.id,
-                                groupUserId: groupUserEntry.id,
-                                adminUserId: userId || groupUserEntry.userId,
-                                invitedUserId: inviteId,
-                                status: true,
-                                requestAccept: RequestStatus.PENDING,
-                            },
-                        });
-                    })
-                );
-
-                // Merge all invitedUserIds into GroupUsers
-                const mergedInvitedIds = Array.from(new Set([...existingUserIds, ...newUserIds]));
-
-                await prisma.groupUsers.update({
-                    where: { id: groupUserEntry.id },
-                    data: {
-                        invitedUserId: mergedInvitedIds,
-                    },
-                });
+            if (groupOrders.length > 0 && invitedUserId.length > 0) {
+                return response.error(res, 'Cannot add new members. Group has active or pending orders.');
             }
+
+            // ✅ Safe to proceed with updating invited users
+            const existingInvites = await prisma.groupUsersList.findMany({
+                where: { groupUserId: groupUserEntry.id },
+            });
+            const existingUserIds = existingInvites.map(invite => invite.invitedUserId);
+
+            const newUserIds = invitedUserId.filter(id => !existingUserIds.includes(id));
+
+            // Check that all inviteIds exist in the User table
+            const validUsers = await prisma.user.findMany({
+                where: {
+                    id: { in: newUserIds },
+                    status: true,
+                },
+                select: { id: true },
+            });
+            const validUserIds = validUsers.map(u => u.id);
+
+            // Proceed only with valid invited users
+            await Promise.all(
+                validUserIds.map(async (inviteId) => {
+                    await prisma.groupUsersList.create({
+                        data: {
+                            groupId: updatedGroup.id,
+                            groupUserId: groupUserEntry.id,
+                            adminUserId: userId || groupUserEntry.userId,
+                            invitedUserId: inviteId,
+                            status: true,
+                            requestAccept: RequestStatus.PENDING,
+                        },
+                    });
+                })
+            );
+
+
+            const mergedInvitedIds = Array.from(new Set([...existingUserIds, ...newUserIds]));
+
+            await prisma.groupUsers.update({
+                where: { id: groupUserEntry.id },
+                data: {
+                    invitedUserId: mergedInvitedIds,
+                },
+            });
         }
+
 
         // 4. Fetch updated group
         const finalUpdatedGroup = await prisma.group.findFirst({
@@ -1775,7 +1836,7 @@ export const getMyGroups = async (req: Request, res: Response): Promise<any> => 
 
                 if (
                     matchesSearch(group.groupName ?? '', searchTerm) ||
-                    matchesSearch(group.groupBio ?? '', searchTerm) 
+                    matchesSearch(group.groupBio ?? '', searchTerm)
                 ) return true;
 
                 if (group.subCategoryId?.some(subCat =>
