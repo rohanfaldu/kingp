@@ -1719,8 +1719,10 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const totalCount = usersCount + groupsCount;
 
         const paginatedResults = allResults.slice(skip, skip + itemsPerPage);
+        
+        const sortedResults = [...paginatedResults].sort((a, b) => b.ratings - a.ratings);
 
-        if (paginatedResults.length === 0) {
+        if (sortedResults.length === 0) {
             throw new Error("No users or groups found matching the criteria.");
         }
 
@@ -1731,7 +1733,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
                 limit: itemsPerPage,
                 totalPages: Math.ceil(totalCount / itemsPerPage),
             },
-            users: paginatedResults
+            users: sortedResults
         });
     } catch (error: any) {
         return response.error(res, error.message);
