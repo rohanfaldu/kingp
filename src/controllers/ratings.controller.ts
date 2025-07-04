@@ -286,19 +286,31 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
         if (usersToNotify.length > 0) {
             const sender = await prisma.user.findUnique({
                 where: { id: ratedByUserId },
-                select: { name: true },
+                select: { name: true, type: true },
             });
 
             const title = 'You received a new rating!';
             const message = `${sender?.name || 'Someone'} rated you for a recent order.`;
 
-            await sendFCMNotificationToUsers(usersToNotify, title, message, 'NEW_RATING');
+            console.log(sender, '>>>>>>>>>>>>>>>>>>>>> sender');
 
+            // ✅ Determine notification type based on sender's role
+            let notificationType = 'NEW_RATING';
+            if (sender?.type === 'BUSINESS') {
+                notificationType = 'INFLUENCER_RATING';
+            } else if (sender?.type === 'INFLUENCER') {
+                notificationType = 'BUSINESS_RATING';
+            }
+
+            // ✅ Send FCM to all users with the determined type
+            await sendFCMNotificationToUsers(usersToNotify, title, message, notificationType);
+
+            // ✅ Store notification with the same determined type
             const notificationEntries = usersToNotify.map((user) => ({
                 userId: user.id,
                 title,
                 message,
-                type: 'NEW_RATING',
+                type: notificationType,
                 status: 'SENT',
             }));
 
@@ -307,6 +319,8 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                 skipDuplicates: true,
             });
         }
+
+
 
         return response.success(res, "Rating(s) created successfully!", createdRatings);
     } catch (error: any) {

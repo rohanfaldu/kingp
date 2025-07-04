@@ -2597,12 +2597,20 @@ export const getAllUsersAlternative = async (req: Request, res: Response): Promi
 
 export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { platform } = req.body;
+        const { platform, search } = req.body;
         const { type } = req.body;
 
         const allowedPlatforms = ['INSTAGRAM', 'TWITTER', 'YOUTUBE', 'TIKTOK'];
 
         const filter: any = {};
+
+        // ✅ Search by name starting with
+        if (search && typeof search === 'string') {
+            filter.name = {
+                startsWith: search,
+                mode: 'insensitive', // Optional: case-insensitive search
+            };
+        }
 
         // Validate and apply platform filter
         if (platform) {
