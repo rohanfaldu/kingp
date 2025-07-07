@@ -2283,6 +2283,28 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
             }
         });
 
+        const existingDetail = await prisma.userDetail.findFirst({
+            where: { userId: editedUser.id },
+        });
+
+        if (existingDetail) {
+            await prisma.userDetail.update({
+                where: { id: existingDetail.id },
+                data: {
+                    name: editedUser.name || '',
+                    image: editedUser.userImage || '',
+                },
+            });
+        } else {
+            await prisma.userDetail.create({
+                data: {
+                    userId: editedUser.id,
+                    name: editedUser.name || '',
+                    image: editedUser.userImage || '',
+                },
+            });
+        }
+
         const country = editedUser.countryId ? await prisma.country.findUnique({ where: { id: editedUser.countryId }, select: { name: true } }) : null;
         const state = editedUser.stateId ? await prisma.state.findUnique({ where: { id: editedUser.stateId }, select: { name: true } }) : null;
         const city = editedUser.cityId ? await prisma.city.findUnique({ where: { id: editedUser.cityId }, select: { name: true } }) : null;
@@ -2684,27 +2706,27 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 
 
 export const updateUserBannerStatusByUserId = async (req: Request, res: Response) => {
-  const { userId, status } = req.body;
+    const { userId, status } = req.body;
 
-  if (!userId || typeof status !== 'boolean') {
-    return response.error(res, 'userId and boolean status are required');
-  }
-
-  try {
-    const updated = await prisma.userDetail.updateMany({
-      where: { userId },
-      data: { status },
-    });
-
-    if (updated.count === 0) {
-      return response.error(res, 'No UserDetail found for given userId');
+    if (!userId || typeof status !== 'boolean') {
+        return response.error(res, 'userId and boolean status are required');
     }
 
-    return response.success(res, 'Status updated successfully', null);
-  } catch (error: any) {
-    console.error(error);
-    return response.error(res, 'Error updating status');
-  }
+    try {
+        const updated = await prisma.userDetail.updateMany({
+            where: { userId },
+            data: { status },
+        });
+
+        if (updated.count === 0) {
+            return response.error(res, 'No UserDetail found for given userId');
+        }
+
+        return response.success(res, 'Status updated successfully', null);
+    } catch (error: any) {
+        console.error(error);
+        return response.error(res, 'Error updating status');
+    }
 };
 
 
