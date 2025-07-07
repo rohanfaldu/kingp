@@ -143,10 +143,11 @@ model SubCategory {
 model UserDetail {
   id                     String         @id@default(dbgenerated("gen_random_uuid()"))@db.Uuid
   userId                 String?        @db.Uuid
-  key                    String?        @db.VarChar
-  Value                  String?        @db.VarChar
+  name                   String?        @db.VarChar
+  image                  String?        @db.VarChar
+  status                 Boolean        @default(false)
   createsAt              DateTime?      @default(now())@db.Timestamp(6)
-  updatedAt              DateTime?      @default(now())@db.Timestamp(6)
+  updatedAt              DateTime?      @updatedAt @db.Timestamp(6)
   User                   User?          @relation(fields: [userId], references: [id])
 }
 
@@ -308,6 +309,7 @@ model Orders {
   mediaOrderData          Media[]         @relation("mediaOrderInfo")
   orderRatings            Ratings[]
   orderInvoiceData        OrderInvoice[]
+  orderUserGstData        UserGstDetails[]
 }
 
 model Media {
@@ -535,6 +537,24 @@ model OrderInvoice {
   updatedAt               DateTime        @updatedAt @db.Timestamp(6)
 
   orderInvoiceData        Orders?         @relation(fields: [orderId], references: [id])
+}
+
+model UserGstDetails {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                 String          @db.Uuid
+  basicAmount             Decimal?        @db.Decimal 
+  gst                     Decimal?        @db.Decimal   
+  igst                    Decimal?        @db.Decimal
+  cgst                    Decimal?        @db.Decimal
+  sgst                    Decimal?        @db.Decimal
+  tds                     Decimal?        @db.Decimal     
+  tcs                     Decimal?        @db.Decimal
+  totalPayableAmt         Decimal?        @db.Decimal
+  status                  Boolean         @default(true)
+  createdAt               DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime        @updatedAt @db.Timestamp(6)
+
+  orderUserGstData        Orders?         @relation(fields: [orderId], references: [id])
 }
 
 enum Role {

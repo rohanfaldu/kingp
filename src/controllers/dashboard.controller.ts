@@ -69,19 +69,12 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
         const loginUserId = req.user?.userId;
 
         // Fetch app settings
-        const bannerData = await prisma.appSetting.findMany({
+        const bannerData = await prisma.userDetail.findMany({
             where: {
-                slug: {
-                    in: [
-                        'banner-1',
-                        'banner-2',
-                        'banner-3',
-                        'banner-4',
-                    ],
-                },
+                status: true,
             },
             orderBy: {
-                createdAt: 'desc',
+                updatedAt: 'desc',
             },
         });
 
@@ -415,7 +408,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
         // 1. Fetch recent views
         const recentChatViews = await prisma.recentChatView.findMany({
             where: {
-                loginUserId: loggedInUserId, 
+                loginUserId: loggedInUserId,
                 updatedAt: {
                     gte: threeMonthsAgo,
                 },

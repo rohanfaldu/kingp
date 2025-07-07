@@ -220,6 +220,14 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         },
     });
 
+    await prisma.userDetail.create({
+        data: {
+            userId: newUser.id,
+            name: userFields.name || '', // fallback if name is optional
+            image: userFields.userImage || '', // or wherever the image comes from
+        }
+    });
+
     //Create UserSubCategory relations if any
     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
         const validSubCategories = await prisma.subCategory.findMany({
@@ -1719,7 +1727,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const totalCount = usersCount + groupsCount;
 
         const paginatedResults = allResults.slice(skip, skip + itemsPerPage);
-        
+
         const sortedResults = [...paginatedResults].sort((a, b) => b.ratings - a.ratings);
 
         if (sortedResults.length === 0) {
@@ -2672,6 +2680,36 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
         response.error(res, error.message);
     }
 };
+
+
+
+export const updateUserBannerStatusByUserId = async (req: Request, res: Response) => {
+  const { userId, status } = req.body;
+
+  if (!userId || typeof status !== 'boolean') {
+    return response.error(res, 'userId and boolean status are required');
+  }
+
+  try {
+    const updated = await prisma.userDetail.updateMany({
+      where: { userId },
+      data: { status },
+    });
+
+    if (updated.count === 0) {
+      return response.error(res, 'No UserDetail found for given userId');
+    }
+
+    return response.success(res, 'Status updated successfully', null);
+  } catch (error: any) {
+    console.error(error);
+    return response.error(res, 'Error updating status');
+  }
+};
+
+
+
+
 
 // Helper function to format user data (if you want to extract it)
 const formatUserData = async (user: any) => {
