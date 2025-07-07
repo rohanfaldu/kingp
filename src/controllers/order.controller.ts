@@ -22,6 +22,234 @@ import path from 'path';
 const prisma = new PrismaClient();
 
 
+// export const createOrder = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const orderData: IOrder = req.body;
+//         const {
+//             businessId,
+//             influencerId,
+//             completionDate,
+//             ...restFields
+//         } = orderData;
+
+//         if (!businessId) {
+//             return res.status(400).json({ error: 'businessId is required' });
+//         }
+
+//         if (orderData.groupId) {
+//             // Step 1: Fetch invited users (with requestAccept) and adminUserId for the group
+//             const groupUsersList = await prisma.groupUsersList.findMany({
+//                 where: { groupId: orderData.groupId, status: true },
+//                 select: {
+//                     invitedUserId: true,
+//                     adminUserId: true,
+//                     requestAccept: true,
+//                 },
+//             });
+//             if (groupUsersList.length === 0) {
+//                 return response.error(res, 'No group members found.');
+//             }
+
+//             // Step 2: Get adminUserId from first entry (assuming same across entries)
+//             const adminUserId = groupUsersList[0].adminUserId;
+
+//             // Step 3: Collect only those invited users who are ACCEPTED
+//             const acceptedInvitedUserIds = groupUsersList
+//                 .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
+//                 .map(u => u.invitedUserId);
+
+//             // Step 4: Check bank details for admin
+//             const adminBankDetails = await prisma.userBankDetails.findFirst({
+//                 where: { userId: adminUserId, status: true },
+//             });
+
+//             if (!adminBankDetails) {
+//                 return response.error(res, 'Admin must add bank details before proceeding.');
+//             }
+
+//             if (acceptedInvitedUserIds.length > 0) {
+//                 const acceptedWithBankDetails = await prisma.userBankDetails.findMany({
+//                     where: {
+//                         userId: { in: acceptedInvitedUserIds },
+//                         status: true,
+//                     },
+//                     select: { userId: true },
+//                 });
+
+//                 const bankUserIds = acceptedWithBankDetails.map(b => b.userId);
+
+//                 const missingBankDetails = acceptedInvitedUserIds.filter(
+//                     id => !bankUserIds.includes(id)
+//                 );
+
+//                 if (missingBankDetails.length > 0) {
+//                     return response.error(
+//                         res,
+//                         'All accepted invited users must add bank details before proceeding.'
+//                     );
+//                 }
+//             }
+//         }
+
+//         if (influencerId) {
+//             const influencer = await prisma.user.findUnique({
+//                 where: { id: influencerId, status: true },
+//             });
+
+//             if (!influencer) {
+//                 return response.error(res, 'Invalid influencer ID provided.');
+//             }
+//             //  Check if bank details exist for this influencer
+//             const bankDetails = await prisma.userBankDetails.findFirst({
+//                 where: {
+//                     userId: influencerId,
+//                     status: true,
+//                 },
+//             });
+
+//             if (!bankDetails) {
+//                 return response.error(res, 'Influencer must add bank details before Creating offers.');
+//             }
+//         }
+
+
+//         let parsedCompletionDate: Date | undefined = undefined;
+//         const statusEnumValue = getStatusName(restFields.status ?? 0);
+
+
+//         if (completionDate && typeof completionDate === 'number') {
+//             parsedCompletionDate = addDays(new Date(), completionDate);
+//         } else {
+//             parsedCompletionDate = completionDate;
+//         }
+
+//         const generateOrderId = (): string => {
+//             const random1 = Math.floor(100 + Math.random() * 900); // 3-digit
+//             const random2 = Math.floor(10000 + Math.random() * 90000); // 5-digit
+//             return `ORD-${random1}-${random2}`;
+//         };
+
+//         const generateUniqueOrderId = async (): Promise<string> => {
+//             let unique = false;
+//             let orderId = '';
+
+//             while (!unique) {
+//                 orderId = generateOrderId();
+
+//                 const existingOrder = await prisma.orders.findUnique({
+//                     where: { orderId }
+//                 });
+
+//                 if (!existingOrder) {
+//                     unique = true;
+//                 }
+//             }
+
+//             return orderId;
+//         };
+
+//         const orderId = await generateUniqueOrderId();
+//         const newOrder = await prisma.orders.create({
+//             data: {
+//                 orderId,
+//                 ...restFields,
+//                 businessId,
+//                 influencerId,
+//                 completionDate: parsedCompletionDate,
+//                 status: statusEnumValue,
+//                 paymentStatus: restFields.paymentStatus ?? 'PENDING',
+//             },
+//             include: {
+//                 groupOrderData: {},
+//                 influencerOrderData: {
+//                     include: {
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     }
+//                 },
+//                 businessOrderData: {
+//                     include: {
+//                         socialMediaPlatforms: true,
+//                         brandData: true,
+//                         countryData: true,
+//                         stateData: true,
+//                         cityData: true,
+//                     }
+//                 }
+//             }
+//         });
+
+//         const formatUser = async (user: any) => {
+//             if (!user) return null;
+//             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
+//             return {
+//                 ...user,
+//                 categories: userCategoriesWithSubcategories,
+//                 countryName: user.countryData?.name ?? null,
+//                 stateName: user.stateData?.name ?? null,
+//                 cityName: user.cityData?.name ?? null,
+//             };
+//         };
+
+//         const responseData = {
+//             ...newOrder,
+//             influencerOrderData: await formatUser(newOrder.influencerOrderData),
+//             businessOrderData: await formatUser(newOrder.businessOrderData),
+//             groupOrderData: await formatUser(newOrder.groupOrderData),
+//         };
+
+//         // Send Notification to Business (from Influencer)
+//         const businessUser = await prisma.user.findUnique({
+//             where: { id: newOrder.businessId },
+//         });
+
+//         if (businessUser?.fcmToken) {
+//             const recipientId = businessUser.id;
+//             const fcmToken = businessUser.fcmToken;
+
+//             // Determine if order is from group or influencer
+//             let senderName = '';
+//             let senderType = '';
+
+//             if (newOrder.influencerOrderData) {
+//                 senderName = newOrder.influencerOrderData?.name || 'an influencer';
+//                 senderType = 'Influencer';
+//             } else if (newOrder.groupOrderData) {
+//                 const groupAdminId = newOrder.groupOrderData?.userId;
+
+//                 if (groupAdminId) {
+//                     const groupAdminUser = await prisma.user.findUnique({
+//                         where: { id: groupAdminId },
+//                     });
+
+//                     senderName = groupAdminUser?.name || 'a group';
+//                     senderType = 'Group';
+//                 } else {
+//                     senderName = 'a group';
+//                     senderType = 'Group';
+//                 }
+//             }
+
+//             await sendFCMNotificationToUsers(
+//                 [{ id: recipientId, fcmToken }],
+//                 'New Offer Received',
+//                 `You have received a new Offer from ${senderName}`,
+//                 'ORDER_CREATED',
+//                 responseData.id
+
+//             );
+//         }
+
+//         return response.success(res, 'Order created successfully!', responseData);
+//     } catch (error: any) {
+//         return response.error(res, error.message);
+//     }
+// };
+
+
 export const createOrder = async (req: Request, res: Response): Promise<any> => {
     try {
         const orderData: IOrder = req.body;
@@ -37,7 +265,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         }
 
         if (orderData.groupId) {
-            // Step 1: Fetch invited users (with requestAccept) and adminUserId for the group
             const groupUsersList = await prisma.groupUsersList.findMany({
                 where: { groupId: orderData.groupId, status: true },
                 select: {
@@ -46,19 +273,17 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                     requestAccept: true,
                 },
             });
+
             if (groupUsersList.length === 0) {
                 return response.error(res, 'No group members found.');
             }
 
-            // Step 2: Get adminUserId from first entry (assuming same across entries)
             const adminUserId = groupUsersList[0].adminUserId;
 
-            // Step 3: Collect only those invited users who are ACCEPTED
             const acceptedInvitedUserIds = groupUsersList
                 .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
                 .map(u => u.invitedUserId);
 
-            // Step 4: Check bank details for admin
             const adminBankDetails = await prisma.userBankDetails.findFirst({
                 where: { userId: adminUserId, status: true },
             });
@@ -77,10 +302,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                 });
 
                 const bankUserIds = acceptedWithBankDetails.map(b => b.userId);
-
-                const missingBankDetails = acceptedInvitedUserIds.filter(
-                    id => !bankUserIds.includes(id)
-                );
+                const missingBankDetails = acceptedInvitedUserIds.filter(id => !bankUserIds.includes(id));
 
                 if (missingBankDetails.length > 0) {
                     return response.error(
@@ -91,15 +313,15 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             }
         }
 
+        let influencerUser = null;
         if (influencerId) {
-            const influencer = await prisma.user.findUnique({
-                where: { id: influencerId, status: true },
+            influencerUser = await prisma.user.findUnique({
+                where: { id: influencerId },
+                select: {
+                    gstNumber: true,
+                },
             });
 
-            if (!influencer) {
-                return response.error(res, 'Invalid influencer ID provided.');
-            }
-            //  Check if bank details exist for this influencer
             const bankDetails = await prisma.userBankDetails.findFirst({
                 where: {
                     userId: influencerId,
@@ -112,10 +334,79 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             }
         }
 
+        const baseAmount = restFields.finalAmount ?? 0;
+        let finalAmount = baseAmount;
+        let gst = 0, tcs = 0, tds = 0;
+
+        const commission = baseAmount * 0.2;
+        const commissionGst = commission * 0.18;
+        const commissionTotal = commission + commissionGst;
+
+        let isGstRegistered = false;
+
+        if (restFields.groupId) {
+            // 👉 Fetch admin and accepted invited users
+            const groupUsers = await prisma.groupUsersList.findMany({
+                where: {
+                    groupId: restFields.groupId,
+                    status: true,
+                },
+                select: {
+                    adminUserId: true,
+                    invitedUserId: true,
+                    requestAccept: true,
+                },
+            });
+
+            const adminUserId = groupUsers[0]?.adminUserId;
+            const acceptedUserIds = groupUsers
+                .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
+                .map(u => u.invitedUserId);
+
+            // 👉 Include admin in check
+            const userIdsToCheck = [...acceptedUserIds, adminUserId];
+
+            // 👉 Check GST for all of them
+            const gstUsers = await prisma.user.findMany({
+                where: {
+                    id: { in: userIdsToCheck },
+                    gstNumber: { not: null },
+                },
+                select: { id: true },
+            });
+
+            if (gstUsers.length > 0) {
+                isGstRegistered = true;
+            }
+        } else {
+            isGstRegistered = !!influencerUser?.gstNumber;
+        }
+
+        // const isGstRegistered = !!influencerUser?.gstNumber;
+
+        if (isGstRegistered) {
+            gst = baseAmount * 0.18;
+            tcs = baseAmount * 0.01;
+            tds = baseAmount * 0.01;
+
+
+            finalAmount = baseAmount + gst;
+        } else {
+            const commission = baseAmount * 0.2;
+            const commissionGst = commission * 0.18;
+            const commissionTotal = commission + commissionGst;
+
+            gst = commissionGst;
+            tcs = 0;
+            tds = baseAmount * 0.01;
+
+
+            finalAmount = baseAmount;
+        }
+
 
         let parsedCompletionDate: Date | undefined = undefined;
         const statusEnumValue = getStatusName(restFields.status ?? 0);
-
 
         if (completionDate && typeof completionDate === 'number') {
             parsedCompletionDate = addDays(new Date(), completionDate);
@@ -123,38 +414,12 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             parsedCompletionDate = completionDate;
         }
 
-        const generateOrderId = (): string => {
-            const random1 = Math.floor(100 + Math.random() * 900); // 3-digit
-            const random2 = Math.floor(10000 + Math.random() * 90000); // 5-digit
-            return `ORD-${random1}-${random2}`;
-        };
-
-        const generateUniqueOrderId = async (): Promise<string> => {
-            let unique = false;
-            let orderId = '';
-
-            while (!unique) {
-                orderId = generateOrderId();
-
-                const existingOrder = await prisma.orders.findUnique({
-                    where: { orderId }
-                });
-
-                if (!existingOrder) {
-                    unique = true;
-                }
-            }
-
-            return orderId;
-        };
-
-        const orderId = await generateUniqueOrderId();
         const newOrder = await prisma.orders.create({
             data: {
-                orderId,
                 ...restFields,
                 businessId,
                 influencerId,
+                finalAmount,
                 completionDate: parsedCompletionDate,
                 status: statusEnumValue,
                 paymentStatus: restFields.paymentStatus ?? 'PENDING',
@@ -182,6 +447,17 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             }
         });
 
+        await prisma.userGstDetails.create({
+            data: {
+                orderId: newOrder.id,
+                basicAmount: baseAmount,
+                gst,
+                tds,
+                tcs: isGstRegistered ? tcs : 0, // store null if not applicable
+                totalPayableAmt: finalAmount,
+            }
+        });
+
         const formatUser = async (user: any) => {
             if (!user) return null;
             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
@@ -201,7 +477,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             groupOrderData: await formatUser(newOrder.groupOrderData),
         };
 
-        // Send Notification to Business (from Influencer)
         const businessUser = await prisma.user.findUnique({
             where: { id: newOrder.businessId },
         });
@@ -210,7 +485,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             const recipientId = businessUser.id;
             const fcmToken = businessUser.fcmToken;
 
-            // Determine if order is from group or influencer
             let senderName = '';
             let senderType = '';
 
@@ -239,7 +513,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
                 `You have received a new Offer from ${senderName}`,
                 'ORDER_CREATED',
                 responseData.id
-
             );
         }
 
@@ -248,6 +521,7 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message);
     }
 };
+
 
 
 
@@ -1249,6 +1523,41 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             };
         }
 
+        ////////////////// Earning logic with GST ///////////////////
+
+        let isGstRegistered = false;
+
+        if (updated.groupId) {
+            const groupUsers = await prisma.groupUsersList.findMany({
+                where: { groupId: updated.groupId, status: true },
+                select: { invitedUserId: true, requestAccept: true, adminUserId: true },
+            });
+
+            const adminUserId = groupUsers[0]?.adminUserId;
+            const acceptedUserIds = groupUsers
+                .filter(u => u.requestAccept === 'ACCEPTED')
+                .map(u => u.invitedUserId);
+
+            const usersToCheck = [...acceptedUserIds, adminUserId];
+
+            const gstUsers = await prisma.user.findMany({
+                where: {
+                    id: { in: usersToCheck },
+                    gstNumber: { not: null },
+                },
+                select: { id: true },
+            });
+
+            if (gstUsers.length > 0) isGstRegistered = true;
+        } else if (updated.influencerId) {
+            const influencer = await prisma.user.findUnique({
+                where: { id: updated.influencerId },
+                select: { gstNumber: true },
+            });
+            isGstRegistered = !!influencer?.gstNumber;
+        }
+
+
         // Earnings logic if COMPLETED
         if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
             const amount = updated.finalAmount ?? updated.totalAmount;
@@ -1267,7 +1576,18 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             const adminUser = await prisma.user.findFirst({ where: { type: 'ADMIN' }, select: { id: true } });
             if (!adminUser) return response.error(res, 'Admin user not found');
 
-            const adminAmount = amount * 0.2;
+            // const adminAmount = amount * 0.2;
+            // earningsData.push({
+            //     ...baseEarning,
+            //     userId: adminUser.id,
+            //     amount,
+            //     earningAmount: adminAmount,
+            // });
+
+            const commission = amount * 0.2;
+            const commissionGst = commission * 0.18;
+            const adminAmount = isGstRegistered ? commission : commission + commissionGst;
+
             earningsData.push({
                 ...baseEarning,
                 userId: adminUser.id,
@@ -1295,15 +1615,43 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             }
 
             if (eligibleUserIds.length > 0) {
-                const sharedAmount = (amount * 0.8) / eligibleUserIds.length;
+
+                // const sharedAmount = (amount * 0.8) / eligibleUserIds.length;
+
+                const userShareBase = isGstRegistered
+                    ? (amount - commission)  // platform only keeps commission (20%)
+                    : (amount - (commission + commissionGst));  // platform keeps commission + 18% GST on it
+
+                const sharedAmount = userShareBase / eligibleUserIds.length;
+
+
+                // 👉 1. Fetch stored GST details
+                const gstDetails = await prisma.userGstDetails.findFirst({
+                    where: { orderId: updated.id, status: true },
+                    select: { tcs: true, tds: true }
+                });
+
+                const totalTcs = Number(gstDetails?.tcs ?? 0);
+                const totalTds = Number(gstDetails?.tds ?? 0);
+
+                // 👉 2. Divide deductions evenly (or however you want)
+                const perUserTcs = eligibleUserIds.length > 0 ? totalTcs / eligibleUserIds.length : 0;
+                const perUserTds = eligibleUserIds.length > 0 ? totalTds / eligibleUserIds.length : 0;
+
                 for (const userId of eligibleUserIds) {
+                    const netEarning = sharedAmount - perUserTcs - perUserTds;
+
                     earningsData.push({
                         ...baseEarning,
                         userId,
                         amount,
-                        earningAmount: sharedAmount,
+                        earningAmount: netEarning,
                     });
+
+                    // Optional: store per-user tax breakdown if needed
                 }
+
+
             }
 
             await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
@@ -2669,6 +3017,43 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
 
 
 
+
+export const getUserGstByOrderId = async (req: Request, res: Response): Promise<any> => {
+    const { orderId } = req.body;
+
+    if (!orderId || typeof orderId !== 'string') {
+        return response.error(res, 'Invalid or missing orderId');
+    }
+
+    try {
+        const gstData = await prisma.userGstDetails.findFirst({
+            where: { orderId },
+            select: {
+                id: true,
+                orderId: true,
+                basicAmount: true,
+                gst: true,
+                totalPayableAmt: true,
+                orderUserGstData: {
+                    select: {
+                        title: true,
+                        description: true,
+                        completionDate: true,
+                    }
+                }
+            }
+        });
+
+        if (!gstData) {
+            return response.error(res, 'No GST details found for the given orderId');
+        }
+
+        return response.success(res, 'GST details fetched successfully', gstData);
+    } catch (error: any) {
+        console.error(error);
+        return response.error(res, 'Failed to fetch GST details');
+    }
+};
 
 
 

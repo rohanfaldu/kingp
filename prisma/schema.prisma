@@ -544,9 +544,6 @@ model UserGstDetails {
   orderId                 String          @db.Uuid
   basicAmount             Decimal?        @db.Decimal 
   gst                     Decimal?        @db.Decimal   
-  igst                    Decimal?        @db.Decimal
-  cgst                    Decimal?        @db.Decimal
-  sgst                    Decimal?        @db.Decimal
   tds                     Decimal?        @db.Decimal     
   tcs                     Decimal?        @db.Decimal
   totalPayableAmt         Decimal?        @db.Decimal
