@@ -65,3 +65,9 @@ export enum RatingType {
   BUSINESS = 'BUSINESS',
   GROUP = 'GROUP',
 }
+
+export enum ReportedType {
+  INFLUENCER = 1,
+  BUSINESS = 2,
+  GROUP = 3,
+}

@@ -77,6 +77,8 @@ model User {
   userBadgeData            UserBadges[]
   coinwithdrawUserData     UserCoinWithdraw[]
   totalUserData            TotalGstData[]
+    abuseReportsBy     AbuseReport[] @relation("abuseReportedByDetail")
+  abuseReportsOnUser AbuseReport[] @relation("abuseReportedUserDetail")
 }
 
 model Category {
@@ -572,6 +574,25 @@ model TotalGstData {
 
   totalUserGstData        Orders?         @relation(fields: [orderId], references: [id])
   totalUserData           User?           @relation(fields: [userId], references: [id])
+}
+
+model AbuseReport {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportedBy              String          @db.Uuid
+  reportedUserId          String          @db.Uuid
+  status                  ReportedType
+  createdAt               DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime        @updatedAt @db.Timestamp(6)
+
+  abuseReportedByData     User      @relation("abuseReportedByDetail", fields: [reportedBy], references: [id])
+  abuseReportedUserData   User?     @relation("abuseReportedUserDetail", fields: [reportedUserId], references: [id])
+}
+
+
+enum ReportedType {
+  INFLUENCER
+  BUSINESS
+  GROUP
 }
 
 enum Role {

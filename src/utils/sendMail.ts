@@ -160,23 +160,23 @@ export const generateInvoicePdf = async (
   const isGroupOrder = !!order.groupOrderData;
 
   const senderName = isGroupOrder
-    ? order.groupOrderData?.groupName || adminUser?.name || 'Group Name'
+    ? 'KringP App'
     : order.influencerOrderData?.name || 'Influencer Name';
 
   const senderEmail = isGroupOrder
-    ? adminUser?.emailAddress || 'N/A'
+    ? 'info@kringp.com'
     : order.influencerOrderData?.emailAddress || 'N/A';
 
   const senderPhone = isGroupOrder
-    ? adminUser?.contactPersonPhoneNumber || 'N/A'
+    ? ''
     : order.influencerOrderData?.contactPersonPhoneNumber || 'N/A';
 
   const senderCity = isGroupOrder
-    ? adminUser?.cityData?.name || ''
+    ? ''
     : order.influencerOrderData?.cityData?.name || '';
 
   const senderState = isGroupOrder
-    ? adminUser?.stateData?.name || ''
+    ? 'India'
     : order.influencerOrderData?.stateData?.name || '';
 
   const senderAddress = senderCity && senderState
@@ -208,31 +208,75 @@ export const generateInvoicePdf = async (
 
 
   // ✅ Bill To Section – Right side (Business Info)
+  // doc
+  //   .fontSize(12)
+  //   .fillColor('#333')
+  //   .font('Helvetica-Bold')
+  //   .text('Bill to', 400, 150);
+
+  // doc
+  //   .fontSize(14)
+  //   .fillColor('#000')
+  //   .font('Helvetica-Bold')
+  //   .text(order.businessOrderData?.name || 'Customer Name', 400, 170);
+
+  // doc
+  //   .fontSize(10)
+  //   .fillColor('#666')
+  //   .font('Helvetica')
+  //   .text(order.businessOrderData?.emailAddress || 'customer@email.com', 400, 190)
+  //   .text(order.businessOrderData?.contactPersonPhoneNumber || 'N/A', 400, 205)
+  //   .text(
+  //     (order.businessOrderData?.cityData?.name && order.businessOrderData?.stateData?.name)
+  //       ? `${order.businessOrderData.cityData.name}, ${order.businessOrderData.stateData.name}`
+  //       : 'Address',
+  //     400, 220
+  //   )
+  //   .text('India', 400, 235);
+
+  let billToY = 150;
+
   doc
     .fontSize(12)
     .fillColor('#333')
     .font('Helvetica-Bold')
-    .text('Bill to', 400, 150);
+    .text('Bill to', 400, billToY, { align: 'right' });
+
+  billToY += 20;
 
   doc
     .fontSize(14)
     .fillColor('#000')
     .font('Helvetica-Bold')
-    .text(order.businessOrderData?.name || 'Customer Name', 400, 170);
+    .text(order.businessOrderData?.name || 'Customer Name', 400, billToY, { align: 'right' });
+
+  billToY += 20;
 
   doc
     .fontSize(10)
     .fillColor('#666')
     .font('Helvetica')
-    .text(order.businessOrderData?.emailAddress || 'customer@email.com', 400, 190)
-    .text(order.businessOrderData?.contactPersonPhoneNumber || 'N/A', 400, 205)
-    .text(
-      (order.businessOrderData?.cityData?.name && order.businessOrderData?.stateData?.name)
-        ? `${order.businessOrderData.cityData.name}, ${order.businessOrderData.stateData.name}`
-        : 'Address',
-      400, 220
-    )
-    .text('India', 400, 235);
+    .text(order.businessOrderData?.emailAddress || 'customer@email.com', 400, billToY, { align: 'right' });
+
+  billToY += 15;
+
+  doc
+    .text(order.businessOrderData?.contactPersonPhoneNumber || 'N/A', 400, billToY, { align: 'right' });
+
+  billToY += 15;
+
+  const cityState = (order.businessOrderData?.cityData?.name && order.businessOrderData?.stateData?.name)
+    ? `${order.businessOrderData.cityData.name}, ${order.businessOrderData.stateData.name}`
+    : 'Address';
+
+  doc
+    .text(cityState, 400, billToY, { align: 'right' });
+
+  billToY += 15;
+
+  doc
+    .text('India', 400, billToY, { align: 'right' });
+
 
 
   // ✅ Centered Order ID – below both sections
@@ -259,91 +303,74 @@ export const generateInvoicePdf = async (
     .fill();
 
   // Table header text
+  // ✅ Table Header Background
+  doc
+    .rect(tableLeft, tableTop, tableWidth, 30)
+    .fillColor('#4A90E2')
+    .fill();
+
+  // ✅ Table Header Text
   doc
     .fontSize(10)
     .fillColor('#FFFFFF')
     .font('Helvetica-Bold')
-    .text('Description', tableLeft + 10, tableTop + 10, { width: 250 })
-    .text('Unit Cost', tableLeft + 270, tableTop + 10, { width: 80 })
-    .text('Discount', tableLeft + 360, tableTop + 10, { width: 80, align: 'left' })
-    .text('Total', tableLeft + 450, tableTop + 10, { width: 120 });
+    .text('Description', tableLeft + 10, tableTop + 10, { width: 180 })
+    .text('HSN', tableLeft + 200, tableTop + 10, { width: 50, align: 'center' })
+    .text('Unit Cost', tableLeft + 260, tableTop + 10, { width: 80, align: 'center' })
+    .text('Discount', tableLeft + 340, tableTop + 10, { width: 80, align: 'center' })
+    .text('Total', tableLeft + 420, tableTop + 10, { width: 80, align: 'center' });
 
-  // ✅ Table Rows
+  // ✅ Table Row Background
   let currentY = tableTop + 30;
-
-  // Service row
   doc
     .rect(tableLeft, currentY, tableWidth, 50)
     .fillColor('#F8F9FA')
     .fill();
 
+  // ✅ Description Text
   doc
     .fontSize(10)
     .fillColor('#333')
     .font('Helvetica-Bold')
-    .text(order.title || 'Service', tableLeft + 10, currentY + 8, { width: 250 });
+    .text(order.title || 'Service', tableLeft + 10, currentY + 8, { width: 180 });
 
   doc
     .fontSize(9)
     .fillColor('#666')
     .font('Helvetica')
-    .text(order.description || 'Service description', tableLeft + 10, currentY + 22, { width: 250 });
+    .text(order.description || 'Service description', tableLeft + 10, currentY + 22, { width: 180 });
 
-  // Add vertical lines for table structure
-  const columnWidth = 80; // Equal width for all columns
-  const totalAmountX = tableLeft + 260;
-  const discountAmountX = totalAmountX + columnWidth;
-  const finalAmountX = discountAmountX + columnWidth;
+  // ✅ Vertical Lines
+  const hsnX = tableLeft + 200;
+  const unitCostX = tableLeft + 260;
+  const discountX = tableLeft + 340;
+  const totalX = tableLeft + 420;
 
-  // Draw vertical lines for the table structure
-  doc
-    .moveTo(totalAmountX, currentY)
-    .lineTo(totalAmountX, currentY + 50)
-    .stroke('#E5E5E5');
+  [hsnX, unitCostX, discountX, totalX].forEach(x => {
+    doc
+      .moveTo(x, currentY)
+      .lineTo(x, currentY + 50)
+      .stroke('#E5E5E5');
+  });
 
-  doc
-    .moveTo(discountAmountX, currentY)
-    .lineTo(discountAmountX, currentY + 50)
-    .stroke('#E5E5E5');
-
-  doc
-    .moveTo(finalAmountX, currentY)
-    .lineTo(finalAmountX, currentY + 50)
-    .stroke('#E5E5E5');
-
-  doc
-    .moveTo(finalAmountX, currentY)
-    .lineTo(finalAmountX, currentY + 50)
-    .stroke('#E5E5E5');
-
+  // ✅ Register and Use Font for ₹ symbol
   const fontPath = path.resolve(process.cwd(), 'src/fonts/NotoSans-Regular.ttf');
   const fontBoldPath = path.resolve(process.cwd(), 'src/fonts/NotoSans-Bold.ttf');
   doc.registerFont('NotoSans', fontPath);
   doc.registerFont('NotoSans-Bold', fontBoldPath);
   doc.font('NotoSans');
 
-  // Draw the text in the columns using a font that supports ₹
+  // ✅ Table Values (HSN, Amounts)
   doc
-    .font('NotoSans')       // make sure you registered this earlier
     .fontSize(10)
     .fillColor('#333')
-    .text(`\u20B9${order.totalAmount?.toFixed(2) || '0.00'}`, totalAmountX, currentY + 15, {
-      width: columnWidth,
-      align: 'center',
-    })
-    .text(`\u20B9${order.discountAmount?.toFixed(2) || '0.00'}`, discountAmountX, currentY + 15, {
-      width: columnWidth,
-      align: 'center',
-    })
-    .text(`\u20B9${order.finalAmount?.toFixed(2) || '0.00'}`, finalAmountX, currentY + 15, {
-      width: columnWidth,
-      align: 'center',
-    });
+    .text('-', hsnX, currentY + 15, { width: 50, align: 'center' })
+    .text(`₹${order.totalAmount?.toFixed(2) || '0.00'}`, unitCostX, currentY + 15, { width: 80, align: 'center' })
+    .text(`₹${order.discountAmount?.toFixed(2) || '0.00'}`, discountX, currentY + 15, { width: 80, align: 'center' })
+    .text(`₹${order.finalAmount?.toFixed(2) || '0.00'}`, totalX, currentY + 15, { width: 80, align: 'center' });
 
-  // Move down for the next row
-  currentY += 40;
-
-
+  // ✅ Advance row pointer for next section
+  currentY += 50;
 
   // ✅ Payment Instructions
   doc
@@ -364,45 +391,48 @@ export const generateInvoicePdf = async (
     .text('Online Payment', 150, currentY + 80);
 
   // ✅ Summary Section (right side)
-  const summaryX = 300;
-  const summaryY = currentY + 50;
+ // ✅ Summary Section (right-aligned)
+const summaryRight = 550; // Right alignment edge
+const summaryLabelWidth = 120;
+const summaryValueWidth = 100;
+const summaryX = summaryRight - summaryLabelWidth - summaryValueWidth; // e.g., 330
+const summaryY = currentY + 50;
 
-  const gstData = order.orderUserGstData?.[0]; // first gst entry
-  const gstAmount = gstData?.gst ? parseFloat(gstData.gst.toString()).toFixed(2) : '0.00';
+const gstData = order.orderUserGstData?.[0];
+const gstAmount = gstData?.gst ? parseFloat(gstData.gst.toString()).toFixed(2) : '0.00';
 
+// ✅ Labels (Right-aligned)
+doc
+  .font('NotoSans')
+  .fontSize(10)
+  .fillColor('#333')
+  .text('Subtotal:', summaryX, summaryY, { width: summaryLabelWidth, align: 'right' })
+  .text('Discount (0%):', summaryX, summaryY + 15, { width: summaryLabelWidth, align: 'right' })
+  .text('GST:', summaryX, summaryY + 30, { width: summaryLabelWidth, align: 'right' });
 
-  doc
-    .font('NotoSans')
-    .fontSize(10)
-    .fillColor('#333')
-    .text('Subtotal:', summaryX, summaryY)
-    .text('Discount (0%):', summaryX, summaryY + 15)
-    .text('GST:', summaryX, summaryY + 30); // ✅ New line for GST
+// ✅ Values (Right-aligned)
+doc
+  .font('NotoSans-Bold')
+  .fontSize(10)
+  .fillColor('#333')
+  .text(`₹${order.totalAmount?.toFixed(2) || '0.00'}`, summaryX + summaryLabelWidth, summaryY, { width: summaryValueWidth, align: 'right' })
+  .text(`₹${order.discountAmount?.toFixed(2) || '0.00'}`, summaryX + summaryLabelWidth, summaryY + 15, { width: summaryValueWidth, align: 'right' })
+  .text(`₹${gstAmount}`, summaryX + summaryLabelWidth, summaryY + 30, { width: summaryValueWidth, align: 'right' });
 
+// ✅ Amount Paid (Bold)
+doc
+  .font('NotoSans-Bold')
+  .fontSize(12)
+  .fillColor('#333')
+  .text('Amount paid:', summaryX, summaryY + 70, { width: summaryLabelWidth, align: 'right' })
+  .text(`₹${order.finalAmount?.toFixed(2) || '0.00'}`, summaryX + summaryLabelWidth, summaryY + 70, { width: summaryValueWidth, align: 'right' });
 
-  doc
-    .font('NotoSans-Bold')
-    .fontSize(10)
-    .fillColor('#333')
-    .text(`\u20B9${order.totalAmount?.toFixed(2) || '0.00'}`, summaryX + 150, summaryY)
-    .text(`\u20B9${order.discountAmount?.toFixed(2) || '0.00'}`, summaryX + 150, summaryY + 15)
-    .text(`\u20B9${gstAmount}`, summaryX + 150, summaryY + 30); // ✅ GST Amount
-
-
-  // Balance Due
-  doc
-    .font('NotoSans-Bold')
-    .fontSize(12)
-    .fillColor('#333')
-    .text('Amount paid:', summaryX, summaryY + 85)
-    .text(`\u20B9${order.finalAmount?.toFixed(2) || '0.00'}`, summaryX + 150, summaryY + 85);
-
-  // ✅ Notes Section
-  doc
-    .fontSize(12)
-    .fillColor('#333')
-    .font('Helvetica-Bold')
-    .text('Notes', 50, summaryY + 120);
+// ✅ Notes Section (starts from left)
+doc
+  .fontSize(12)
+  .fillColor('#333')
+  .font('Helvetica-Bold')
+  .text('Notes', 50, summaryY + 120);
 
   doc
     .fontSize(10)

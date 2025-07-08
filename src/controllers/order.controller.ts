@@ -2254,7 +2254,8 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
                     .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
                     .map(u => u.invitedUserId);
 
-                const userIdsToCheck = [...acceptedUserIds, adminUserId];
+                // const userIdsToCheck = [...acceptedUserIds, adminUserId];
+                const userIdsToCheck = [...acceptedUserIds, adminUserId].filter(Boolean);
 
                 const gstUsers = await prisma.user.findMany({
                     where: {
