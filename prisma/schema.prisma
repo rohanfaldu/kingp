@@ -76,6 +76,7 @@ model User {
   recentChatViewLoginUser  RecentChatView[]           @relation("recentChatViewLoginUserData")
   userBadgeData            UserBadges[]
   coinwithdrawUserData     UserCoinWithdraw[]
+  totalUserData            TotalGstData[]
 }
 
 model Category {
@@ -310,6 +311,7 @@ model Orders {
   orderRatings            Ratings[]
   orderInvoiceData        OrderInvoice[]
   orderUserGstData        UserGstDetails[]
+  totalUserGstData        TotalGstData[]
 }
 
 model Media {
@@ -552,6 +554,24 @@ model UserGstDetails {
   updatedAt               DateTime        @updatedAt @db.Timestamp(6)
 
   orderUserGstData        Orders?         @relation(fields: [orderId], references: [id])
+}
+
+model TotalGstData {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                 String          @db.Uuid
+  userId                  String          @db.Uuid
+  basicAmount             Decimal?        @db.Decimal 
+  gst                     Decimal?        @db.Decimal   
+  tds                     Decimal?        @db.Decimal     
+  tcs                     Decimal?        @db.Decimal
+  otherAmount             Decimal?        @db.Decimal
+  totalAmt                Decimal?        @db.Decimal
+  status                  Boolean         @default(true)
+  createdAt               DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt               DateTime        @updatedAt @db.Timestamp(6)
+
+  totalUserGstData        Orders?         @relation(fields: [orderId], references: [id])
+  totalUserData           User?           @relation(fields: [userId], references: [id])
 }
 
 enum Role {

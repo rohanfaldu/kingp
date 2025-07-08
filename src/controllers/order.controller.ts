@@ -414,8 +414,37 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             parsedCompletionDate = completionDate;
         }
 
+
+        const generateOrderId = (): string => {
+            const random1 = Math.floor(100 + Math.random() * 900); // 3-digit
+            const random2 = Math.floor(10000 + Math.random() * 90000); // 5-digit
+            return `ORD-${random1}-${random2}`;
+        };
+
+        const generateUniqueOrderId = async (): Promise<string> => {
+            let unique = false;
+            let orderId = '';
+
+            while (!unique) {
+                orderId = generateOrderId();
+
+                const existingOrder = await prisma.orders.findUnique({
+                    where: { orderId }
+                });
+
+                if (!existingOrder) {
+                    unique = true;
+                }
+            }
+
+            return orderId;
+        };
+
+        const orderId = await generateUniqueOrderId();
+
         const newOrder = await prisma.orders.create({
             data: {
+                orderId,
                 ...restFields,
                 businessId,
                 influencerId,
@@ -530,9 +559,36 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
         const { id } = req.body;
         if (!id) return response.error(res, 'Order ID is required');
 
-        const order = await prisma.orders.findUnique({
+        const gstPercentage = 18; // can be dynamic if needed
+        let isGstRegistered = false;
+
+        const formattedOrder = await prisma.orders.findUnique({
             where: { id },
-            include: {
+            select: {
+                id: true,
+                orderId: true,
+                groupId: true,
+                influencerId: true,
+                businessId: true,
+                title: true,
+                description: true,
+                completionDate: true,
+                attachment: true,
+                status: true,
+                reason: true,
+                transactionId: true,
+                totalAmount: true,
+                discountAmount: true,
+                finalAmount: true,
+                paymentStatus: true,
+                submittedDescription: true,
+                submittedAttachment: true,
+                socialMediaLink: true,
+                businessReviewStatus: true,
+                influencerReviewStatus: true,
+                createdAt: true,
+                updatedAt: true,
+
                 groupOrderData: true,
                 influencerOrderData: {
                     include: {
@@ -554,6 +610,63 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                 },
             },
         });
+
+        const totalAmount = Number(formattedOrder?.totalAmount || 0);
+        const discountAmount = Number(formattedOrder?.discountAmount || 0);
+        const mainAmount = totalAmount - discountAmount;
+
+        // Step 2: Check GST registration
+        if (formattedOrder.groupId) {
+            const groupUsers = await prisma.groupUsersList.findMany({
+                where: {
+                    groupId: formattedOrder.groupId,
+                    status: true,
+                },
+                select: {
+                    adminUserId: true,
+                    invitedUserId: true,
+                    requestAccept: true,
+                },
+            });
+
+            const adminUserId = groupUsers[0]?.adminUserId;
+            const acceptedUserIds = groupUsers
+                .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
+                .map(u => u.invitedUserId);
+
+            const userIdsToCheck = [...acceptedUserIds, adminUserId];
+
+            const gstUsers = await prisma.user.findMany({
+                where: {
+                    id: { in: userIdsToCheck },
+                    gstNumber: { not: null },
+                },
+                select: { id: true },
+            });
+
+            if (gstUsers.length > 0) {
+                isGstRegistered = true;
+            }
+        } else {
+            // Influencer case
+            const influencerUser = await prisma.user.findUnique({
+                where: { id: formattedOrder.influencerId || undefined },
+                select: { gstNumber: true },
+            });
+
+            isGstRegistered = !!influencerUser?.gstNumber;
+        }
+
+        // Step 3: GST calculation based on registration
+        const gstAmount = isGstRegistered ? (mainAmount * gstPercentage) / 100 : 0;
+        const calculatedFinalAmount = mainAmount + gstAmount;
+
+        // Step 4: Final formatted object
+        const order = {
+            ...formattedOrder,
+            gstPercentage,
+            gstAmount,
+        };
 
         let businessReview = null;
         if (order?.businessId) {
@@ -897,9 +1010,40 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                             stateData: { select: { name: true } },
                         },
                     },
-                    groupOrderData: { select: { groupName: true } },
+                    // groupOrderData: { select: { groupName: true } },
+                    groupOrderData: {
+                        select: {
+                            groupName: true,
+                            groupData: {
+                                select: {
+                                    userId: true, // Get userId from GroupUsers (will be an array)
+                                }
+                            }
+                        }
+                    },
+                    orderUserGstData: true,
                 },
             });
+            console.log(fullOrder, '>>>>>>>>>>>>>>>>>> fullOrder');
+
+            let adminUser = null;
+            if (!fullOrder) {
+                return response.error(res, "Order not found");
+            }
+
+            const adminUserId = fullOrder.groupOrderData?.groupData?.[0]?.userId;
+            if (adminUserId) {
+                adminUser = await prisma.user.findUnique({
+                    where: { id: adminUserId },
+                    select: {
+                        name: true,
+                        emailAddress: true,
+                        contactPersonPhoneNumber: true,
+                        cityData: { select: { name: true } },
+                        stateData: { select: { name: true } },
+                    },
+                });
+            }
 
 
             if (!fullOrder?.businessOrderData) {
@@ -939,9 +1083,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             });
 
             //  Generate invoice PDF (pass invoiceId for filename/content)
-            const invoicePath = await generateInvoicePdf({ ...fullOrder, invoiceId });
+            // const invoicePath = await generateInvoicePdf({ ...fullOrder, invoiceId });
 
-            // const invoicePath = await generateInvoicePdf(fullOrder, invoiceId);
+            const invoicePath = await generateInvoicePdf({ ...fullOrder, invoiceId }, fullOrder.orderUserGstData, adminUser);
 
             await sendEmailWithOptionalPdf(
                 user.emailAddress,
@@ -1524,7 +1668,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
         }
 
         ////////////////// Earning logic with GST ///////////////////
-
         let isGstRegistered = false;
 
         if (updated.groupId) {
@@ -1557,10 +1700,10 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             isGstRegistered = !!influencer?.gstNumber;
         }
 
-
         // Earnings logic if COMPLETED
         if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
-            const amount = updated.finalAmount ?? updated.totalAmount;
+            const amount = updated.totalAmount ?? updated.totalAmount;
+
             if (!amount) return response.error(res, 'Order amount is missing');
 
             const baseEarning = {
@@ -1570,33 +1713,54 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 paymentStatus: PaymentStatus.COMPLETED,
             };
 
-            const earningsData: any[] = [];
+            const earningsData = [];
 
             // Admin earns 20%
             const adminUser = await prisma.user.findFirst({ where: { type: 'ADMIN' }, select: { id: true } });
             if (!adminUser) return response.error(res, 'Admin user not found');
 
-            // const adminAmount = amount * 0.2;
-            // earningsData.push({
-            //     ...baseEarning,
-            //     userId: adminUser.id,
-            //     amount,
-            //     earningAmount: adminAmount,
-            // });
+            console.log(amount, '>>>>>>>>>> amount');
+            console.log(isGstRegistered, '>>>>>>>>>> isGstRegistered');
 
-            const commission = amount * 0.2;
-            const commissionGst = commission * 0.18;
-            const adminAmount = isGstRegistered ? commission : commission + commissionGst;
+            // Global TDS and TCS calculations
+            const globalTds = amount * 0.01;
+            const globalTcs = isGstRegistered ? amount * 0.01 : 0;
+
+            // Admin commission calculations
+            const adminCommission = amount * 0.2;
+            const adminCommissionGst = adminCommission * 0.18;
+
+            // Admin's final earning amount (including GST if registered)
+            const adminFinalEarning = isGstRegistered ?
+                adminCommission + adminCommissionGst :
+                adminCommission + adminCommissionGst;
+
+            const tds = amount * 0.01;
+            const tcs = (isGstRegistered) ? amount * 0.01 : 0;
 
             earningsData.push({
                 ...baseEarning,
                 userId: adminUser.id,
                 amount,
-                earningAmount: adminAmount,
+                earningAmount: adminFinalEarning, // Store total including GST
             });
 
+            const totalGstsData = await prisma.totalGstData.create({
+                data: {
+                    orderId: updated.id,
+                    userId: adminUser.id,
+                    basicAmount: new Prisma.Decimal(adminCommission),  // 20% base commission
+                    gst: new Prisma.Decimal(adminCommissionGst),  // 18% GST if GST registered
+                    tds: new Prisma.Decimal(tds),                  // No TDS deducted from admin
+                    tcs: new Prisma.Decimal(tcs),                  // No TCS from admin
+                    otherAmount: new Prisma.Decimal(0),  // Only if unregistered
+                    totalAmt: new Prisma.Decimal(adminFinalEarning),
+                },
+            });
+
+
             // Remaining 80% split among eligible users
-            const eligibleUserIds: string[] = [];
+            const eligibleUserIds = [];
 
             if (updated.influencerId) eligibleUserIds.push(updated.influencerId);
 
@@ -1614,157 +1778,175 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                 groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
             }
 
+
             if (eligibleUserIds.length > 0) {
+                // Base amount for users (80% of total)
+                const userShareBase = amount * 0.8;
+                const perUserShare = userShareBase / eligibleUserIds.length;
 
-                // const sharedAmount = (amount * 0.8) / eligibleUserIds.length;
-
-                const userShareBase = isGstRegistered
-                    ? (amount - commission)  // platform only keeps commission (20%)
-                    : (amount - (commission + commissionGst));  // platform keeps commission + 18% GST on it
-
-                const sharedAmount = userShareBase / eligibleUserIds.length;
-
-
-                // 👉 1. Fetch stored GST details
-                const gstDetails = await prisma.userGstDetails.findFirst({
-                    where: { orderId: updated.id, status: true },
-                    select: { tcs: true, tds: true }
+                // Get GST registration status for each user
+                const usersWithGstStatus = await prisma.user.findMany({
+                    where: { id: { in: eligibleUserIds } },
+                    select: { id: true, gstNumber: true },
                 });
 
-                const totalTcs = Number(gstDetails?.tcs ?? 0);
-                const totalTds = Number(gstDetails?.tds ?? 0);
+                const userGstMap = new Map();
+                usersWithGstStatus.forEach(user => {
+                    userGstMap.set(user.id, !!user.gstNumber);
+                });
 
-                // 👉 2. Divide deductions evenly (or however you want)
-                const perUserTcs = eligibleUserIds.length > 0 ? totalTcs / eligibleUserIds.length : 0;
-                const perUserTds = eligibleUserIds.length > 0 ? totalTds / eligibleUserIds.length : 0;
+                // Calculate total GST amount that should be distributed
+                const totalGstAmount = userShareBase * 0.18;
+                let distributedGstAmount = 0;
+
+                // Calculate TDS and TCS per user
+                const perUserTds = globalTds / eligibleUserIds.length;
+                const perUserTcs = globalTcs / eligibleUserIds.length;
 
                 for (const userId of eligibleUserIds) {
-                    const netEarning = sharedAmount - perUserTcs - perUserTds;
+                    const userHasGst = userGstMap.get(userId) || false;
+
+                    // Calculate GST for this user
+                    const userGstAmount = userHasGst ? (perUserShare * 0.18) : 0;
+                    distributedGstAmount += userGstAmount;
+
+                    // User's earning including GST but minus TDS/TCS
+                    const userGrossEarning = perUserShare + userGstAmount;
+                    const userNetEarning = userGrossEarning - perUserTds - perUserTcs;
+
+                    // Store user's TotalGstData
+                    try {
+                        await prisma.totalGstData.create({
+                            data: {
+                                orderId: updated.id,
+                                userId: userId,
+                                basicAmount: new Prisma.Decimal(perUserShare),
+                                gst: new Prisma.Decimal(userGstAmount),
+                                tds: new Prisma.Decimal(0),
+                                tcs: new Prisma.Decimal(0),
+                                otherAmount: new Prisma.Decimal(0),
+                                totalAmt: new Prisma.Decimal(userNetEarning),
+                            },
+                        });
+                    } catch (error) {
+                        console.error(`❌ Failed to insert TotalGstData for user ${userId}`, error);
+                    }
 
                     earningsData.push({
                         ...baseEarning,
                         userId,
                         amount,
-                        earningAmount: netEarning,
-                    });
-
-                    // Optional: store per-user tax breakdown if needed
-                }
-
-
-            }
-
-            await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
-
-            // Update each user's totalEarnings in UserStats table
-            for (const entry of earningsData) {
-
-                // Find existing UserStats record for the user
-                const existingUserStats = await prisma.userStats.findFirst({
-                    where: { userId: entry.userId },
-                    select: { id: true, totalEarnings: true, totalDeals: true },
-                });
-
-                if (existingUserStats) {
-                    // Update existing UserStats record
-                    const currentTotal = existingUserStats.totalEarnings ?? 0;
-                    const currentTotalDeals = existingUserStats.totalDeals ?? 0;
-
-                    const updatedTotal = Number(currentTotal) + Number(entry.earningAmount);
-
-                    const avarageAmount = (updatedTotal / currentTotalDeals);
-
-                    await prisma.userStats.update({
-                        where: { id: existingUserStats.id },
-                        data: {
-                            totalEarnings: updatedTotal,
-                            averageValue: avarageAmount
-                        },
-                    });
-                } else {
-                    // Create new UserStats record if it doesn't exist
-                    await prisma.userStats.create({
-                        data: {
-                            userId: entry.userId,
-                            totalEarnings: Number(entry.earningAmount ?? 0),
-                        },
+                        earningAmount: userNetEarning, // Store net earning after TDS/TCS deduction
                     });
                 }
-            }
 
-            if (updated.businessId) {
+                await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
 
-                // Add Business Expenss Start
-
-                const existingBusinessUserStats = await prisma.userStats.findFirst({
-                    where: { userId: updated.businessId },
-                    select: {
-                        id: true,
-                        totalDeals: true,
-                        onTimeDelivery: true,
-                        totalEarnings: true,
-                        repeatClient: true,
-                        totalExpenses: true,
-                    },
-                });
-
-                // Check if delivery is on time (completionDate should be within the order completion timeline)
-                const isOnTime = currentOrder.completionDate ?
-                    new Date(currentOrder.completionDate) >= new Date() : true;
-
-                // Check for repeat client - check if this is the first time working with this business
-                let isNewRepeatBusiness = false;
-                if (currentOrder.businessId) {
-                    const previousOrdersCount = await prisma.orders.count({
-                        where: {
-                            businessId: updated.businessId,
-                            status: OfferStatus.COMPLETED,
-                            id: { not: updated.businessId }, // Exclude current order
-                        }
+                // Update each user's totalEarnings in UserStats table
+                for (const entry of earningsData) {
+                    // Find existing UserStats record for the user
+                    const existingUserStats = await prisma.userStats.findFirst({
+                        where: { userId: entry.userId },
+                        select: { id: true, totalEarnings: true, totalDeals: true },
                     });
 
-                    // This is a new repeat business if there's exactly 1 previous order (making this the 2nd order)
-                    isNewRepeatBusiness = previousOrdersCount === 1;
+                    if (existingUserStats) {
+                        // Update existing UserStats record
+                        const currentTotal = existingUserStats.totalEarnings ?? 0;
+                        const currentTotalDeals = existingUserStats.totalDeals ?? 0;
+
+                        // Add the gross earning (including GST) to total earnings
+                        const updatedTotal = Number(currentTotal) + Number(entry.earningAmount);
+
+                        const averageAmount = currentTotalDeals > 0 ? (updatedTotal / currentTotalDeals) : 0;
+
+                        await prisma.userStats.update({
+                            where: { id: existingUserStats.id },
+                            data: {
+                                totalEarnings: updatedTotal,
+                                averageValue: averageAmount
+                            },
+                        });
+                    } else {
+                        // Create new UserStats record if it doesn't exist
+                        await prisma.userStats.create({
+                            data: {
+                                userId: entry.userId,
+                                totalEarnings: Number(entry.earningAmount ?? 0), // Store gross earning
+                            },
+                        });
+                    }
                 }
 
-                // console.log(existingUserStats, '>>>>>> existingUserStats');
-                let newTotalDeals = 1;
-                //console.log(existingUserStats, '>>>>>>>>>>> existingUserStats');
-                if (existingBusinessUserStats) {
-                    // Update existing UserStats record
-                    const currentDeals = existingBusinessUserStats.totalDeals ?? 0;
-                    const currentOnTime = existingBusinessUserStats.onTimeDelivery ?? 0;
-                    const totalExpenses = existingBusinessUserStats.totalExpenses ?? 0;
-                    const newExpense = Number(updated.finalAmount);
-                    const finalExpenses = Number(totalExpenses) + Number(newExpense);
-                    const currentRepeatClient = existingBusinessUserStats.repeatClient ?? 0;
-
-                    // Calculate average value after incrementing totalDeals
-                    const newTotalDeals = currentDeals + 1;
-                    const averageValue = newTotalDeals > 0
-                        ? Math.floor(finalExpenses / newTotalDeals)
-                        : 0;
-
-                    await prisma.userStats.update({
-                        where: { id: existingBusinessUserStats.id },
-                        data: {
-                            totalDeals: newTotalDeals,
-                            totalExpenses: finalExpenses,
-                            averageValue,
+                if (updated.businessId) {
+                    // Business expense tracking
+                    const existingBusinessUserStats = await prisma.userStats.findFirst({
+                        where: { userId: updated.businessId },
+                        select: {
+                            id: true,
+                            totalDeals: true,
+                            onTimeDelivery: true,
+                            totalEarnings: true,
+                            repeatClient: true,
+                            totalExpenses: true,
                         },
                     });
-                } else {
-                    await prisma.userStats.create({
-                        data: {
-                            userId: updated.businessId,
-                            totalDeals: newTotalDeals,
-                            totalExpenses: Number(updated.finalAmount),
-                            averageValue:
-                                newTotalDeals > 0
-                                    ? Number(updated.finalAmount) / (newTotalDeals)
+
+                    // Check if delivery is on time
+                    const isOnTime = currentOrder.completionDate ?
+                        new Date(currentOrder.completionDate) >= new Date() : true;
+
+                    // Check for repeat client
+                    let isNewRepeatBusiness = false;
+                    if (currentOrder.businessId) {
+                        const previousOrdersCount = await prisma.orders.count({
+                            where: {
+                                businessId: updated.businessId,
+                                status: OfferStatus.COMPLETED,
+                                id: { not: updated.businessId },
+                            }
+                        });
+
+                        isNewRepeatBusiness = previousOrdersCount === 1;
+                    }
+
+                    let newTotalDeals = 1;
+
+                    if (existingBusinessUserStats) {
+                        // Update existing business UserStats record
+                        const currentDeals = existingBusinessUserStats.totalDeals ?? 0;
+                        const currentOnTime = existingBusinessUserStats.onTimeDelivery ?? 0;
+                        const totalExpenses = existingBusinessUserStats.totalExpenses ?? 0;
+                        const newExpense = Number(updated.finalAmount);
+                        const finalExpenses = Number(totalExpenses) + Number(newExpense);
+                        const currentRepeatClient = existingBusinessUserStats.repeatClient ?? 0;
+
+                        // Calculate average value after incrementing totalDeals
+                        const newTotalDeals = currentDeals + 1;
+                        const averageValue = newTotalDeals > 0
+                            ? Math.floor(finalExpenses / newTotalDeals)
+                            : 0;
+
+                        await prisma.userStats.update({
+                            where: { id: existingBusinessUserStats.id },
+                            data: {
+                                totalDeals: newTotalDeals,
+                                totalExpenses: finalExpenses,
+                                averageValue,
+                            },
+                        });
+                    } else {
+                        await prisma.userStats.create({
+                            data: {
+                                userId: updated.businessId,
+                                totalDeals: newTotalDeals,
+                                totalExpenses: Number(updated.finalAmount),
+                                averageValue: newTotalDeals > 0
+                                    ? Number(updated.finalAmount) / newTotalDeals
                                     : 0,
-                        },
-                    });
+                            },
+                        });
+                    }
                 }
 
 
@@ -2045,19 +2227,76 @@ export const getAllOrderList = async (req: Request, res: Response): Promise<any>
             }
         });
 
-        for (const order of getOrder) {
-            if (order?.influencerOrderData?.id) {
-                const influencerBadgeData = await getBageData(order.influencerOrderData.id);
-                order.influencerOrderData.badges = influencerBadgeData;
+        const gstPercentage = 18;
+
+        const enrichedOrders = await Promise.all(getOrder.map(async (order) => {
+            const totalAmount = Number(order?.totalAmount || 0);
+            const discountAmount = Number(order?.discountAmount || 0);
+            const mainAmount = totalAmount - discountAmount;
+
+            let isGstRegistered = false;
+
+            if (order.groupId) {
+                const groupUsers = await prisma.groupUsersList.findMany({
+                    where: {
+                        groupId: order.groupId,
+                        status: true,
+                    },
+                    select: {
+                        adminUserId: true,
+                        invitedUserId: true,
+                        requestAccept: true,
+                    },
+                });
+
+                const adminUserId = groupUsers[0]?.adminUserId;
+                const acceptedUserIds = groupUsers
+                    .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
+                    .map(u => u.invitedUserId);
+
+                const userIdsToCheck = [...acceptedUserIds, adminUserId];
+
+                const gstUsers = await prisma.user.findMany({
+                    where: {
+                        id: { in: userIdsToCheck },
+                        gstNumber: { not: null },
+                    },
+                    select: { id: true },
+                });
+
+                isGstRegistered = gstUsers.length > 0;
+            } else if (order.influencerId) {
+                const influencerUser = await prisma.user.findUnique({
+                    where: { id: order.influencerId },
+                    select: { gstNumber: true },
+                });
+
+                isGstRegistered = !!influencerUser?.gstNumber;
             }
 
-            if (order?.businessOrderData?.id) {
-                const businessBadgeData = await getBageData(order.businessOrderData.id);
-                order.businessOrderData.badges = businessBadgeData;
-            }
-        }
+            const gstAmount = isGstRegistered ? (mainAmount * gstPercentage) / 100 : 0;
 
-        return response.success(res, 'Get All order List', getOrder);
+            for (const order of getOrder) {
+                if (order?.influencerOrderData?.id) {
+                    const influencerBadgeData = await getBageData(order.influencerOrderData.id);
+                    order.influencerOrderData.badges = influencerBadgeData;
+                }
+
+                if (order?.businessOrderData?.id) {
+                    const businessBadgeData = await getBageData(order.businessOrderData.id);
+                    order.businessOrderData.badges = businessBadgeData;
+                }
+            }
+
+            return {
+                ...order,
+                gstAmount,
+                gstPercentage,
+            };
+        }));
+
+        return response.success(res, 'Get All order List', enrichedOrders);
+        // return response.success(res, 'Get All order List', getOrder);
 
     } catch (error: any) {
         return response.error(res, error.message || 'Something went wrong');

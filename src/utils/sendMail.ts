@@ -88,7 +88,11 @@ export const sendEmailWithOptionalPdf = async (
 
 
 
-export const generateInvoicePdf = async (order: any): Promise<string> => {
+export const generateInvoicePdf = async (
+  order: any,
+  orderUserGstData: any,
+  adminUser: any = null // Pass adminUser if it's a group order
+): Promise<string> => {
   // Use invoiceId in filename if available
   const fileName = `invoice-${order.invoiceId || order.id}.pdf`;
 
@@ -124,7 +128,7 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .fontSize(20)
     .fillColor('#333')
     .font('Helvetica-Bold')
-    .text('Digital Invoice', 400, 50, { align: 'right' });
+    .text('Tax Invoice', 400, 50, { align: 'right' });
 
   // Invoice details under the title (right-aligned, spaced properly)
   let infoY = 75; // Start a little lower to avoid overlap
@@ -133,19 +137,54 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .fontSize(10)
     .fillColor('#666')
     .font('Helvetica')
-    .text(`Order ID: ${order.orderId || '-'}`, 400, infoY, { align: 'right' });
-
-  infoY += 15;
-  doc.text(`Invoice no: ${order.invoiceId || order.id}`, 400, infoY, { align: 'right' });
-
-  infoY += 15;
-  doc.text(`Invoice date: ${new Date().toLocaleDateString()}`, 400, infoY, { align: 'right' });
-
-  infoY += 15;
-  doc.text(`Completion Date: ${order.completionDate ? new Date(order.completionDate).toLocaleDateString() : 'N/A'}`, 400, infoY, { align: 'right' });
+    .text(`Invoice no: ${order.invoiceId || order.id}`, 400, 80, { align: 'right' })
+    .text(`Invoice date: ${new Date().toLocaleDateString()}`, 400, 95, { align: 'right' })
+    .text(`Completion Date: ${order.completionDate ? new Date(order.completionDate).toLocaleDateString() : 'N/A'}`, 400, 110, { align: 'right' });
 
 
-  // ✅ From Section
+  // // ✅ From Section – Left side (Influencer or Group Info)
+  // const senderName =
+  //   order.influencerOrderData?.name || order.groupOrderData?.name || 'From Name';
+  // const senderEmail =
+  //   order.influencerOrderData?.emailAddress || 'N/A';
+  // const senderPhone =
+  //   order.influencerOrderData?.contactPersonPhoneNumber || 'N/A';
+  // const senderCity =
+  //   order.influencerOrderData?.cityData?.name || '';
+  // const senderState =
+  //   order.influencerOrderData?.stateData?.name || '';
+  // const senderAddress = (senderCity && senderState)
+  //   ? `${senderCity}, ${senderState}`
+  //   : 'Address';
+
+  const isGroupOrder = !!order.groupOrderData;
+
+  const senderName = isGroupOrder
+    ? order.groupOrderData?.groupName || adminUser?.name || 'Group Name'
+    : order.influencerOrderData?.name || 'Influencer Name';
+
+  const senderEmail = isGroupOrder
+    ? adminUser?.emailAddress || 'N/A'
+    : order.influencerOrderData?.emailAddress || 'N/A';
+
+  const senderPhone = isGroupOrder
+    ? adminUser?.contactPersonPhoneNumber || 'N/A'
+    : order.influencerOrderData?.contactPersonPhoneNumber || 'N/A';
+
+  const senderCity = isGroupOrder
+    ? adminUser?.cityData?.name || ''
+    : order.influencerOrderData?.cityData?.name || '';
+
+  const senderState = isGroupOrder
+    ? adminUser?.stateData?.name || ''
+    : order.influencerOrderData?.stateData?.name || '';
+
+  const senderAddress = senderCity && senderState
+    ? `${senderCity}, ${senderState}`
+    : 'Address';
+
+
+
   doc
     .fontSize(12)
     .fillColor('#333')
@@ -156,18 +195,19 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .fontSize(14)
     .fillColor('#000')
     .font('Helvetica-Bold')
-    .text('KringP Apps', 50, 170);
+    .text(senderName, 50, 170);
 
   doc
     .fontSize(10)
     .fillColor('#666')
     .font('Helvetica')
-    .text('info@kringp.com', 50, 190)
-    .text('https://kringp.com/', 50, 205)
-    .text('+91 XXXXXXXXXX', 50, 220)
+    .text(senderEmail, 50, 190)
+    .text(senderPhone, 50, 205)
+    .text(senderAddress, 50, 220)
     .text('India', 50, 235);
 
-  // ✅ Bill To Section
+
+  // ✅ Bill To Section – Right side (Business Info)
   doc
     .fontSize(12)
     .fillColor('#333')
@@ -186,42 +226,25 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .font('Helvetica')
     .text(order.businessOrderData?.emailAddress || 'customer@email.com', 400, 190)
     .text(order.businessOrderData?.contactPersonPhoneNumber || 'N/A', 400, 205)
-    .text((order.businessOrderData?.cityData?.name && order.businessOrderData?.stateData?.name) ? `${order.businessOrderData.cityData.name}, ${order.businessOrderData.stateData.name}` : 'Address', 400, 220);
+    .text(
+      (order.businessOrderData?.cityData?.name && order.businessOrderData?.stateData?.name)
+        ? `${order.businessOrderData.cityData.name}, ${order.businessOrderData.stateData.name}`
+        : 'Address',
+      400, 220
+    )
+    .text('India', 400, 235);
 
 
-  // ✅ Ship To Section (if different from Bill To)
+  // ✅ Centered Order ID – below both sections
   doc
-    .fontSize(12)
-    .fillColor('#333')
+    .fontSize(14) // slightly larger
+    .fillColor('#000')
     .font('Helvetica-Bold')
-    .text('Ship to', 400, 260);
+    .text(`Order ID: ${order.orderId || order.id}`, 0, 310, {
+      align: 'center',
+    });
 
-  // Ship To / Group Section
-  doc
-    .fontSize(12)
-    .fillColor('#333')
-    .font('Helvetica-Bold')
-    .text('Ship to / Group', 400, 260);
 
-  if (order.groupOrderData) {
-    // If it’s a group order, show the group name
-    doc
-      .fontSize(10)
-      .fillColor('#666')
-      .font('Helvetica')
-      .text(order.groupOrderData.groupName, 400, 280);
-  } else {
-    // Otherwise fall back to the influencer “ship to” block
-    doc
-      .fontSize(10)
-      .fillColor('#666')
-      .font('Helvetica')
-      .text(order.influencerOrderData?.name || 'Same as billing', 400, 280)
-      .text(order.influencerOrderData?.emailAddress || '', 400, 295)
-      .text(order.influencerOrderData?.contactPersonPhoneNumber || 'N/A', 400, 310)
-      .text((order.influencerOrderData?.cityData?.name && order.influencerOrderData?.stateData?.name) ? `${order.influencerOrderData.cityData.name}, ${order.influencerOrderData.stateData.name}` : 'Address', 400, 220);
-
-  }
 
   // …then your table header…
   const tableTop = 350;
@@ -288,8 +311,15 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .lineTo(finalAmountX, currentY + 50)
     .stroke('#E5E5E5');
 
+  doc
+    .moveTo(finalAmountX, currentY)
+    .lineTo(finalAmountX, currentY + 50)
+    .stroke('#E5E5E5');
+
   const fontPath = path.resolve(process.cwd(), 'src/fonts/NotoSans-Regular.ttf');
+  const fontBoldPath = path.resolve(process.cwd(), 'src/fonts/NotoSans-Bold.ttf');
   doc.registerFont('NotoSans', fontPath);
+  doc.registerFont('NotoSans-Bold', fontBoldPath);
   doc.font('NotoSans');
 
   // Draw the text in the columns using a font that supports ₹
@@ -327,7 +357,6 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .fillColor('#666')
     .font('Helvetica')
     .text('Payment Status:', 50, currentY + 50)
-    // .text(order.paymentStatus || 'Pending', 150, currentY + 50)
     .text(capitalizeStatus(order.paymentStatus) || 'Pending', 150, currentY + 50)
     .text('Transaction ID:', 50, currentY + 65)
     .text(order.transactionId || 'N/A', 150, currentY + 65)
@@ -338,23 +367,31 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
   const summaryX = 300;
   const summaryY = currentY + 50;
 
+  const gstData = order.orderUserGstData?.[0]; // first gst entry
+  const gstAmount = gstData?.gst ? parseFloat(gstData.gst.toString()).toFixed(2) : '0.00';
+
+
   doc
     .font('NotoSans')
     .fontSize(10)
     .fillColor('#333')
     .text('Subtotal:', summaryX, summaryY)
-    .text('Discount (0%):', summaryX, summaryY + 15);
+    .text('Discount (0%):', summaryX, summaryY + 15)
+    .text('GST:', summaryX, summaryY + 30); // ✅ New line for GST
+
 
   doc
-    .font('NotoSans')       // make sure you registered this earlier
+    .font('NotoSans-Bold')
     .fontSize(10)
     .fillColor('#333')
     .text(`\u20B9${order.totalAmount?.toFixed(2) || '0.00'}`, summaryX + 150, summaryY)
-    .text(`\u20B9${order.discountAmount?.toFixed(2) || '0.00'}`, summaryX + 150, summaryY + 15);
+    .text(`\u20B9${order.discountAmount?.toFixed(2) || '0.00'}`, summaryX + 150, summaryY + 15)
+    .text(`\u20B9${gstAmount}`, summaryX + 150, summaryY + 30); // ✅ GST Amount
+
 
   // Balance Due
   doc
-    .font('NotoSans')
+    .font('NotoSans-Bold')
     .fontSize(12)
     .fillColor('#333')
     .text('Amount paid:', summaryX, summaryY + 85)
@@ -384,14 +421,6 @@ export const generateInvoicePdf = async (order: any): Promise<string> => {
     .font('Helvetica')
     .text('Authorized Signature', 425, summaryY + 210);
 
-  // ✅ Footer
-  doc
-    .fontSize(8)
-    .fillColor('#999')
-    .font('Helvetica-Oblique')
-    .text('This is a computer-generated invoice and does not require a physical signature.', 50, doc.page.height - 50, { align: 'center' });
-
-  // ✅ Finalize PDF
   doc.end();
 
   // ✅ Wait for file to be fully written before returning path
