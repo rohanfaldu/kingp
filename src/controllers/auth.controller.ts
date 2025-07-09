@@ -616,7 +616,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         }
 
         await prisma.user.update({
-            where: { id, status: true },
+            where: { id },
             data: {
                 viewCount: { increment: 1 }
             }
