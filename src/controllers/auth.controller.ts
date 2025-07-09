@@ -48,6 +48,346 @@ export const formatBirthDate = (birthDate: string): Date | null => {
 };
 
 
+// export const signup = async (req: Request, res: Response): Promise<any> => {
+//     const {
+//         socialMediaPlatform = [],
+//         password,
+//         emailAddress,
+//         countryId,
+//         brandTypeId,
+//         cityId,
+//         stateId,
+//         birthDate,
+//         loginType = LoginType.NONE,
+//         availability = AvailabilityType,
+//         referralCode,
+//         subcategoriesId = [],
+//         ...userFields
+//     } = req.body;
+
+//     const normalizedLoginType =
+//         loginType === null || loginType === 'NULL' || loginType === undefined
+//             ? LoginType.NONE
+//             : loginType;
+
+//     if (!emailAddress) return response.error(res, 'Email is required.');
+//     if (normalizedLoginType === LoginType.NONE && !password) {
+//         return response.error(res, 'Password is required for email-password signup.');
+//     }
+
+//     const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
+//     if (existingUser) {
+//         const message =
+//             existingUser.loginType === 'NONE'
+//                 ? 'Email already registered with email & password.'
+//                 : `Email already registered via ${existingUser.loginType}.`;
+
+
+//         return response.error(res, message);
+//     }
+
+//     const hashedPassword = normalizedLoginType === LoginType.NONE ? await bcrypt.hash(password, 10) : undefined;
+//     const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
+//     if (birthDate && !formattedBirthDate) {
+//         return response.error(res, 'Invalid birthDate format. Allowed formats: DD/MM/YYYY or YYYY/MM/DD');
+//     }
+
+//     if (stateId) {
+//         const state = await prisma.state.findUnique({ where: { id: stateId } });
+//         if (!state) return response.error(res, 'Invalid stateId');
+//         if (state.countryId !== countryId) return response.error(res, 'State does not belong to provided country');
+//     }
+
+//     if (cityId) {
+//         const city = await prisma.city.findUnique({ where: { id: cityId } });
+//         if (!city) return response.error(res, 'Invalid cityId');
+//         if (city.stateId !== stateId) return response.error(res, 'City does not belong to provided State');
+//     }
+
+
+//     let calculatedProfileCompletion = 0;
+
+//     if (req.body.type === UserType.INFLUENCER) {
+//         const userSubCategories = (req.body.subcategoriesId || []).map((id: string) => ({
+//             subCategoryId: id
+//         }));
+
+//         calculatedProfileCompletion = calculateProfileCompletion({
+//             ...req.body,
+//             userSubCategories,
+//             socialMediaPlatform: socialMediaPlatform,
+//             socialMediaPlatformData: socialMediaPlatform,
+//         });
+//     } else {
+//         calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
+//     }
+
+
+//     const status = resolveStatus(userFields.status);
+//     const gender = (userFields.gender ?? Gender.MALE) as any;
+
+//     const newUser = await prisma.user.create({
+//         data: {
+//             ...userFields,
+//             password: hashedPassword ?? 'null',
+//             emailAddress,
+//             status,
+//             gender,
+//             birthDate: formattedBirthDate,
+//             loginType: normalizedLoginType,
+//             availability,
+//             profileCompletion: calculatedProfileCompletion,
+//             type: userFields.type ?? UserType.BUSINESS,
+//             referralCode: generateUniqueReferralCode(userFields.name ?? 'USER'),
+//             ...(countryId && { countryData: { connect: { id: countryId } } }),
+//             ...(stateId && { stateData: { connect: { id: stateId } } }),
+//             ...(cityId && { cityData: { connect: { id: cityId } } }),
+//             ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
+//             socialMediaPlatforms: {
+//                 create: socialMediaPlatform.map((platform: any) => ({
+//                     platform: platform.platform,
+//                     userName: platform.userName,
+//                     image: platform.image,
+//                     followerCount: platform.followerCount,
+//                     engagementRate: platform.engagementRate,
+//                     averageLikes: platform.averageLikes,
+//                     averageComments: platform.averageComments,
+//                     averageShares: platform.averageShares,
+//                     viewCount: platform.viewCount,
+//                     price: platform.price,
+//                     status: platform.status,
+//                 })),
+//             },
+//         },
+//         include: {
+//             socialMediaPlatforms: true,
+//             brandData: true,
+//             countryData: true,
+//             stateData: true,
+//             cityData: true,
+
+//         },
+//     });
+
+//     await prisma.userDetail.create({
+//         data: {
+//             userId: newUser.id,
+//             name: userFields.name || '', // fallback if name is optional
+//             image: userFields.userImage || '', // or wherever the image comes from
+//         }
+//     });
+
+//     //Create UserSubCategory relations if any
+//     if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
+//         const validSubCategories = await prisma.subCategory.findMany({
+//             where: { id: { in: subcategoriesId } },
+//             include: { categoryInformation: true },
+//         });
+
+//         const validIds = validSubCategories.map((sub) => sub.id);
+//         const invalidIds = subcategoriesId.filter((id) => !validIds.includes(id));
+//         if (invalidIds.length > 0) {
+//             return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
+//         }
+
+//         await prisma.userSubCategory.createMany({
+//             data: validSubCategories.map((sub) => ({
+//                 userId: newUser.id,
+//                 subCategoryId: sub.id,
+//                 categoryId: sub.categoryId,
+//             })),
+//             skipDuplicates: true,
+//         });
+//     }
+
+//     // Signup Reward: create CoinTransaction + update ReferralCoinSummary
+//     await prisma.coinTransaction.create({
+//         data: {
+//             userId: newUser.id,
+//             amount: 50,
+//             type: CoinType.SIGNUP,
+//             status: 'LOCKED',
+//         },
+//     });
+
+//     if (socialMediaPlatform.length >= 2) {
+//         const badge = await prisma.badges.findFirst({
+//             where: { type: '1' },
+//             select: { id: true },
+//         });
+
+//         if (badge) {
+//             await prisma.userBadges.create({
+//                 data: {
+//                     userId: newUser.id,
+//                     badgeId: badge.id,
+//                 },
+//             });
+//         }
+//     }
+
+//     const signupSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: newUser.id } });
+//     if (signupSummary) {
+//         await prisma.referralCoinSummary.update({
+//             where: { userId: newUser.id },
+//             data: { totalAmount: (Number(signupSummary.totalAmount) || 0) + 50, },
+
+//         });
+//     } else {
+//         await prisma.referralCoinSummary.create({
+//             data: { userId: newUser.id, totalAmount: 50 },
+//         });
+//     }
+
+//     //  Profile Completion Reward if 100%
+//     if (calculatedProfileCompletion === 100) {
+//         await prisma.coinTransaction.create({
+//             data: {
+//                 userId: newUser.id,
+//                 amount: 50,
+//                 type: CoinType.PROFILE_COMPLETION,
+//                 status: 'LOCKED',
+//             },
+//         });
+
+//         const profileSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: newUser.id } });
+//         if (profileSummary) {
+//             await prisma.referralCoinSummary.update({
+//                 where: { userId: newUser.id },
+//                 data: { totalAmount: (Number(profileSummary.totalAmount) || 0) + 50, },
+//             });
+//         } else {
+//             await prisma.referralCoinSummary.create({
+//                 data: { userId: newUser.id, totalAmount: 50 },
+//             });
+//         }
+//     }
+
+//     // Referral reward for referrer (if referralCode present)
+//     if (referralCode) {
+//         const referrer = await prisma.user.findFirst({ where: { referralCode, status: true } });
+//         if (referrer) {
+//             await prisma.referral.create({
+//                 data: {
+//                     referrerId: referrer.id,
+//                     referredUserId: newUser.id,
+//                 },
+//             });
+
+//             await prisma.coinTransaction.create({
+//                 data: {
+//                     userId: referrer.id,
+//                     amount: 50,
+//                     type: CoinType.REFERRAL,
+//                     status: 'LOCKED',
+//                 },
+//             });
+
+//             const referralSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: referrer.id } });
+//             if (referralSummary) {
+//                 await prisma.referralCoinSummary.update({
+//                     where: { userId: referrer.id },
+//                     data: { totalAmount: (Number(referralSummary.totalAmount) || 0) + 50, },
+//                 });
+//             } else {
+//                 await prisma.referralCoinSummary.create({
+//                     data: { userId: referrer.id, totalAmount: 50 },
+//                 });
+//             }
+//         }
+//     }
+
+//     const newUsers = omit(newUser, ['password', 'socialMediaPlatform']);
+
+//     const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(newUser.id);
+//     const userResponse = {
+//         ...newUsers,
+//         categories: userCategoriesWithSubcategories,
+//         countryName: newUser.countryData?.name ?? null,
+//         stateName: newUser.stateData?.name ?? null,
+//         cityName: newUser.cityData?.name ?? null,
+//     };
+
+//     const token = jwt.sign(
+//         { userId: newUser.id, email: newUser.emailAddress },
+//         JWT_SECRET,
+//         { expiresIn: '7d' }
+//     );
+
+//     if (loginType === 'GOOGLE' || loginType === 'APPLE') {
+//         await prisma.userAuthToken.upsert({
+//             where: { userId: newUser.id },
+//             update: { UserAuthToken: token },
+//             create: {
+//                 userId: newUser.id,
+//                 UserAuthToken: token,
+//             },
+//         });
+//     }
+
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+//     const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins from now
+
+//     const existingOtp = await prisma.otpVerify.findFirst({
+//         where: { emailAddress, otpType: 'SIGNUP' },
+//     });
+
+//     if (existingOtp) {
+//         await prisma.otpVerify.update({
+//             where: { id: existingOtp.id },
+//             data: {
+//                 otp,
+//                 expireAt,
+//                 verified: false,
+//                 countMail: (existingOtp.countMail || 0) + 1,
+//                 updatedAt: new Date(),
+//             },
+//         });
+//     } else {
+//         await prisma.otpVerify.create({
+//             data: {
+//                 emailAddress,
+//                 otp,
+//                 expireAt,
+//                 verified: false,
+//                 otpType: 'SIGNUP',
+//                 countMail: 1,
+//                 updatedAt: new Date(),
+//             },
+//         });
+//     }
+//     const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
+
+//     const user = await prisma.user.findUnique({
+//         where: { emailAddress },
+//         select: { name: true, status: true },
+//     });
+
+//     const htmlContent = `
+//     <p>Hello ${user?.name || emailAddress},</p>
+//     <p>Welcome to <strong>KringP</strong>! Thank you for signing up.</p>
+//     <p>To verify your email address and complete your registration, please use the following One-Time Password (OTP):</p>
+//     <p>Your OTP is: <strong>${otp}</strong></p>
+//     <p>This OTP is valid for a limited time. Please do not share it with anyone for security reasons.</p>
+//     <p>If you did not initiate this registration, please ignore this email.</p>
+//   `;
+
+//     const sendEmail = await resend.emails.send({
+//         from: 'KringP <info@kringp.com>',
+//         to: emailAddress,
+//         subject: 'Hello from KringP',
+//         html: htmlContent,
+//     });
+
+//     return response.success(res, 'Sign Up successful!', {
+//         user: userResponse,
+//         token,
+//         badges: [],
+
+//     });
+// };
+
+
 export const signup = async (req: Request, res: Response): Promise<any> => {
     const {
         socialMediaPlatform = [],
@@ -76,67 +416,16 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     }
 
     const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
-    if (existingUser) {
+    
+    // Check if user exists and has active status
+    if (existingUser && existingUser.status === true) {
         const message =
             existingUser.loginType === 'NONE'
                 ? 'Email already registered with email & password.'
                 : `Email already registered via ${existingUser.loginType}.`;
-
-
         return response.error(res, message);
     }
 
-    // const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
-
-    // console.log(existingUser, '>>>>>>>>>>>> existingUser');
-    // return false;
-
-    // if (existingUser) {
-    //     // Case 1: Block signup if active user exists
-    //     if (existingUser.status === true) {
-    //         const message =
-    //             existingUser.loginType === 'NONE'
-    //                 ? 'Email already registered with email & password.'
-    //                 : `Email already registered via ${existingUser.loginType}.`;
-    //         return response.error(res, message);
-    //     }
-
-    //     // Case 2: If inactive/deleted user found, delete it so we can create a new one
-
-    //     await prisma.$transaction([
-    //         prisma.userDetail.deleteMany({
-    //             where: { userId: existingUser.id },
-    //         }),
-    //         prisma.socialMediaPlatform.deleteMany({
-    //             where: { userId: existingUser.id },
-    //         }),
-    //         prisma.userSubCategory.deleteMany({
-    //             where: { userId: existingUser.id },
-    //         }),
-    //         prisma.otpVerify.deleteMany({
-    //             where: { emailAddress: existingUser.emailAddress },
-    //         }),
-    //         prisma.referralCoinSummary.deleteMany({
-    //             where: { userId: existingUser.id },
-    //         }),
-    //         prisma.referral.deleteMany({
-    //             where: {
-    //                 OR: [
-    //                     { referrerId: existingUser.id },
-    //                     { referredUserId: existingUser.id }
-    //                 ]
-    //             }
-    //         }),
-    //         prisma.coinTransaction.deleteMany({
-    //             where: { userId: existingUser.id },
-    //         }),
-    //         prisma.userAuthToken.deleteMany({
-    //             where: { userId: existingUser.id },
-    //         }),
-    //     ]);
-    // }
-
-    // return false;
     const hashedPassword = normalizedLoginType === LoginType.NONE ? await bcrypt.hash(password, 10) : undefined;
     const formattedBirthDate = birthDate ? formatBirthDate(birthDate) : null;
     if (birthDate && !formattedBirthDate) {
@@ -155,7 +444,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         if (city.stateId !== stateId) return response.error(res, 'City does not belong to provided State');
     }
 
-
     let calculatedProfileCompletion = 0;
 
     if (req.body.type === UserType.INFLUENCER) {
@@ -173,84 +461,229 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         calculatedProfileCompletion = calculateBusinessProfileCompletion(req.body, loginType);
     }
 
-
     const status = resolveStatus(userFields.status);
     const gender = (userFields.gender ?? Gender.MALE) as any;
 
-    const newUser = await prisma.user.create({
-        data: {
-            ...userFields,
-            password: hashedPassword ?? 'null',
-            emailAddress,
-            status,
-            gender,
-            birthDate: formattedBirthDate,
-            loginType: normalizedLoginType,
-            availability,
-            profileCompletion: calculatedProfileCompletion,
-            type: userFields.type ?? UserType.BUSINESS,
-            referralCode: generateUniqueReferralCode(userFields.name ?? 'USER'),
-            ...(countryId && { countryData: { connect: { id: countryId } } }),
-            ...(stateId && { stateData: { connect: { id: stateId } } }),
-            ...(cityId && { cityData: { connect: { id: cityId } } }),
-            ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
-            socialMediaPlatforms: {
-                create: socialMediaPlatform.map((platform: any) => ({
-                    platform: platform.platform,
-                    userName: platform.userName,
-                    image: platform.image,
-                    followerCount: platform.followerCount,
-                    engagementRate: platform.engagementRate,
-                    averageLikes: platform.averageLikes,
-                    averageComments: platform.averageComments,
-                    averageShares: platform.averageShares,
-                    viewCount: platform.viewCount,
-                    price: platform.price,
-                    status: platform.status,
-                })),
+    let newUser;
+    const isReSignup = existingUser && existingUser.status === false;
+
+    if (isReSignup) {
+        // Re-signup: Update existing user
+        await prisma.$transaction(async (tx) => {
+            // Update user data
+            newUser = await tx.user.update({
+                where: { id: existingUser.id },
+                data: {
+                    ...userFields,
+                    password: hashedPassword ?? 'null',
+                    emailAddress,
+                    status,
+                    gender,
+                    birthDate: formattedBirthDate,
+                    loginType: normalizedLoginType,
+                    availability,
+                    profileCompletion: calculatedProfileCompletion,
+                    type: userFields.type ?? UserType.BUSINESS,
+                    referralCode: generateUniqueReferralCode(userFields.name ?? 'USER'),
+                    updatedAt: new Date(),
+                    ...(countryId && { countryData: { connect: { id: countryId } } }),
+                    ...(stateId && { stateData: { connect: { id: stateId } } }),
+                    ...(cityId && { cityData: { connect: { id: cityId } } }),
+                    ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
+                },
+                include: {
+                    socialMediaPlatforms: true,
+                    brandData: true,
+                    countryData: true,
+                    stateData: true,
+                    cityData: true,
+                },
+            });
+
+            // Delete existing social media platforms and create new ones
+            await tx.socialMediaPlatform.deleteMany({
+                where: { userId: existingUser.id }
+            });
+
+            if (socialMediaPlatform.length > 0) {
+                await tx.socialMediaPlatform.createMany({
+                    data: socialMediaPlatform.map((platform: any) => ({
+                        userId: existingUser.id,
+                        platform: platform.platform,
+                        userName: platform.userName,
+                        image: platform.image,
+                        followerCount: platform.followerCount,
+                        engagementRate: platform.engagementRate,
+                        averageLikes: platform.averageLikes,
+                        averageComments: platform.averageComments,
+                        averageShares: platform.averageShares,
+                        viewCount: platform.viewCount,
+                        price: platform.price,
+                        status: platform.status,
+                    })),
+                });
+            }
+
+            // Update user details
+            const existingUserDetail = await tx.userDetail.findFirst({
+                where: { userId: existingUser.id }
+            });
+
+            if (existingUserDetail) {
+                await tx.userDetail.update({
+                    where: { id: existingUserDetail.id },
+                    data: {
+                        name: userFields.name || '',
+                        image: userFields.userImage || '',
+                    }
+                });
+            } else {
+                await tx.userDetail.create({
+                    data: {
+                        userId: existingUser.id,
+                        name: userFields.name || '',
+                        image: userFields.userImage || '',
+                    }
+                });
+            }
+
+            // Delete existing user subcategories and create new ones
+            await tx.userSubCategory.deleteMany({
+                where: { userId: existingUser.id }
+            });
+
+            if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
+                const validSubCategories = await tx.subCategory.findMany({
+                    where: { id: { in: subcategoriesId } },
+                    include: { categoryInformation: true },
+                });
+
+                const validIds = validSubCategories.map((sub) => sub.id);
+                const invalidIds = subcategoriesId.filter((id) => !validIds.includes(id));
+                if (invalidIds.length > 0) {
+                    throw new Error(`Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
+                }
+
+                await tx.userSubCategory.createMany({
+                    data: validSubCategories.map((sub) => ({
+                        userId: existingUser.id,
+                        subCategoryId: sub.id,
+                        categoryId: sub.categoryId,
+                    })),
+                    skipDuplicates: true,
+                });
+            }
+
+            // Clear existing coin transactions (except orders-related ones)
+            await tx.coinTransaction.deleteMany({
+                where: { 
+                    userId: existingUser.id,
+                    type: { in: [CoinType.SIGNUP, CoinType.PROFILE_COMPLETION, CoinType.REFERRAL] }
+                }
+            });
+
+            // Clear existing referral coin summary
+            await tx.referralCoinSummary.deleteMany({
+                where: { userId: existingUser.id }
+            });
+
+            // Clear existing referrals where user was referred
+            await tx.referral.deleteMany({
+                where: { referredUserId: existingUser.id }
+            });
+
+            // Clear existing user badges
+            await tx.userBadges.deleteMany({
+                where: { userId: existingUser.id }
+            });
+
+            // Clear existing auth tokens
+            await tx.userAuthToken.deleteMany({
+                where: { userId: existingUser.id }
+            });
+
+            // Clear existing OTP records
+            await tx.otpVerify.deleteMany({
+                where: { emailAddress: emailAddress }
+            });
+        });
+    } else {
+        // New signup: Create new user
+        newUser = await prisma.user.create({
+            data: {
+                ...userFields,
+                password: hashedPassword ?? 'null',
+                emailAddress,
+                status,
+                gender,
+                birthDate: formattedBirthDate,
+                loginType: normalizedLoginType,
+                availability,
+                profileCompletion: calculatedProfileCompletion,
+                type: userFields.type ?? UserType.BUSINESS,
+                referralCode: generateUniqueReferralCode(userFields.name ?? 'USER'),
+                ...(countryId && { countryData: { connect: { id: countryId } } }),
+                ...(stateId && { stateData: { connect: { id: stateId } } }),
+                ...(cityId && { cityData: { connect: { id: cityId } } }),
+                ...(brandTypeId && { brandData: { connect: { id: brandTypeId } } }),
+                socialMediaPlatforms: {
+                    create: socialMediaPlatform.map((platform: any) => ({
+                        platform: platform.platform,
+                        userName: platform.userName,
+                        image: platform.image,
+                        followerCount: platform.followerCount,
+                        engagementRate: platform.engagementRate,
+                        averageLikes: platform.averageLikes,
+                        averageComments: platform.averageComments,
+                        averageShares: platform.averageShares,
+                        viewCount: platform.viewCount,
+                        price: platform.price,
+                        status: platform.status,
+                    })),
+                },
             },
-        },
-        include: {
-            socialMediaPlatforms: true,
-            brandData: true,
-            countryData: true,
-            stateData: true,
-            cityData: true,
-
-        },
-    });
-
-    await prisma.userDetail.create({
-        data: {
-            userId: newUser.id,
-            name: userFields.name || '', // fallback if name is optional
-            image: userFields.userImage || '', // or wherever the image comes from
-        }
-    });
-
-    //Create UserSubCategory relations if any
-    if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
-        const validSubCategories = await prisma.subCategory.findMany({
-            where: { id: { in: subcategoriesId } },
-            include: { categoryInformation: true },
+            include: {
+                socialMediaPlatforms: true,
+                brandData: true,
+                countryData: true,
+                stateData: true,
+                cityData: true,
+            },
         });
 
-        const validIds = validSubCategories.map((sub) => sub.id);
-        const invalidIds = subcategoriesId.filter((id) => !validIds.includes(id));
-        if (invalidIds.length > 0) {
-            return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
-        }
-
-        await prisma.userSubCategory.createMany({
-            data: validSubCategories.map((sub) => ({
+        await prisma.userDetail.create({
+            data: {
                 userId: newUser.id,
-                subCategoryId: sub.id,
-                categoryId: sub.categoryId,
-            })),
-            skipDuplicates: true,
+                name: userFields.name || '',
+                image: userFields.userImage || '',
+            }
         });
+
+        // Create UserSubCategory relations if any
+        if (Array.isArray(subcategoriesId) && subcategoriesId.length > 0) {
+            const validSubCategories = await prisma.subCategory.findMany({
+                where: { id: { in: subcategoriesId } },
+                include: { categoryInformation: true },
+            });
+
+            const validIds = validSubCategories.map((sub) => sub.id);
+            const invalidIds = subcategoriesId.filter((id) => !validIds.includes(id));
+            if (invalidIds.length > 0) {
+                return response.error(res, `Invalid subCategoryId(s): ${invalidIds.join(', ')}`);
+            }
+
+            await prisma.userSubCategory.createMany({
+                data: validSubCategories.map((sub) => ({
+                    userId: newUser.id,
+                    subCategoryId: sub.id,
+                    categoryId: sub.categoryId,
+                })),
+                skipDuplicates: true,
+            });
+        }
     }
 
+    // Common logic for both new signup and re-signup
     // Signup Reward: create CoinTransaction + update ReferralCoinSummary
     await prisma.coinTransaction.create({
         data: {
@@ -282,7 +715,6 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         await prisma.referralCoinSummary.update({
             where: { userId: newUser.id },
             data: { totalAmount: (Number(signupSummary.totalAmount) || 0) + 50, },
-
         });
     } else {
         await prisma.referralCoinSummary.create({
@@ -290,7 +722,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         });
     }
 
-    //  Profile Completion Reward if 100%
+    // Profile Completion Reward if 100%
     if (calculatedProfileCompletion === 100) {
         await prisma.coinTransaction.create({
             data: {
@@ -407,6 +839,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             },
         });
     }
+
     const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
 
     const user = await prisma.user.findUnique({
@@ -430,16 +863,14 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         html: htmlContent,
     });
 
-    return response.success(res, 'Sign Up successful!', {
+    const successMessage = isReSignup ? 'Re-signup successful!' : 'Sign Up successful!';
+
+    return response.success(res, successMessage, {
         user: userResponse,
         token,
         badges: [],
-
     });
 };
-
-
-
 
 
 export const login = async (req: Request, res: Response): Promise<any> => {
