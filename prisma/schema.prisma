@@ -225,6 +225,7 @@ model Group {
   groupOrderData           Orders[]
   groupEarningData         Earnings[]
   groupRatings             Ratings[]
+  abuseReportedGroupData   AbuseReport[]    @relation("abuseReportedGroupDetail")
 }
 
 model GroupUsers {
@@ -579,13 +580,15 @@ model TotalGstData {
 model AbuseReport {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   reportedBy              String          @db.Uuid
-  reportedUserId          String          @db.Uuid
+  reportedUserId          String?         @db.Uuid
+  reportedGroupId         String?         @db.Uuid
   status                  ReportedType
   createdAt               DateTime        @default(now()) @db.Timestamp(6)
   updatedAt               DateTime        @updatedAt @db.Timestamp(6)
 
   abuseReportedByData     User      @relation("abuseReportedByDetail", fields: [reportedBy], references: [id])
   abuseReportedUserData   User?     @relation("abuseReportedUserDetail", fields: [reportedUserId], references: [id])
+  abuseReportedGroupData  Group?    @relation("abuseReportedGroupDetail", fields: [reportedGroupId], references: [id])
 }
 
 

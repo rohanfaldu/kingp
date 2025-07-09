@@ -1434,7 +1434,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         }
 
         // Determine what data to fetch based on subtype
-        let usersResult: any = [[], 0];
+let usersResult: any = [[], 0];
         let groupsResult: any = [[], 0];
 
         if (parsedSubtype === 0 || parsedSubtype === 1) {
@@ -1685,40 +1685,25 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
             const adminUserData = formattedGroupData[0]?.adminUser || null;
             const groupDataItem = formattedGroupData[0];
-            if (parsedSubtype === 2) {
-                // For subtype = 2, return group information directly
-                const groupInfoData = {
-                    groupImage: group.groupImage,
-                    groupName: group.groupName,
-                    groupBio: group.groupBio,
-                    socialMediaPlatform: group.socialMediaPlatform,
-                    Visibility: group.Visibility,
-                }
-                return {
+            
+            const groupInfoData = {
+                groupImage: group.groupImage,
+                groupName: group.groupName,
+                groupBio: group.groupBio,
+                socialMediaPlatform: group.socialMediaPlatform,
+                Visibility: group.Visibility,
+            }
+            
+            // For both subtype = 0 and 2, return in user data structure with isGroup = true
+            return {
+                ...adminUserData,
+                isGroup: true,
+                groupInfo: {
                     ...groupInfoData,
                     ...groupDataItem,
                     subCategoryId: subCategoriesWithCategory,
-                    isGroup: true
-                };
-            } else {
-                const groupInfoData = {
-                    groupImage: group.groupImage,
-                    groupName: group.groupName,
-                    groupBio: group.groupBio,
-                    socialMediaPlatform: group.socialMediaPlatform,
-                    Visibility: group.Visibility,
                 }
-                // For subtype = 0 or 1, return in user data structure
-                return {
-                    ...adminUserData,
-                    isGroup: true,
-                    groupInfo: {
-                        ...groupInfoData,
-                        ...groupDataItem,
-                        subCategoryId: subCategoriesWithCategory,
-                    }
-                };
-            }
+            };
         }));
 
 

@@ -1,5 +1,5 @@
 import express from 'express';
-import { createAbuseReport } from '../controllers/abuseReport.controller';
+import { createAbuseReport, getAllAbuseReports, getByIdAbuseReport } from '../controllers/abuseReport.controller';
 import { authenticateToken } from '../services/authorization';
 
 
@@ -7,10 +7,8 @@ import { authenticateToken } from '../services/authorization';
 const router = express.Router();
 
 router.post('/create', authenticateToken, createAbuseReport);
-// router.post('/edit/:id', editCity);
-// router.get('/get/:id', getByIdCity);
-// router.post('/getAll', getAllCity);
-// router.delete('/delete/:id', deleteCity);
+router.post('/get', getByIdAbuseReport);
+router.post('/getAll', authenticateToken, getAllAbuseReports);
 
 
 
