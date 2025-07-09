@@ -416,7 +416,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     }
 
     const existingUser = await prisma.user.findUnique({ where: { emailAddress } });
-    
+
     // Check if user exists and has active status
     if (existingUser && existingUser.status === true) {
         const message =
@@ -576,7 +576,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
             // Clear existing coin transactions (except orders-related ones)
             await tx.coinTransaction.deleteMany({
-                where: { 
+                where: {
                     userId: existingUser.id,
                     type: { in: [CoinType.SIGNUP, CoinType.PROFILE_COMPLETION, CoinType.REFERRAL] }
                 }
@@ -1054,7 +1054,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         });
 
         const user = await prisma.user.findUnique({
-            where: { id},
+            where: { id },
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
@@ -1865,7 +1865,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         }
 
         // Determine what data to fetch based on subtype
-let usersResult: any = [[], 0];
+        let usersResult: any = [[], 0];
         let groupsResult: any = [[], 0];
 
         if (parsedSubtype === 0 || parsedSubtype === 1) {
@@ -2116,7 +2116,7 @@ let usersResult: any = [[], 0];
 
             const adminUserData = formattedGroupData[0]?.adminUser || null;
             const groupDataItem = formattedGroupData[0];
-            
+
             const groupInfoData = {
                 groupImage: group.groupImage,
                 groupName: group.groupName,
@@ -2124,7 +2124,7 @@ let usersResult: any = [[], 0];
                 socialMediaPlatform: group.socialMediaPlatform,
                 Visibility: group.Visibility,
             }
-            
+
             // For both subtype = 0 and 2, return in user data structure with isGroup = true
             return {
                 ...adminUserData,
@@ -3121,7 +3121,7 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 
 
 
-export const updateUserBannerStatusByUserId = async (req: Request, res: Response) => {
+export const updateUserBannerStatusByUserId = async (req: Request, res: Response): Promise<any> => {
     const { userId, status } = req.body;
 
     if (!userId || typeof status !== 'boolean') {
@@ -3142,6 +3142,31 @@ export const updateUserBannerStatusByUserId = async (req: Request, res: Response
     } catch (error: any) {
         console.error(error);
         return response.error(res, 'Error updating status');
+    }
+};
+
+
+export const getRawUserDetailList = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const userDetails = await prisma.userDetail.findMany({
+            orderBy: {
+                updatedAt: 'desc',
+            },
+            select: {
+                id: true,
+                userId: true,
+                name: true,
+                image: true,
+                status: true,
+                createsAt: true,
+                updatedAt: true,
+            },
+        });
+
+        return response.success(res, "Fetched raw user details successfully", userDetails);
+    } catch (error: any) {
+        console.error("Error fetching user details:", error);
+        return response.error(res, "Failed to fetch user details");
     }
 };
 
