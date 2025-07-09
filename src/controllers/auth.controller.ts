@@ -2168,7 +2168,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
 
 
 
-export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+export const deleteUser = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.body;
 
@@ -2292,7 +2292,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
                                             }
                                         });
                                     } else {
-                                        return response.error(res, `Payment was not Decline`);
+                                        return response.error(res, `Refund failed for order ID: ${orderInfo.id}`);
                                     }
 
                                 }
@@ -2786,6 +2786,8 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                         name: name || user.name,
                         userImage: userImage || user.userImage,
                         ...(emailAddress && emailAddress !== user.emailAddress && { emailAddress }),
+                        status: true, // Reactivate user
+                        loginType: loginType || user.loginType,
                     },
                     include: {
                         socialMediaPlatforms: true,
@@ -2796,7 +2798,8 @@ export const socialLogin = async (req: Request, res: Response): Promise<any> => 
                     },
                 });
             }
-        } else {
+        }
+        else {
             // No user found with socialId, check if email is already taken
             if (emailAddress) {
                 const existingEmailUser = await prisma.user.findFirst({
