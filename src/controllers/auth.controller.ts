@@ -623,7 +623,7 @@ export const getByIdUser = async (req: Request, res: Response): Promise<any> => 
         });
 
         const user = await prisma.user.findUnique({
-            where: { id, status: true },
+            where: { id},
             include: {
                 socialMediaPlatforms: true,
                 brandData: true,
