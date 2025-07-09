@@ -59,7 +59,16 @@ export const getAllContactRequests = async (req: Request, res: Response): Promis
             return response.error(res, "Unauthorized access. Only ADMIN can view contact requests.");
         }
 
-        const contacts = await paginate(req, prisma.contact, {}, "contactRequests");
+        const contacts = await paginate(
+            req,
+            prisma.contact,
+            {
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            },
+            "contactRequests"
+        );
 
         if (!contacts || contacts.contactRequests.length === 0) {
             throw new Error("Contact Request not Found");
@@ -71,6 +80,7 @@ export const getAllContactRequests = async (req: Request, res: Response): Promis
         return response.error(res, error.message);
     }
 };
+
 
 
 
