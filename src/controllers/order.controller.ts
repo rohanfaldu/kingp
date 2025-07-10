@@ -370,7 +370,10 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
             const gstUsers = await prisma.user.findMany({
                 where: {
                     id: { in: userIdsToCheck },
-                    gstNumber: { not: null },
+                    AND: [
+                        { gstNumber: { not: null } },
+                        { gstNumber: { not: "" } },
+                    ],
                 },
                 select: { id: true },
             });
@@ -1818,7 +1821,6 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                     const totalGstAmount = orderBase * gstRate;
                     const totalAmountWithGst = orderBase + totalGstAmount;
 
-
                     console.log(orderBase, '>>orderBase', gstRate, '>>gstRate');
                     const platformShareBase = orderBase * 0.2; // 200
                     const platformGst = platformShareBase * gstRate; // 36
@@ -1839,7 +1841,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
                     const userGstMap = new Map<string, boolean>();
                     usersWithGstStatus.forEach(user => {
-                        userGstMap.set(user.id, !!user.gstNumber);
+                        // userGstMap.set(user.id, !!user.gstNumber);
+                        userGstMap.set(user.id, !!(user.gstNumber && user.gstNumber.trim() !== ''));
                     });
 
                     let totalEarningsDistributed = totalPlatformAmount;
@@ -2962,128 +2965,128 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
 // };
 
 export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { userId, withdrawAmount, withdrawalType } = req.body;
+    try {
+        const { userId, withdrawAmount, withdrawalType } = req.body;
 
-    if (!userId || typeof withdrawAmount !== 'number') {
-      return response.error(res, 'userId and withdrawAmount are required');
-    }
+        if (!userId || typeof withdrawAmount !== 'number') {
+            return response.error(res, 'userId and withdrawAmount are required');
+        }
 
-    // Fetch user stats
-    const user = await prisma.userStats.findFirst({ where: { userId } });
-    if (!user) return response.error(res, 'User stats not found');
+        // Fetch user stats
+        const user = await prisma.userStats.findFirst({ where: { userId } });
+        if (!user) return response.error(res, 'User stats not found');
 
-    const currentEarnings = user.totalEarnings ?? 0;
-    const currentWithdrawals = user.totalWithdraw ?? 0;
+        const currentEarnings = user.totalEarnings ?? 0;
+        const currentWithdrawals = user.totalWithdraw ?? 0;
 
-    const earningsNumber =
-      currentEarnings instanceof Prisma.Decimal
-        ? currentEarnings.toNumber()
-        : currentEarnings;
+        const earningsNumber =
+            currentEarnings instanceof Prisma.Decimal
+                ? currentEarnings.toNumber()
+                : currentEarnings;
 
-    const withdrawalsNumber =
-      currentWithdrawals instanceof Prisma.Decimal
-        ? currentWithdrawals.toNumber()
-        : currentWithdrawals;
+        const withdrawalsNumber =
+            currentWithdrawals instanceof Prisma.Decimal
+                ? currentWithdrawals.toNumber()
+                : currentWithdrawals;
 
-    if (withdrawAmount > earningsNumber) {
-      return response.error(res, 'Insufficient balance for withdrawal');
-    }
+        if (withdrawAmount > earningsNumber) {
+            return response.error(res, 'Insufficient balance for withdrawal');
+        }
 
-    // Fetch bank details
-    const userBankDetail = await prisma.userBankDetails.findFirst({
-      where: { userId }
-    });
-
-    if (!userBankDetail || !userBankDetail.accountId || !userBankDetail.accountHolderName) {
-      return response.error(res, 'Bank details are incomplete.');
-    }
-
-    // Step 1: Attempt to transfer FIRST
-    const initiateTransferData = await initiateTransfer(
-      withdrawAmount,
-      userBankDetail.accountId,
-      userBankDetail.accountHolderName
-    );
-
-    console.log('Transfer Result:', initiateTransferData);
-
-    if (initiateTransferData.status == false) {
-      const message = initiateTransferData?.message || 'Transfer failed. Please try again.';
-      return response.error(res, message);
-    }
-
-    // Step 2: Create withdrawal record
-    const newWithdraw = await prisma.withdraw.create({
-      data: {
-        userId,
-        withdrawAmount,
-        withdrawalType,
-        transactionType: 'DEBIT',
-      },
-    });
-
-    // Step 3: Update user stats
-    await prisma.userStats.update({
-      where: { id: user.id },
-      data: {
-        totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
-        totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
-      },
-    });
-
-    // Step 4: Issue KringP Coins
-    const kringPCoins = Math.floor(withdrawAmount / 100);
-    const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
-
-    if (kringPCoins > 0) {
-      await prisma.coinTransaction.create({
-        data: {
-          userId,
-          amount: kringPCoins,
-          type: 'CASHOUT_BONUS',
-          status: 'UNLOCKED',
-          source: sourceNote,
-        },
-      });
-
-      const existingSummary = await prisma.referralCoinSummary.findUnique({ where: { userId } });
-
-      if (existingSummary) {
-        await prisma.referralCoinSummary.update({
-          where: { userId },
-          data: {
-            totalAmount: Number(existingSummary.totalAmount ?? 0) + kringPCoins,
-            netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(kringPCoins),
-            unlocked: true,
-            unlockedAt: new Date(),
-          },
+        // Fetch bank details
+        const userBankDetail = await prisma.userBankDetails.findFirst({
+            where: { userId }
         });
-      } else {
-        await prisma.referralCoinSummary.create({
-          data: {
-            userId,
-            totalAmount: kringPCoins,
-            netAmount: kringPCoins,
-            unlocked: true,
-            unlockedAt: new Date(),
-          },
+
+        if (!userBankDetail || !userBankDetail.accountId || !userBankDetail.accountHolderName) {
+            return response.error(res, 'Bank details are incomplete.');
+        }
+
+        // Step 1: Attempt to transfer FIRST
+        const initiateTransferData = await initiateTransfer(
+            withdrawAmount,
+            userBankDetail.accountId,
+            userBankDetail.accountHolderName
+        );
+
+        console.log('Transfer Result:', initiateTransferData);
+
+        if (initiateTransferData.status == false) {
+            const message = initiateTransferData?.message || 'Transfer failed. Please try again.';
+            return response.error(res, message);
+        }
+
+        // Step 2: Create withdrawal record
+        const newWithdraw = await prisma.withdraw.create({
+            data: {
+                userId,
+                withdrawAmount,
+                withdrawalType,
+                transactionType: 'DEBIT',
+            },
         });
-      }
+
+        // Step 3: Update user stats
+        await prisma.userStats.update({
+            where: { id: user.id },
+            data: {
+                totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
+                totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
+            },
+        });
+
+        // Step 4: Issue KringP Coins
+        const kringPCoins = Math.floor(withdrawAmount / 100);
+        const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
+
+        if (kringPCoins > 0) {
+            await prisma.coinTransaction.create({
+                data: {
+                    userId,
+                    amount: kringPCoins,
+                    type: 'CASHOUT_BONUS',
+                    status: 'UNLOCKED',
+                    source: sourceNote,
+                },
+            });
+
+            const existingSummary = await prisma.referralCoinSummary.findUnique({ where: { userId } });
+
+            if (existingSummary) {
+                await prisma.referralCoinSummary.update({
+                    where: { userId },
+                    data: {
+                        totalAmount: Number(existingSummary.totalAmount ?? 0) + kringPCoins,
+                        netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(kringPCoins),
+                        unlocked: true,
+                        unlockedAt: new Date(),
+                    },
+                });
+            } else {
+                await prisma.referralCoinSummary.create({
+                    data: {
+                        userId,
+                        totalAmount: kringPCoins,
+                        netAmount: kringPCoins,
+                        unlocked: true,
+                        unlockedAt: new Date(),
+                    },
+                });
+            }
+        }
+
+        // ✅ Final response
+        return response.success(res, 'Withdrawal successful. Please check your account.', {
+            withdraw: newWithdraw,
+            updatedBalance: earningsNumber - withdrawAmount,
+            kringPCoinsIssued: kringPCoins,
+            transferReference: initiateTransferData.transferRef ?? null,
+        });
+
+    } catch (error: any) {
+        console.error('Withdraw Error:', error);
+        return response.error(res, error.message || 'Something went wrong');
     }
-
-    // ✅ Final response
-    return response.success(res, 'Withdrawal successful. Please check your account.', {
-      withdraw: newWithdraw,
-      updatedBalance: earningsNumber - withdrawAmount,
-      kringPCoinsIssued: kringPCoins,
-      transferReference: initiateTransferData.transferRef ?? null,
-    });
-
-  } catch (error: any) {
-    console.error('Withdraw Error:', error);
-    return response.error(res, error.message || 'Something went wrong');
-  }
 };
 
 
