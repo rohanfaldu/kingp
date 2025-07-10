@@ -17,6 +17,7 @@ import { paymentRefund, getBageData, initiateTransfer } from "../utils/commonFun
 import { sendEmailWithOptionalPdf, generateInvoicePdf } from "../utils/sendMail";
 import fs from 'fs';
 import path from 'path';
+import { isDate } from 'util/types';
 
 
 const prisma = new PrismaClient();
@@ -2844,126 +2845,6 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
 
 
 
-// export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { userId, withdrawAmount, withdrawalType } = req.body;
-
-
-//         if (!userId || typeof withdrawAmount !== 'number') {
-//             return response.error(res, 'userId and withdrawAmount are required');
-//         }
-
-//         //  Fetch user stats
-//         const user = await prisma.userStats.findFirst({ where: { userId } });
-//         if (!user) return response.error(res, 'User stats not found');
-
-//         const currentEarnings = user.totalEarnings ?? 0;
-//         const currentWithdrawals = user.totalWithdraw ?? 0;
-
-//         const earningsNumber = currentEarnings instanceof Prisma.Decimal
-//             ? currentEarnings.toNumber()
-//             : currentEarnings;
-
-//         const withdrawalsNumber = currentWithdrawals instanceof Prisma.Decimal
-//             ? currentWithdrawals.toNumber()
-//             : currentWithdrawals;
-
-//         if (withdrawAmount > earningsNumber) {
-//             return response.error(res, 'Insufficient balance for withdrawal');
-//         }
-
-//         console.log(withdrawAmount, '>>>>>>>>>>>>>>>>> withdrawAmount');
-//         console.log(earningsNumber, '>>>>>>>>>>>>>>>>> earningsNumber');
-
-
-//         //  Create withdrawal record
-//         const newWithdraw = await prisma.withdraw.create({
-//             data: {
-//                 userId,
-//                 withdrawAmount,
-//                 withdrawalType,
-//                 transactionType: 'DEBIT',
-//             },
-//         });
-
-//         //  Update UserStats
-//         await prisma.userStats.update({
-//             where: { id: user.id },
-//             data: {
-//                 totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
-//                 totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
-//             },
-//         });
-
-//         //  KringP Coins reward calculation
-//         const kringPCoins = Math.floor(withdrawAmount / 100);
-//         const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
-
-//         if (kringPCoins > 0) {
-//             //  Add CoinTransaction entry
-//             await prisma.coinTransaction.create({
-//                 data: {
-//                     userId,
-//                     amount: kringPCoins,
-//                     type: 'CASHOUT_BONUS',
-//                     status: 'UNLOCKED',
-//                     source: sourceNote,
-//                 },
-//             });
-
-//             // Update or Create ReferralCoinSummary
-//             const existingSummary = await prisma.referralCoinSummary.findUnique({
-//                 where: { userId },
-//             });
-
-//             if (existingSummary) {
-//                 await prisma.referralCoinSummary.update({
-//                     where: { userId },
-//                     data: {
-//                         totalAmount: Number(existingSummary.totalAmount ?? 0) + Number(kringPCoins),
-//                         netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(kringPCoins),
-//                         unlocked: true,
-//                         unlockedAt: new Date(),
-//                     },
-//                 });
-//             } else {
-//                 await prisma.referralCoinSummary.create({
-//                     data: {
-//                         userId,
-//                         totalAmount: kringPCoins,
-//                         netAmount: kringPCoins,
-//                         unlocked: true,
-//                         unlockedAt: new Date(),
-//                     },
-//                 });
-//             }
-//         }
-
-//         const userBandDetail = await prisma.userBankDetails.findFirst({
-//             where: { userId }
-//         });
-//         if (userBandDetail) {
-//             const initiateTransferData = await initiateTransfer(withdrawAmount, userBandDetail?.accountId, userBandDetail?.accountHolderName);
-
-//             console.log(initiateTransferData, '>>>>>>>>>>>>>>>>>>>>> initiateTransferData');
-//             if (initiateTransferData) {
-//                 return response.success(res, 'Withdrawal successfully and please check your account', {
-//                     withdraw: newWithdraw,
-//                     updatedBalance: earningsNumber - withdrawAmount,
-//                     kringPCoinsIssued: kringPCoins,
-//                 });
-//             } else {
-//                 return response.error(res, 'Insufficient Bank balance for withdrawal');
-//             }
-//         } else {
-//             return response.error(res, 'Please check bank Detail');
-//         }
-
-//     } catch (error: any) {
-//         return response.error(res, error.message || 'Something went wrong');
-//     }
-// };
-
 export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, withdrawAmount, withdrawalType } = req.body;
@@ -3590,6 +3471,106 @@ export const getUserGstByOrderId = async (req: Request, res: Response): Promise<
 };
 
 
+
+
+export const getDataByOrderId = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.body;
+
+        if (!id) {
+            return response.error(res, 'orderId is required');
+        }
+
+        const order = await prisma.orders.findFirst({
+            where: { orderId: id },
+            select: {
+                orderId: true,
+            },
+        });
+
+        const invoice = await prisma.orderInvoice.findFirst({
+            where: { orderId: id },
+            select: {
+                invoiceId: true,
+            },
+        });
+
+        const gstEntries = await prisma.totalGstData.findMany({
+            where: { orderId: id },
+            include: {
+                totalUserData: {
+                    select: {
+                        id: true,
+                        name: true,
+                        type: true,
+                        emailAddress: true,
+                        gstNumber: true,
+                    },
+                },
+            },
+        });
+
+        let adminOtherAmount = 0;
+        let totalAmount = 0;
+        let totalTDS = 0;
+        let totalTCS = 0;
+        const breakup: any[] = [];
+
+        const formattedGstEntries = gstEntries.map(entry => {
+            const totalAmt = Number(entry.totalAmt ?? 0);
+            const otherAmt = Number(entry.otherAmount ?? 0);
+            const tds = Number(entry.tds ?? 0);
+            const tcs = Number(entry.tcs ?? 0);
+            const user = entry.totalUserData;
+
+            if (user?.type === 'ADMIN') {
+                adminOtherAmount += otherAmt;
+            }
+
+            totalAmount += totalAmt;
+            totalTDS += tds;
+            totalTCS += tcs;
+
+            breakup.push({
+                userId: user?.id || entry.userId,
+                name: user?.name || '',
+                type: user?.type || '',
+                amount: totalAmt.toFixed(2),
+            });
+
+            return {
+                userId: user?.id || entry.userId,
+                name: user?.name || '',
+                type: user?.type || '',
+                emailAddress: user?.emailAddress || '',
+                gstNumber: user?.gstNumber || '',
+                basicAmount: entry.basicAmount?.toString() || "0",
+                gst: entry.gst?.toString() || "0",
+                tds: entry.tds?.toString() || "0",
+                tcs: entry.tcs?.toString() || "0",
+                otherAmount: entry.otherAmount?.toString() || "0",
+                totalAmt: entry.totalAmt?.toString() || "0",
+            };
+        });
+
+        const responseData = {
+            invoiceId: invoice?.invoiceId || null,
+            gstDetails: formattedGstEntries,
+            summary: {
+                breakup,
+                adminOtherAmount: adminOtherAmount.toFixed(2),
+                totalTDS: totalTDS.toFixed(2),
+                totalTCS: totalTCS.toFixed(2),
+                total: (totalAmount + adminOtherAmount).toFixed(2),
+            },
+        };
+
+        return response.success(res, 'Invoice and GST details fetched successfully', responseData);
+
+    } catch (error: any) {
+        return response.error(res, error.message || 'Something went wrong');
+    }
+};
 
 
 
