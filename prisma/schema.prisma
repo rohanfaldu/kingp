@@ -524,11 +524,11 @@ model UserCoinWithdraw {
 
 model UserBankDetails {
   id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId              String              @db.Uuid
-  accountId           String              @db.VarChar
+  userId              String?             @db.Uuid
+  accountId           String?             @db.VarChar
   accountNumber       String?             @db.VarChar  
   ifscCode            String?             @db.VarChar
-  accountHolderName   String              @db.VarChar
+  accountHolderName   String?             @db.VarChar
   status              Boolean             @default(true)
   createdAt           DateTime            @default(now()) @db.Timestamp(6)
   updatedAt           DateTime            @updatedAt @db.Timestamp(6)
