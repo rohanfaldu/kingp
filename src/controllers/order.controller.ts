@@ -634,7 +634,7 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
                 .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
                 .map(u => u.invitedUserId);
 
-            const userIdsToCheck = [...acceptedUserIds, adminUserId];
+            const userIdsToCheck = [...acceptedUserIds, adminUserId].filter(Boolean);;
 
             const gstUsers = await prisma.user.findMany({
                 where: {
@@ -1415,7 +1415,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
         if (status === 5 && statusEnumValue === OfferStatus.COMPLETED) {
             if (!currentOrder) return response.error(res, 'Order not found');
             if (currentOrder.status === OfferStatus.COMPLETED) {
-                const existingEarnings = await prisma.earnings.findFirst({ where: { orederId: id } });
+                const existingEarnings = await prisma.earnings.findFirst({ where: { orderId: id } });
                 if (existingEarnings) {
                     return response.error(res, 'Order is already completed and earnings have been distributed');
                 } else {
@@ -1707,311 +1707,473 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
             if (!amount) return response.error(res, 'Order amount is missing');
 
             const baseEarning = {
-                orederId: updated.id,
+                orderId: updated.id,
                 groupId: updated.groupId ?? null,
                 businessId: updated.businessId,
                 paymentStatus: PaymentStatus.COMPLETED,
             };
 
-            const earningsData = [];
+            const earningsData: any[] = [];
 
-            // Admin earns 20%
-            const adminUser = await prisma.user.findFirst({ where: { type: 'ADMIN' }, select: { id: true } });
-            if (!adminUser) return response.error(res, 'Admin user not found');
+            // Admin user required in both influencer and group logic
+            const adminUser = await prisma.user.findFirst({
+                where: { type: "ADMIN" },
+                select: { id: true },
+            });
+            if (!adminUser) return response.error(res, "Admin user not found");
 
-            console.log(amount, '>>>>>>>>>> amount');
-            console.log(isGstRegistered, '>>>>>>>>>> isGstRegistered');
-
-            // Global TDS and TCS calculations
-            const globalTds = amount * 0.01;
+            // Global TDS and TCS
+            const globalTds = amount * 0.001;
             const globalTcs = isGstRegistered ? amount * 0.01 : 0;
 
-            // Admin commission calculations
+            // Admin Commission (Always calculated, pushed only for non-group orders)
             const adminCommission = amount * 0.2;
             const adminCommissionGst = adminCommission * 0.18;
+            const adminFinalEarning = adminCommission + adminCommissionGst;
 
-            // Admin's final earning amount (including GST if registered)
-            const adminFinalEarning = isGstRegistered ?
-                adminCommission + adminCommissionGst :
-                adminCommission + adminCommissionGst;
+            // ------------------- Influencer Order -------------------
+            if (updated.influencerId && !updated.groupId) {
+                const influencerId = updated.influencerId;
+                const userShareBase = amount * 0.8;
 
-            const tds = amount * 0.01;
-            const tcs = (isGstRegistered) ? amount * 0.01 : 0;
+                const userGstData = await prisma.user.findUnique({
+                    where: { id: influencerId },
+                    select: { gstNumber: true },
+                });
 
-            earningsData.push({
-                ...baseEarning,
-                userId: adminUser.id,
-                amount,
-                earningAmount: adminFinalEarning, // Store total including GST
-            });
+                const userHasGst = !!userGstData?.gstNumber;
+                const userGstAmount = userHasGst ? userShareBase * 0.18 : 0;
+                const adminGstAmount = adminCommissionGst;
 
-            const totalGstsData = await prisma.totalGstData.create({
-                data: {
-                    orderId: updated.id,
+                let userNetEarning = userShareBase - globalTds - globalTcs + userGstAmount;
+                if (!userHasGst) {
+                    userNetEarning -= adminGstAmount;
+                }
+
+                // Total GST breakdown for influencer
+                await prisma.totalGstData.create({
+                    data: {
+                        orderId: updated.id,
+                        userId: influencerId,
+                        basicAmount: new Prisma.Decimal(userShareBase),
+                        gst: new Prisma.Decimal(userGstAmount),
+                        tds: new Prisma.Decimal(globalTds),
+                        tcs: new Prisma.Decimal(globalTcs),
+                        otherAmount: new Prisma.Decimal(0),
+                        totalAmt: new Prisma.Decimal(userNetEarning),
+                    },
+                });
+
+                earningsData.push({
+                    ...baseEarning,
+                    userId: influencerId,
+                    amount,
+                    earningAmount: userNetEarning,
+                });
+
+                // Admin earns 20% in influencer order
+                earningsData.push({
+                    ...baseEarning,
                     userId: adminUser.id,
-                    basicAmount: new Prisma.Decimal(adminCommission),  // 20% base commission
-                    gst: new Prisma.Decimal(adminCommissionGst),  // 18% GST if GST registered
-                    tds: new Prisma.Decimal(tds),                  // No TDS deducted from admin
-                    tcs: new Prisma.Decimal(tcs),                  // No TCS from admin
-                    otherAmount: new Prisma.Decimal(0),  // Only if unregistered
-                    totalAmt: new Prisma.Decimal(adminFinalEarning),
-                },
-            });
+                    amount,
+                    earningAmount: adminFinalEarning,
+                });
 
+                await prisma.totalGstData.create({
+                    data: {
+                        orderId: updated.id,
+                        userId: adminUser.id,
+                        basicAmount: new Prisma.Decimal(adminCommission),
+                        gst: new Prisma.Decimal(adminCommissionGst),
+                        tds: new Prisma.Decimal(0),
+                        tcs: new Prisma.Decimal(0),
+                        otherAmount: new Prisma.Decimal(globalTds + globalTcs),
+                        totalAmt: new Prisma.Decimal(adminFinalEarning),
+                    },
+                });
 
-            // Remaining 80% split among eligible users
-            const eligibleUserIds = [];
+                console.log(`✅ Influencer earnings processed for user ${influencerId}`);
+            }
 
-            if (updated.influencerId) eligibleUserIds.push(updated.influencerId);
+            // ------------------- Group Order -------------------
+            if (updated.groupId && !updated.influencerId) {
+                const eligibleUserIds: string[] = [];
 
-            if (updated.groupId) {
                 const acceptedUsers = await prisma.groupUsersList.findMany({
-                    where: { groupId: updated.groupId, requestAccept: 'ACCEPTED' },
+                    where: { groupId: updated.groupId, requestAccept: "ACCEPTED" },
                     select: { invitedUserId: true },
                 });
-                acceptedUsers.forEach(({ invitedUserId }) => eligibleUserIds.push(invitedUserId));
-
                 const groupAdmins = await prisma.groupUsers.findMany({
                     where: { groupId: updated.groupId },
                     select: { userId: true },
                 });
+
+                acceptedUsers.forEach(({ invitedUserId }) => eligibleUserIds.push(invitedUserId));
                 groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
-            }
+
+                if (eligibleUserIds.length > 0) {
+                    const orderBase = Number(amount); // Convert to number first
+                    const gstRate = 0.18;
+
+                    const totalGstAmount = orderBase * gstRate;
+                    const totalAmountWithGst = orderBase + totalGstAmount;
 
 
-            if (eligibleUserIds.length > 0) {
-                // Base amount for users (80% of total)
-                const userShareBase = amount * 0.8;
-                const perUserShare = userShareBase / eligibleUserIds.length;
+                    console.log(orderBase, '>>orderBase', gstRate, '>>gstRate');
+                    const platformShareBase = orderBase * 0.2; // 200
+                    const platformGst = platformShareBase * gstRate; // 36
+                    const totalPlatformAmount = platformShareBase + platformGst; // 236
 
-                // Get GST registration status for each user
-                const usersWithGstStatus = await prisma.user.findMany({
-                    where: { id: { in: eligibleUserIds } },
-                    select: { id: true, gstNumber: true },
-                });
+                    const userShareBase = orderBase - platformShareBase; // 800
+                    const perUserShare = userShareBase / eligibleUserIds.length;
+                    const perUserTds = perUserShare * 0.1;
 
-                const userGstMap = new Map();
-                usersWithGstStatus.forEach(user => {
-                    userGstMap.set(user.id, !!user.gstNumber);
-                });
+                    // console.log(userShareBase, '>>>>>>>>>>>> userShareBase');
+                    // console.log(perUserShare, '>>>>>>>>>>>> perUserShare');
+                    // console.log(perUserTds, '>>>>>>>>>>>> perUserTds');
 
-                // Calculate total GST amount that should be distributed
-                const totalGstAmount = userShareBase * 0.18;
-                let distributedGstAmount = 0;
+                    const usersWithGstStatus = await prisma.user.findMany({
+                        where: { id: { in: eligibleUserIds } },
+                        select: { id: true, gstNumber: true },
+                    });
 
-                // Calculate TDS and TCS per user
-                const perUserTds = globalTds / eligibleUserIds.length;
-                const perUserTcs = globalTcs / eligibleUserIds.length;
+                    const userGstMap = new Map<string, boolean>();
+                    usersWithGstStatus.forEach(user => {
+                        userGstMap.set(user.id, !!user.gstNumber);
+                    });
 
-                for (const userId of eligibleUserIds) {
-                    const userHasGst = userGstMap.get(userId) || false;
+                    let totalEarningsDistributed = totalPlatformAmount;
 
-                    // Calculate GST for this user
-                    const userGstAmount = userHasGst ? (perUserShare * 0.18) : 0;
-                    distributedGstAmount += userGstAmount;
+                    for (const userId of eligibleUserIds) {
+                        const userHasGst = userGstMap.get(userId) || false;
+                        const gstAmount = userHasGst ? perUserShare * gstRate : 0;
+                        const netEarning = perUserShare + gstAmount - perUserTds;
 
-                    // User's earning including GST but minus TDS/TCS
-                    const userGrossEarning = perUserShare + userGstAmount;
-                    const userNetEarning = userGrossEarning - perUserTds - perUserTcs;
+                        // console.log(userHasGst, '>>>>>>>>>>>> userHasGst');
+                        // console.log(gstAmount, '>>>>>>>>>>>> gstAmount');
 
-                    // Store user's TotalGstData
-                    try {
+                        totalEarningsDistributed += netEarning;
+
                         await prisma.totalGstData.create({
                             data: {
                                 orderId: updated.id,
-                                userId: userId,
+                                userId,
                                 basicAmount: new Prisma.Decimal(perUserShare),
-                                gst: new Prisma.Decimal(userGstAmount),
-                                tds: new Prisma.Decimal(0),
+                                gst: new Prisma.Decimal(gstAmount),
+                                tds: new Prisma.Decimal(perUserTds),
                                 tcs: new Prisma.Decimal(0),
                                 otherAmount: new Prisma.Decimal(0),
-                                totalAmt: new Prisma.Decimal(userNetEarning),
+                                totalAmt: new Prisma.Decimal(netEarning),
                             },
                         });
-                    } catch (error) {
-                        console.error(`❌ Failed to insert TotalGstData for user ${userId}`, error);
-                    }
 
-                    earningsData.push({
-                        ...baseEarning,
-                        userId,
-                        amount,
-                        earningAmount: userNetEarning, // Store net earning after TDS/TCS deduction
-                    });
-                }
-
-                await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
-
-                // Update each user's totalEarnings in UserStats table
-                for (const entry of earningsData) {
-                    // Find existing UserStats record for the user
-                    const existingUserStats = await prisma.userStats.findFirst({
-                        where: { userId: entry.userId },
-                        select: { id: true, totalEarnings: true, totalDeals: true },
-                    });
-
-                    if (existingUserStats) {
-                        // Update existing UserStats record
-                        const currentTotal = existingUserStats.totalEarnings ?? 0;
-                        const currentTotalDeals = existingUserStats.totalDeals ?? 0;
-
-                        // Add the gross earning (including GST) to total earnings
-                        const updatedTotal = Number(currentTotal) + Number(entry.earningAmount);
-
-                        const averageAmount = currentTotalDeals > 0 ? (updatedTotal / currentTotalDeals) : 0;
-
-                        await prisma.userStats.update({
-                            where: { id: existingUserStats.id },
-                            data: {
-                                totalEarnings: updatedTotal,
-                                averageValue: averageAmount
-                            },
-                        });
-                    } else {
-                        // Create new UserStats record if it doesn't exist
-                        await prisma.userStats.create({
-                            data: {
-                                userId: entry.userId,
-                                totalEarnings: Number(entry.earningAmount ?? 0), // Store gross earning
-                            },
+                        earningsData.push({
+                            ...baseEarning,
+                            userId,
+                            amount,
+                            earningAmount: netEarning,
                         });
                     }
-                }
 
-                if (updated.businessId) {
-                    // Business expense tracking
-                    const existingBusinessUserStats = await prisma.userStats.findFirst({
-                        where: { userId: updated.businessId },
-                        select: {
-                            id: true,
-                            totalDeals: true,
-                            onTimeDelivery: true,
-                            totalEarnings: true,
-                            repeatClient: true,
-                            totalExpenses: true,
+                    // Surplus (rounding, unregistered GST loss) → goes to Admin as otherAmount
+                    const surplusAmount = totalAmountWithGst - totalEarningsDistributed;
+                    const roundedSurplus = parseFloat(surplusAmount.toFixed(2));
+
+                    // console.log("totalAmountWithGst:", totalAmountWithGst);
+                    // console.log("totalEarningsDistributed:", totalEarningsDistributed);
+
+                    const adminCommission = amount * 0.2;
+                    const adminCommissionGst = adminCommission * 0.18;
+
+                    if (surplusAmount > 0) {
+                        await prisma.totalGstData.create({
+                            data: {
+                                orderId: updated.id,
+                                userId: adminUser.id,
+                                basicAmount: new Prisma.Decimal(adminCommission),
+                                gst: new Prisma.Decimal(adminCommissionGst),
+                                tds: new Prisma.Decimal(0),
+                                tcs: new Prisma.Decimal(0),
+                                otherAmount: new Prisma.Decimal(roundedSurplus),
+                                totalAmt: new Prisma.Decimal(adminCommission + adminCommissionGst),
+                            },
+                        });
+
+                        earningsData.push({
+                            ...baseEarning,
+                            userId: adminUser.id,
+                            amount,
+                            earningAmount: adminCommission + adminCommissionGst,
+                        });
+                    }
+
+                    console.log(`✅ Group earnings distributed for groupId ${updated.groupId}`);
+                }
+            }
+
+
+
+
+
+            // const eligibleUserIds = [];
+
+            // if (updated.influencerId) eligibleUserIds.push(updated.influencerId);
+
+            // console.log(updated.influencerId, '>>>>>>>>>>>>> updated.influencerId');
+            // console.log(updated.groupId, '>>>>>>>>>>>>> updated.groupId');
+
+
+            // if (updated.groupId) {
+            //     const acceptedUsers = await prisma.groupUsersList.findMany({
+            //         where: { groupId: updated.groupId, requestAccept: 'ACCEPTED' },
+            //         select: { invitedUserId: true },
+            //     });
+            //     acceptedUsers.forEach(({ invitedUserId }) => eligibleUserIds.push(invitedUserId));
+
+            //     const groupAdmins = await prisma.groupUsers.findMany({
+            //         where: { groupId: updated.groupId },
+            //         select: { userId: true },
+            //     });
+            //     groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
+            // }
+
+
+            // if (eligibleUserIds.length > 0) {
+            //     // // Base amount for users (80% of total)
+            //     // const userShareBase = amount * 0.8;
+            //     // const perUserShare = userShareBase / eligibleUserIds.length;
+
+            //     // console.log(userShareBase, '>>>>>>>>>>>>>>>>>>>>>>userShareBase');
+            //     // console.log(perUserShare, '>>>>>>>>>>>>>>>>>>>>>>perUserShare');
+
+            //     // // Get GST registration status for each user
+            //     // const usersWithGstStatus = await prisma.user.findMany({
+            //     //     where: { id: { in: eligibleUserIds } },
+            //     //     select: { id: true, gstNumber: true },
+            //     // });
+
+            //     // const userGstMap = new Map();
+            //     // usersWithGstStatus.forEach(user => {
+            //     //     userGstMap.set(user.id, !!user.gstNumber);
+            //     // });
+
+            //     // // Calculate total GST amount that should be distributed
+            //     // const totalGstAmount = userShareBase * 0.18;
+            //     // let distributedGstAmount = 0;
+
+            //     // // Calculate TDS and TCS per user
+            //     // const perUserTds = globalTds / eligibleUserIds.length;
+            //     // const perUserTcs = globalTcs / eligibleUserIds.length;
+
+            //     // for (const userId of eligibleUserIds) {
+            //     //     const userHasGst = userGstMap.get(userId) || false;
+
+            //     //     // Calculate GST for this user
+            //     //     const userGstAmount = userHasGst ? (perUserShare * 0.18) : 0;
+            //     //     distributedGstAmount += userGstAmount;
+
+            //     //     // User's earning including GST but minus TDS/TCS
+            //     //     const userGrossEarning = perUserShare;
+            //     //     const userNetEarning = userGrossEarning - perUserTds - perUserTcs;
+
+            //         // // Store user's TotalGstData
+            //         // try {
+            //         //     await prisma.totalGstData.create({
+            //         //         data: {
+            //         //             orderId: updated.id,
+            //         //             userId: userId,
+            //         //             basicAmount: new Prisma.Decimal(perUserShare),
+            //         //             gst: new Prisma.Decimal(userGstAmount),
+            //         //             tds: new Prisma.Decimal(0),
+            //         //             tcs: new Prisma.Decimal(0),
+            //         //             otherAmount: new Prisma.Decimal(0),
+            //         //             totalAmt: new Prisma.Decimal(userNetEarning),
+            //         //         },
+            //         //     });
+            //         // } catch (error) {
+            //         //     console.error(`❌ Failed to insert TotalGstData for user ${userId}`, error);
+            //         // }
+
+            //         // earningsData.push({
+            //         //     ...baseEarning,
+            //         //     userId,
+            //         //     amount,
+            //         //     earningAmount: userNetEarning, // Store net earning after TDS/TCS deduction
+            //         // });
+            //     // }
+
+            await prisma.earnings.createMany({ data: earningsData, skipDuplicates: true });
+
+            // Update each user's totalEarnings in UserStats table
+            for (const entry of earningsData) {
+                // Find existing UserStats record for the user
+                const existingUserStats = await prisma.userStats.findFirst({
+                    where: { userId: entry.userId },
+                    select: { id: true, totalEarnings: true, totalDeals: true },
+                });
+
+                if (existingUserStats) {
+                    // Update existing UserStats record
+                    const currentTotal = existingUserStats.totalEarnings ?? 0;
+                    const currentTotalDeals = existingUserStats.totalDeals ?? 0;
+
+                    // Add the gross earning (including GST) to total earnings
+                    const updatedTotal = Number(currentTotal) + Number(entry.earningAmount);
+
+                    const averageAmount = currentTotalDeals > 0 ? (updatedTotal / currentTotalDeals) : 0;
+
+                    await prisma.userStats.update({
+                        where: { id: existingUserStats.id },
+                        data: {
+                            totalEarnings: updatedTotal,
+                            averageValue: averageAmount
                         },
                     });
+                } else {
+                    // Create new UserStats record if it doesn't exist
+                    await prisma.userStats.create({
+                        data: {
+                            userId: entry.userId,
+                            totalEarnings: Number(entry.earningAmount ?? 0), // Store gross earning
+                        },
+                    });
+                }
+            }
 
-                    // Check if delivery is on time
-                    const isOnTime = currentOrder.completionDate ?
-                        new Date(currentOrder.completionDate) >= new Date() : true;
+            if (updated.businessId) {
+                // Business expense tracking
+                const existingBusinessUserStats = await prisma.userStats.findFirst({
+                    where: { userId: updated.businessId },
+                    select: {
+                        id: true,
+                        totalDeals: true,
+                        onTimeDelivery: true,
+                        totalEarnings: true,
+                        repeatClient: true,
+                        totalExpenses: true,
+                    },
+                });
 
-                    // Check for repeat client
-                    let isNewRepeatBusiness = false;
-                    if (currentOrder.businessId) {
-                        const previousOrdersCount = await prisma.orders.count({
-                            where: {
-                                businessId: updated.businessId,
-                                status: OfferStatus.COMPLETED,
-                                id: { not: updated.businessId },
-                            }
-                        });
+                // Check if delivery is on time
+                const isOnTime = currentOrder.completionDate ?
+                    new Date(currentOrder.completionDate) >= new Date() : true;
 
-                        isNewRepeatBusiness = previousOrdersCount === 1;
-                    }
+                // Check for repeat client
+                let isNewRepeatBusiness = false;
+                if (currentOrder.businessId) {
+                    const previousOrdersCount = await prisma.orders.count({
+                        where: {
+                            businessId: updated.businessId,
+                            status: OfferStatus.COMPLETED,
+                            id: { not: updated.businessId },
+                        }
+                    });
 
-                    let newTotalDeals = 1;
-
-                    if (existingBusinessUserStats) {
-                        // Update existing business UserStats record
-                        const currentDeals = existingBusinessUserStats.totalDeals ?? 0;
-                        const currentOnTime = existingBusinessUserStats.onTimeDelivery ?? 0;
-                        const totalExpenses = existingBusinessUserStats.totalExpenses ?? 0;
-                        const newExpense = Number(updated.finalAmount);
-                        const finalExpenses = Number(totalExpenses) + Number(newExpense);
-                        const currentRepeatClient = existingBusinessUserStats.repeatClient ?? 0;
-
-                        // Calculate average value after incrementing totalDeals
-                        const newTotalDeals = currentDeals + 1;
-                        const averageValue = newTotalDeals > 0
-                            ? Math.floor(finalExpenses / newTotalDeals)
-                            : 0;
-
-                        await prisma.userStats.update({
-                            where: { id: existingBusinessUserStats.id },
-                            data: {
-                                totalDeals: newTotalDeals,
-                                totalExpenses: finalExpenses,
-                                averageValue,
-                            },
-                        });
-                    } else {
-                        await prisma.userStats.create({
-                            data: {
-                                userId: updated.businessId,
-                                totalDeals: newTotalDeals,
-                                totalExpenses: Number(updated.finalAmount),
-                                averageValue: newTotalDeals > 0
-                                    ? Number(updated.finalAmount) / newTotalDeals
-                                    : 0,
-                            },
-                        });
-                    }
+                    isNewRepeatBusiness = previousOrdersCount === 1;
                 }
 
+                let newTotalDeals = 1;
 
-                // Reward business user with KringP Coins for spending
-                const kringPCoins = Math.floor(Number(amount) / 100);
+                if (existingBusinessUserStats) {
+                    // Update existing business UserStats record
+                    const currentDeals = existingBusinessUserStats.totalDeals ?? 0;
+                    const currentOnTime = existingBusinessUserStats.onTimeDelivery ?? 0;
+                    const totalExpenses = existingBusinessUserStats.totalExpenses ?? 0;
+                    const newExpense = Number(updated.finalAmount);
+                    const finalExpenses = Number(totalExpenses) + Number(newExpense);
+                    const currentRepeatClient = existingBusinessUserStats.repeatClient ?? 0;
 
-                if (kringPCoins > 0) {
-                    const coinSource = `Spending reward for ₹${amount}`;
+                    // Calculate average value after incrementing totalDeals
+                    const newTotalDeals = currentDeals + 1;
+                    const averageValue = newTotalDeals > 0
+                        ? Math.floor(finalExpenses / newTotalDeals)
+                        : 0;
 
-                    // Create coin transaction
-                    await prisma.coinTransaction.create({
+                    await prisma.userStats.update({
+                        where: { id: existingBusinessUserStats.id },
+                        data: {
+                            totalDeals: newTotalDeals,
+                            totalExpenses: finalExpenses,
+                            averageValue,
+                        },
+                    });
+                } else {
+                    await prisma.userStats.create({
                         data: {
                             userId: updated.businessId,
-                            amount: kringPCoins,
-                            type: CoinType.CASHOUT_BONUS, // Use enum if defined
-                            status: 'UNLOCKED',
-                            source: coinSource,
+                            totalDeals: newTotalDeals,
+                            totalExpenses: Number(updated.finalAmount),
+                            averageValue: newTotalDeals > 0
+                                ? Number(updated.finalAmount) / newTotalDeals
+                                : 0,
                         },
                     });
-
-                    // Update or create ReferralCoinSummary for business user
-                    const businessSummary = await prisma.referralCoinSummary.findUnique({
-                        where: { userId: updated.businessId },
-                    });
-
-
-                    if (businessSummary) {
-                        const totalAmount = Number(businessSummary.totalAmount ?? 0);
-                        const netAmount = Number(businessSummary.netAmount ?? 0);
-                        const withdrawAmount = Number(businessSummary.withdrawAmount ?? 0); // If this field exists
-
-                        const shouldUpdateNetAmount =
-                            businessSummary.netAmount === null ||
-                            businessSummary.withdrawAmount === null ||
-                            netAmount === totalAmount;
-                        const FinalTotalAmount = totalAmount + kringPCoins;
-                        const FinalNetAmount = FinalTotalAmount - withdrawAmount;
-                        /*
-                        shouldUpdateNetAmount
-                                    ? new Prisma.Decimal(netAmount + kringPCoins)
-                                    : new Prisma.Decimal(businessSummary.totalAmount ?? 0).minus(
-                                        new Prisma.Decimal(businessSummary.withdrawAmount ?? 0)
-                                    )
-                        */
-                        await prisma.referralCoinSummary.update({
-                            where: { userId: updated.businessId },
-                            data: {
-                                totalAmount: FinalTotalAmount,
-                                netAmount: FinalNetAmount,
-                                unlocked: true,
-                            },
-                        });
-                    } else {
-                        await prisma.referralCoinSummary.create({
-                            data: {
-                                userId: updated.businessId,
-                                totalAmount: kringPCoins,
-                                netAmount: kringPCoins,
-                            },
-                        });
-                    }
                 }
-
-
             }
+
+
+            // Reward business user with KringP Coins for spending
+            const kringPCoins = Math.floor(Number(amount) / 100);
+
+            if (kringPCoins > 0) {
+                const coinSource = `Spending reward for ₹${amount}`;
+
+                // Create coin transaction
+                await prisma.coinTransaction.create({
+                    data: {
+                        userId: updated.businessId,
+                        amount: kringPCoins,
+                        type: CoinType.CASHOUT_BONUS, // Use enum if defined
+                        status: 'UNLOCKED',
+                        source: coinSource,
+                    },
+                });
+
+                // Update or create ReferralCoinSummary for business user
+                const businessSummary = await prisma.referralCoinSummary.findUnique({
+                    where: { userId: updated.businessId },
+                });
+
+
+                if (businessSummary) {
+                    const totalAmount = Number(businessSummary.totalAmount ?? 0);
+                    const netAmount = Number(businessSummary.netAmount ?? 0);
+                    const withdrawAmount = Number(businessSummary.withdrawAmount ?? 0); // If this field exists
+
+                    const shouldUpdateNetAmount =
+                        businessSummary.netAmount === null ||
+                        businessSummary.withdrawAmount === null ||
+                        netAmount === totalAmount;
+                    const FinalTotalAmount = totalAmount + kringPCoins;
+                    const FinalNetAmount = FinalTotalAmount - withdrawAmount;
+                    /*
+                    shouldUpdateNetAmount
+                                ? new Prisma.Decimal(netAmount + kringPCoins)
+                                : new Prisma.Decimal(businessSummary.totalAmount ?? 0).minus(
+                                    new Prisma.Decimal(businessSummary.withdrawAmount ?? 0)
+                                )
+                    */
+                    await prisma.referralCoinSummary.update({
+                        where: { userId: updated.businessId },
+                        data: {
+                            totalAmount: FinalTotalAmount,
+                            netAmount: FinalNetAmount,
+                            unlocked: true,
+                        },
+                    });
+                } else {
+                    await prisma.referralCoinSummary.create({
+                        data: {
+                            userId: updated.businessId,
+                            totalAmount: kringPCoins,
+                            netAmount: kringPCoins,
+                        },
+                    });
+                }
+            }
+
+
+            // }
 
 
             // PERFECT REFERRAL REWARD LOGIC
@@ -2679,121 +2841,250 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
 
 
 
+// export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { userId, withdrawAmount, withdrawalType } = req.body;
+
+
+//         if (!userId || typeof withdrawAmount !== 'number') {
+//             return response.error(res, 'userId and withdrawAmount are required');
+//         }
+
+//         //  Fetch user stats
+//         const user = await prisma.userStats.findFirst({ where: { userId } });
+//         if (!user) return response.error(res, 'User stats not found');
+
+//         const currentEarnings = user.totalEarnings ?? 0;
+//         const currentWithdrawals = user.totalWithdraw ?? 0;
+
+//         const earningsNumber = currentEarnings instanceof Prisma.Decimal
+//             ? currentEarnings.toNumber()
+//             : currentEarnings;
+
+//         const withdrawalsNumber = currentWithdrawals instanceof Prisma.Decimal
+//             ? currentWithdrawals.toNumber()
+//             : currentWithdrawals;
+
+//         if (withdrawAmount > earningsNumber) {
+//             return response.error(res, 'Insufficient balance for withdrawal');
+//         }
+
+//         console.log(withdrawAmount, '>>>>>>>>>>>>>>>>> withdrawAmount');
+//         console.log(earningsNumber, '>>>>>>>>>>>>>>>>> earningsNumber');
+
+
+//         //  Create withdrawal record
+//         const newWithdraw = await prisma.withdraw.create({
+//             data: {
+//                 userId,
+//                 withdrawAmount,
+//                 withdrawalType,
+//                 transactionType: 'DEBIT',
+//             },
+//         });
+
+//         //  Update UserStats
+//         await prisma.userStats.update({
+//             where: { id: user.id },
+//             data: {
+//                 totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
+//                 totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
+//             },
+//         });
+
+//         //  KringP Coins reward calculation
+//         const kringPCoins = Math.floor(withdrawAmount / 100);
+//         const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
+
+//         if (kringPCoins > 0) {
+//             //  Add CoinTransaction entry
+//             await prisma.coinTransaction.create({
+//                 data: {
+//                     userId,
+//                     amount: kringPCoins,
+//                     type: 'CASHOUT_BONUS',
+//                     status: 'UNLOCKED',
+//                     source: sourceNote,
+//                 },
+//             });
+
+//             // Update or Create ReferralCoinSummary
+//             const existingSummary = await prisma.referralCoinSummary.findUnique({
+//                 where: { userId },
+//             });
+
+//             if (existingSummary) {
+//                 await prisma.referralCoinSummary.update({
+//                     where: { userId },
+//                     data: {
+//                         totalAmount: Number(existingSummary.totalAmount ?? 0) + Number(kringPCoins),
+//                         netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(kringPCoins),
+//                         unlocked: true,
+//                         unlockedAt: new Date(),
+//                     },
+//                 });
+//             } else {
+//                 await prisma.referralCoinSummary.create({
+//                     data: {
+//                         userId,
+//                         totalAmount: kringPCoins,
+//                         netAmount: kringPCoins,
+//                         unlocked: true,
+//                         unlockedAt: new Date(),
+//                     },
+//                 });
+//             }
+//         }
+
+//         const userBandDetail = await prisma.userBankDetails.findFirst({
+//             where: { userId }
+//         });
+//         if (userBandDetail) {
+//             const initiateTransferData = await initiateTransfer(withdrawAmount, userBandDetail?.accountId, userBandDetail?.accountHolderName);
+
+//             console.log(initiateTransferData, '>>>>>>>>>>>>>>>>>>>>> initiateTransferData');
+//             if (initiateTransferData) {
+//                 return response.success(res, 'Withdrawal successfully and please check your account', {
+//                     withdraw: newWithdraw,
+//                     updatedBalance: earningsNumber - withdrawAmount,
+//                     kringPCoinsIssued: kringPCoins,
+//                 });
+//             } else {
+//                 return response.error(res, 'Insufficient Bank balance for withdrawal');
+//             }
+//         } else {
+//             return response.error(res, 'Please check bank Detail');
+//         }
+
+//     } catch (error: any) {
+//         return response.error(res, error.message || 'Something went wrong');
+//     }
+// };
+
 export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const { userId, withdrawAmount, withdrawalType } = req.body;
+  try {
+    const { userId, withdrawAmount, withdrawalType } = req.body;
 
-
-        if (!userId || typeof withdrawAmount !== 'number') {
-            return response.error(res, 'userId and withdrawAmount are required');
-        }
-
-        //  Fetch user stats
-        const user = await prisma.userStats.findFirst({ where: { userId } });
-        if (!user) return response.error(res, 'User stats not found');
-
-        const currentEarnings = user.totalEarnings ?? 0;
-        const currentWithdrawals = user.totalWithdraw ?? 0;
-
-        const earningsNumber = currentEarnings instanceof Prisma.Decimal
-            ? currentEarnings.toNumber()
-            : currentEarnings;
-
-        const withdrawalsNumber = currentWithdrawals instanceof Prisma.Decimal
-            ? currentWithdrawals.toNumber()
-            : currentWithdrawals;
-
-        if (withdrawAmount > earningsNumber) {
-            return response.error(res, 'Insufficient balance for withdrawal');
-        }
-
-        //  Create withdrawal record
-        const newWithdraw = await prisma.withdraw.create({
-            data: {
-                userId,
-                withdrawAmount,
-                withdrawalType,
-                transactionType: 'DEBIT',
-            },
-        });
-
-        //  Update UserStats
-        await prisma.userStats.update({
-            where: { id: user.id },
-            data: {
-                totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
-                totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
-            },
-        });
-
-        //  KringP Coins reward calculation
-        const kringPCoins = Math.floor(withdrawAmount / 100);
-        const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
-
-        if (kringPCoins > 0) {
-            //  Add CoinTransaction entry
-            await prisma.coinTransaction.create({
-                data: {
-                    userId,
-                    amount: kringPCoins,
-                    type: 'CASHOUT_BONUS',
-                    status: 'UNLOCKED',
-                    source: sourceNote,
-                },
-            });
-
-            // Update or Create ReferralCoinSummary
-            const existingSummary = await prisma.referralCoinSummary.findUnique({
-                where: { userId },
-            });
-
-            if (existingSummary) {
-                await prisma.referralCoinSummary.update({
-                    where: { userId },
-                    data: {
-                        totalAmount: Number(existingSummary.totalAmount ?? 0) + Number(kringPCoins),
-                        netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(kringPCoins),
-                        unlocked: true,
-                        unlockedAt: new Date(),
-                    },
-                });
-            } else {
-                await prisma.referralCoinSummary.create({
-                    data: {
-                        userId,
-                        totalAmount: kringPCoins,
-                        netAmount: kringPCoins,
-                        unlocked: true,
-                        unlockedAt: new Date(),
-                    },
-                });
-            }
-        }
-
-        const userBandDetail = await prisma.userBankDetails.findFirst({
-            where: { userId }
-        });
-        if (userBandDetail) {
-            const initiateTransferData = await initiateTransfer(withdrawAmount, userBandDetail?.accountId, userBandDetail?.accountHolderName);
-
-            if (initiateTransferData) {
-                return response.success(res, 'Withdrawal successfully and please check your account', {
-                    withdraw: newWithdraw,
-                    updatedBalance: earningsNumber - withdrawAmount,
-                    kringPCoinsIssued: kringPCoins,
-                });
-            } else {
-                return response.error(res, 'Insufficient balance for withdrawal');
-            }
-        } else {
-            return response.error(res, 'Please check bank Detail');
-        }
-
-    } catch (error: any) {
-        return response.error(res, error.message || 'Something went wrong');
+    if (!userId || typeof withdrawAmount !== 'number') {
+      return response.error(res, 'userId and withdrawAmount are required');
     }
-};
 
+    // Fetch user stats
+    const user = await prisma.userStats.findFirst({ where: { userId } });
+    if (!user) return response.error(res, 'User stats not found');
+
+    const currentEarnings = user.totalEarnings ?? 0;
+    const currentWithdrawals = user.totalWithdraw ?? 0;
+
+    const earningsNumber =
+      currentEarnings instanceof Prisma.Decimal
+        ? currentEarnings.toNumber()
+        : currentEarnings;
+
+    const withdrawalsNumber =
+      currentWithdrawals instanceof Prisma.Decimal
+        ? currentWithdrawals.toNumber()
+        : currentWithdrawals;
+
+    if (withdrawAmount > earningsNumber) {
+      return response.error(res, 'Insufficient balance for withdrawal');
+    }
+
+    // Fetch bank details
+    const userBankDetail = await prisma.userBankDetails.findFirst({
+      where: { userId }
+    });
+
+    if (!userBankDetail || !userBankDetail.accountId || !userBankDetail.accountHolderName) {
+      return response.error(res, 'Bank details are incomplete.');
+    }
+
+    // Step 1: Attempt to transfer FIRST
+    const initiateTransferData = await initiateTransfer(
+      withdrawAmount,
+      userBankDetail.accountId,
+      userBankDetail.accountHolderName
+    );
+
+    console.log('Transfer Result:', initiateTransferData);
+
+    if (initiateTransferData.status == false) {
+      const message = initiateTransferData?.message || 'Transfer failed. Please try again.';
+      return response.error(res, message);
+    }
+
+    // Step 2: Create withdrawal record
+    const newWithdraw = await prisma.withdraw.create({
+      data: {
+        userId,
+        withdrawAmount,
+        withdrawalType,
+        transactionType: 'DEBIT',
+      },
+    });
+
+    // Step 3: Update user stats
+    await prisma.userStats.update({
+      where: { id: user.id },
+      data: {
+        totalWithdraw: new Prisma.Decimal(withdrawalsNumber).plus(withdrawAmount),
+        totalEarnings: new Prisma.Decimal(earningsNumber).minus(withdrawAmount),
+      },
+    });
+
+    // Step 4: Issue KringP Coins
+    const kringPCoins = Math.floor(withdrawAmount / 100);
+    const sourceNote = `Withdrawal reward for ₹${withdrawAmount}`;
+
+    if (kringPCoins > 0) {
+      await prisma.coinTransaction.create({
+        data: {
+          userId,
+          amount: kringPCoins,
+          type: 'CASHOUT_BONUS',
+          status: 'UNLOCKED',
+          source: sourceNote,
+        },
+      });
+
+      const existingSummary = await prisma.referralCoinSummary.findUnique({ where: { userId } });
+
+      if (existingSummary) {
+        await prisma.referralCoinSummary.update({
+          where: { userId },
+          data: {
+            totalAmount: Number(existingSummary.totalAmount ?? 0) + kringPCoins,
+            netAmount: new Prisma.Decimal(existingSummary.netAmount ?? 0).plus(kringPCoins),
+            unlocked: true,
+            unlockedAt: new Date(),
+          },
+        });
+      } else {
+        await prisma.referralCoinSummary.create({
+          data: {
+            userId,
+            totalAmount: kringPCoins,
+            netAmount: kringPCoins,
+            unlocked: true,
+            unlockedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    // ✅ Final response
+    return response.success(res, 'Withdrawal successful. Please check your account.', {
+      withdraw: newWithdraw,
+      updatedBalance: earningsNumber - withdrawAmount,
+      kringPCoinsIssued: kringPCoins,
+      transferReference: initiateTransferData.transferRef ?? null,
+    });
+
+  } catch (error: any) {
+    console.error('Withdraw Error:', error);
+    return response.error(res, error.message || 'Something went wrong');
+  }
+};
 
 
 const formatUserData = async (user: any) => {
@@ -3143,7 +3434,7 @@ export const withdrawCoins = async (req: Request, res: Response): Promise<any> =
                     updatedSummary,
                 });
             } else {
-                return response.error(res, 'Insufficient balance for withdrawal');
+                return response.error(res, 'Insufficient coin balance for withdrawal');
             }
         } else {
             return response.error(res, 'Please check bank Detail');
@@ -3340,7 +3631,7 @@ export const updateOrderStatusAndInsertEarnings = async (req: Request, res: Resp
             const earningsData: any[] = [];
 
             const baseEarning = {
-                orederId: order.id,
+                orderId: order.id,
                 groupId: order.groupId ?? null,
                 businessId: order.businessId,
                 paymentStatus: PaymentStatus.COMPLETED,

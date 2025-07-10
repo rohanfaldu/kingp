@@ -2,6 +2,9 @@
 import { OfferStatus, RequestStatus } from '../enums/userType.enum';
 import axios from 'axios';
 import { PrismaClient } from "@prisma/client";
+import response from '../utils/response';
+
+
 const prisma = new PrismaClient();
 export const resolveStatus = (status: boolean | null | undefined): boolean => {
     return status === null || status === undefined ? true : status;
@@ -130,11 +133,27 @@ export const initiateTransfer = async (amount: number, accountId: string, userNa
             }
         );
 
-        //console.log('✅ Transfer successful:', response.data);
+        console.log('✅ Transfer successful:', response.data);
 
-        return true;
+        return {
+            status: true,
+            message: 'Success',
+            data: null,
+        };
     } catch (error: any) {
-        //console.error('❌ Transfer failed:', error.response?.data || error.message);
-        return false;
+        // console.error('❌ Transfer failed:', error.response?.data || error.message);
+        // return response.error(res, 'The account must be 18 characters.');
+        // // return false;
+
+        const errorMessage =
+            error.response?.data?.error?.description ||
+            error.response?.data?.error ||
+            error.message ||
+            'Something went wrong during the transfer.';
+        return {
+            status: false,
+            message: errorMessage,
+            data: null,
+        };
     }
 }

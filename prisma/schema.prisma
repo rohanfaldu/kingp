@@ -334,7 +334,7 @@ model Media {
 
 model Earnings {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orederId                String?         @db.Uuid
+  orderId                 String?         @db.Uuid
   groupId                 String?         @db.Uuid
   userId                  String?         @db.Uuid
   businessId              String          @db.Uuid
@@ -345,7 +345,7 @@ model Earnings {
   createdAt               DateTime?       @default(now()) @db.Timestamp(6)
   updatedAt               DateTime?       @default(now()) @db.Timestamp(6)
   
-  orderData               Orders?         @relation(fields: [orederId], references: [id])
+  orderData               Orders?         @relation(fields: [orderId], references: [id])
   groupEarningData        Group?          @relation(fields: [groupId], references: [id])
   userEarningData         User?           @relation("userEarningInfo", fields: [userId], references: [id])
   businessPaymentData     User?           @relation("businessPaymentInfo", fields: [businessId], references: [id])
@@ -524,11 +524,11 @@ model UserCoinWithdraw {
 
 model UserBankDetails {
   id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId              String?             @db.Uuid
-  accountId           String?             @db.VarChar
+  userId              String              @db.Uuid
+  accountId           String              @db.VarChar
   accountNumber       String?             @db.VarChar  
   ifscCode            String?             @db.VarChar
-  accountHolderName   String?             @db.VarChar
+  accountHolderName   String              @db.VarChar
   status              Boolean             @default(true)
   createdAt           DateTime            @default(now()) @db.Timestamp(6)
   updatedAt           DateTime            @updatedAt @db.Timestamp(6)
