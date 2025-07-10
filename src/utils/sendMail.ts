@@ -160,7 +160,7 @@ export const generateInvoicePdf = async (
   const isGroupOrder = !!order.groupOrderData;
 
   const senderName = isGroupOrder
-    ? 'KringP App'
+    ? 'Mackring9 private limited'
     : order.influencerOrderData?.name || 'Influencer Name';
 
   const senderEmail = isGroupOrder
