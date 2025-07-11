@@ -690,7 +690,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             userId: newUser.id,
             amount: 50,
             type: CoinType.SIGNUP,
-            status: 'LOCKED',
+            status: 'UNLOCKED',
         },
     });
 
@@ -729,7 +729,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                 userId: newUser.id,
                 amount: 50,
                 type: CoinType.PROFILE_COMPLETION,
-                status: 'LOCKED',
+                status: 'UNLOCKED',
             },
         });
 
@@ -757,26 +757,59 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                 },
             });
 
+            // await prisma.coinTransaction.create({
+            //     data: {
+            //         userId: referrer.id,
+            //         amount: 50,
+            //         type: CoinType.REFERRAL,
+            //         status: 'LOCKED',
+            //     },
+            // });
+
+            // const referralSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: referrer.id } });
+            // if (referralSummary) {
+            //     await prisma.referralCoinSummary.update({
+            //         where: { userId: referrer.id },
+            //         data: { totalAmount: (Number(referralSummary.totalAmount) || 0) + 50, },
+            //     });
+            // } else {
+            //     await prisma.referralCoinSummary.create({
+            //         data: { userId: referrer.id, totalAmount: 50 },
+            //     });
+            // }
+            // Create coin transaction (status: LOCKED)
             await prisma.coinTransaction.create({
                 data: {
                     userId: referrer.id,
                     amount: 50,
                     type: CoinType.REFERRAL,
-                    status: 'LOCKED',
+                    status: 'LOCKED', // or use enum if defined
                 },
             });
 
-            const referralSummary = await prisma.referralCoinSummary.findUnique({ where: { userId: referrer.id } });
-            if (referralSummary) {
-                await prisma.referralCoinSummary.update({
+            // Do NOT update referralCoinSummary if the transaction is LOCKED
+            if ('LOCKED' !== 'LOCKED') {  // <-- This condition always false, so skip
+                const referralSummary = await prisma.referralCoinSummary.findUnique({
                     where: { userId: referrer.id },
-                    data: { totalAmount: (Number(referralSummary.totalAmount) || 0) + 50, },
                 });
-            } else {
-                await prisma.referralCoinSummary.create({
-                    data: { userId: referrer.id, totalAmount: 50 },
-                });
+
+                if (referralSummary) {
+                    await prisma.referralCoinSummary.update({
+                        where: { userId: referrer.id },
+                        data: {
+                            totalAmount: (Number(referralSummary.totalAmount) || 0) + 50,
+                        },
+                    });
+                } else {
+                    await prisma.referralCoinSummary.create({
+                        data: {
+                            userId: referrer.id,
+                            totalAmount: 50,
+                        },
+                    });
+                }
             }
+
         }
     }
 
@@ -2664,7 +2697,7 @@ export const editProfile = async (req: Request, res: Response): Promise<any> => 
                     userId: existingUser.id,
                     amount: 50,
                     type: CoinType.PROFILE_COMPLETION,
-                    status: 'LOCKED',
+                    status: 'UNLOCKED',
                 },
             });
 
@@ -3170,6 +3203,30 @@ export const getRawUserDetailList = async (req: Request, res: Response): Promise
     } catch (error: any) {
         console.error("Error fetching user details:", error);
         return response.error(res, "Failed to fetch user details");
+    }
+};
+
+
+export const getUserBannerStatusByUserId = async (req: Request, res: Response): Promise<any> => {
+    const { userId } = req.body;
+
+    if (!userId) {
+        return response.error(res, 'userId is required');
+    }
+
+    try {
+        const userDetail = await prisma.userDetail.findFirst({
+            where: { userId },
+        });
+
+        if (!userDetail) {
+            return response.error(res, 'No UserDetail found for given userId');
+        }
+
+        return response.success(res, 'UserDetail fetched successfully', userDetail);
+    } catch (error: any) {
+        console.error(error);
+        return response.error(res, 'Error fetching UserDetail');
     }
 };
 

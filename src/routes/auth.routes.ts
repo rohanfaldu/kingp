@@ -1,5 +1,5 @@
 import express from 'express';
-import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, getAllUsersAndGroup, editProfile, getUsersWithType, incrementInfluencerClick, socialLogin, updateUserBannerStatusByUserId, getRawUserDetailList } from '../controllers/auth.controller';
+import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, getAllUsersAndGroup, editProfile, getUsersWithType, incrementInfluencerClick, socialLogin, updateUserBannerStatusByUserId, getRawUserDetailList, getUserBannerStatusByUserId } from '../controllers/auth.controller';
 import { sendMail } from '../controllers/mail.controller';
 import { authenticateToken } from '../services/authorization';
 
@@ -21,6 +21,8 @@ router.post('/social-id', socialLogin)
 
 router.post('/user/bannerStatus', updateUserBannerStatusByUserId);
 router.post('/user/getAllBanner', getRawUserDetailList);
+router.post('/user/getByUserId', getUserBannerStatusByUserId);
+
 
 
 router.post('/send', sendMail)

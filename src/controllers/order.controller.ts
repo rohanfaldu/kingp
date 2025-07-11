@@ -2207,51 +2207,107 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
                             }
                         });
 
-                        if (referral && referral.referrerId) {
-                            //  Reward 50 UNLOCKED coins to referrer
-                            await prisma.coinTransaction.create({
-                                data: {
-                                    userId: referral.referrerId,
-                                    type: CoinType.FIRST_DEAL_REFFERAL,
-                                    amount: 50,
-                                    status: 'UNLOCKED',
-                                    source: `Referral reward for ${key} ${referredUserId}`
-                                }
-                            });
+                        // if (referral && referral.referrerId) {
+                        //     //  Reward 50 UNLOCKED coins to referrer
+                        //     await prisma.coinTransaction.create({
+                        //         data: {
+                        //             userId: referral.referrerId,
+                        //             type: CoinType.FIRST_DEAL_REFFERAL,
+                        //             amount: 50,
+                        //             status: 'UNLOCKED',
+                        //             source: `Referral reward for ${key} ${referredUserId}`
+                        //         }
+                        //     });
 
-                            // Update or create ReferralCoinSummary for referrer, set unlocked true + unlockedAt
+                        //     // Update or create ReferralCoinSummary for referrer, set unlocked true + unlockedAt
+                        //     const now = new Date();
+
+                        //     const summary = await prisma.referralCoinSummary.findUnique({
+                        //         where: { userId: referral.referrerId }
+                        //     });
+
+                        //     if (summary) {
+                        //         await prisma.referralCoinSummary.update({
+                        //             where: { userId: referral.referrerId },
+                        //             data: {
+                        //                 totalAmount: (Number(summary.totalAmount) || 0) + 50,
+                        //                 unlocked: true,
+                        //                 unlockedAt: now
+                        //             }
+                        //         });
+                        //     } else {
+                        //         await prisma.referralCoinSummary.create({
+                        //             data: {
+                        //                 userId: referral.referrerId,
+                        //                 totalAmount: 50,
+                        //                 unlocked: true,
+                        //                 unlockedAt: now
+                        //             }
+                        //         });
+                        //     }
+
+                        //     // Mark referral as rewarded
+                        //     await prisma.referral.update({
+                        //         where: { id: referral.id },
+                        //         data: { coinIssued: true }
+                        //     });
+                        // }
+
+                        if (referral && referral.referrerId) {
                             const now = new Date();
 
-                            const summary = await prisma.referralCoinSummary.findUnique({
-                                where: { userId: referral.referrerId }
+                            // Find existing LOCKED REFERRAL transaction
+                            const lockedReferralTransaction = await prisma.coinTransaction.findFirst({
+                                where: {
+                                    userId: referral.referrerId,
+                                    type: CoinType.REFERRAL,
+                                    status: 'LOCKED',
+                                },
                             });
 
-                            if (summary) {
-                                await prisma.referralCoinSummary.update({
-                                    where: { userId: referral.referrerId },
+                            if (lockedReferralTransaction) {
+                                // Unlock the transaction and update the source
+                                await prisma.coinTransaction.update({
+                                    where: { id: lockedReferralTransaction.id },
                                     data: {
-                                        totalAmount: (Number(summary.totalAmount) || 0) + 50,
-                                        unlocked: true,
-                                        unlockedAt: now
-                                    }
+                                        status: 'UNLOCKED',
+                                        source: `Referral reward for ${key} ${referredUserId}`,
+                                    },
                                 });
-                            } else {
-                                await prisma.referralCoinSummary.create({
-                                    data: {
-                                        userId: referral.referrerId,
-                                        totalAmount: 50,
-                                        unlocked: true,
-                                        unlockedAt: now
-                                    }
+
+                                // Update or create referral coin summary
+                                const summary = await prisma.referralCoinSummary.findUnique({
+                                    where: { userId: referral.referrerId },
+                                });
+
+                                if (summary) {
+                                    await prisma.referralCoinSummary.update({
+                                        where: { userId: referral.referrerId },
+                                        data: {
+                                            totalAmount: (Number(summary.totalAmount) || 0) + 50,
+                                            unlocked: true,
+                                            unlockedAt: now,
+                                        },
+                                    });
+                                } else {
+                                    await prisma.referralCoinSummary.create({
+                                        data: {
+                                            userId: referral.referrerId,
+                                            totalAmount: 50,
+                                            unlocked: true,
+                                            unlockedAt: now,
+                                        },
+                                    });
+                                }
+
+                                // Mark referral as rewarded
+                                await prisma.referral.update({
+                                    where: { id: referral.id },
+                                    data: { coinIssued: true },
                                 });
                             }
-
-                            // Mark referral as rewarded
-                            await prisma.referral.update({
-                                where: { id: referral.id },
-                                data: { coinIssued: true }
-                            });
                         }
+
                     }
                 }
             }
