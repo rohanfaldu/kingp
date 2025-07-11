@@ -312,6 +312,7 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                 message,
                 type: notificationType,
                 status: 'SENT',
+                orderId: order.id,
             }));
 
             await prisma.notification.createMany({
