@@ -93,66 +93,131 @@ export const sendNotification = async (req: Request, res: Response): Promise<any
 
 
 // GET List notifications
+// export const listNotifications = async (req: Request, res: Response): Promise<any> => {
+//     const userId = req.user?.id || req.user?.userId || req.userId;
+
+//     if (!userId) {
+//         return res.status(401).json({
+//             status: false,
+//             message: 'Unauthorized: Missing user ID',
+//             data: null,
+//         });
+//     }
+
+//     try {
+//         // Get pagination params
+//         const page = parseInt(req.query.page as string) || 1;
+//         const limit = parseInt(req.query.limit as string) || 50;
+//         const skip = (page - 1) * limit;
+
+//         console.log('Fetching notifications for userId:', userId);
+
+//         // Get total count for this user only
+//         const total = await prisma.notification.count({
+//             where: { userId: userId }
+//         });
+
+//         // Get notifications for this user only
+//         const notifications = await prisma.notification.findMany({
+//             where: {
+//                 userId: userId, 
+//                 status: {
+//                     not: 'FAILED',
+//                 },
+//             },
+//             skip,
+//             take: limit,
+//             orderBy: { createdAt: 'desc' }
+//         });
+
+//         console.log(`Found ${notifications.length} notifications for user ${userId}`);
+
+//         const result = {
+//             pagination: {
+//                 total,
+//                 page,
+//                 limit,
+//                 totalPages: Math.ceil(total / limit)
+//             },
+//             notifications
+//         };
+
+//         // Return empty array if no notifications, don't treat as error
+//         if (!notifications || notifications.length === 0) {
+//             return response.success(res, 'No notifications found', result);
+//         }
+
+//         response.success(res, 'Notifications fetched successfully', result);
+
+//     } catch (error: any) {
+//         console.error('Error fetching notifications:', error);
+//         response.error(res, error.message || 'Failed to fetch notifications');
+//     }
+// };
+
+
 export const listNotifications = async (req: Request, res: Response): Promise<any> => {
-    const userId = req.user?.id || req.user?.userId || req.userId;
+  const userId = req.user?.id || req.user?.userId || req.userId;
 
-    if (!userId) {
-        return res.status(401).json({
-            status: false,
-            message: 'Unauthorized: Missing user ID',
-            data: null,
-        });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      status: false,
+      message: 'Unauthorized: Missing user ID',
+      data: null,
+    });
+  }
 
-    try {
-        // Get pagination params
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 50;
-        const skip = (page - 1) * limit;
+  try {
+    // Get pagination params
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const skip = (page - 1) * limit;
 
-        console.log('Fetching notifications for userId:', userId);
+    console.log('Fetching notifications for userId:', userId);
 
-        // Get total count for this user only
-        const total = await prisma.notification.count({
-            where: { userId: userId }
-        });
+    // Common where condition (excluding FAILED)
+    const whereCondition = {
+      userId: userId,
+      status: {
+        not: 'FAILED',
+      },
+    };
 
-        // Get notifications for this user only
-        const notifications = await prisma.notification.findMany({
-            where: {
-                userId: userId, 
-                status: {
-                    not: 'FAILED',
-                },
-            },
-            skip,
-            take: limit,
-            orderBy: { createdAt: 'desc' }
-        });
+    // Get total count (excluding FAILED)
+    const total = await prisma.notification.count({
+      where: whereCondition,
+    });
 
-        console.log(`Found ${notifications.length} notifications for user ${userId}`);
+    // Get notifications (excluding FAILED)
+    const notifications = await prisma.notification.findMany({
+      where: whereCondition,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
 
-        const result = {
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            },
-            notifications
-        };
+    console.log(`Found ${notifications.length} notifications for user ${userId}`);
 
-        // Return empty array if no notifications, don't treat as error
-        if (!notifications || notifications.length === 0) {
-            return response.success(res, 'No notifications found', result);
-        }
+    const result = {
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      notifications,
+    };
 
-        response.success(res, 'Notifications fetched successfully', result);
+    const message = notifications.length === 0
+      ? 'No notifications found'
+      : 'Notifications fetched successfully';
 
-    } catch (error: any) {
-        console.error('Error fetching notifications:', error);
-        response.error(res, error.message || 'Failed to fetch notifications');
-    }
+    return response.success(res, message, result);
+
+  } catch (error: any) {
+    console.error('Error fetching notifications:', error);
+    return response.error(res, error.message || 'Failed to fetch notifications');
+  }
 };
-
-
