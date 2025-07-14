@@ -1635,7 +1635,7 @@ export const getAllUsersAndGroup = async (req: Request, res: Response): Promise<
         const {
             platform, type, countryId, stateId, cityId, status,
             subCategoryId, ratings, gender, minAge, maxAge, minPrice, maxPrice,
-            badgeType = [], search, subtype, minViewCount, maxViewCount, page = 1, limit = 10,
+            badgeType = [], search, subtype, minViewCount, maxViewCount, page, limit,
         } = req.body;
 
         const currentUserId = req.user?.userId;

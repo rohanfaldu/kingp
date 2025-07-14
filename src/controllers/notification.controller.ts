@@ -22,7 +22,7 @@ if (!admin.apps.length) {
 const prisma = new PrismaClient();
 
 export const sendNotification = async (req: Request, res: Response): Promise<any> => {
-    const { userId, message, type, fcmToken, title, orderId  } = req.body;
+    const { userId, message, type, fcmToken, title, orderId } = req.body;
 
     if (!userId || !message || !fcmToken) {
         return res.status(400).json({
@@ -119,7 +119,12 @@ export const listNotifications = async (req: Request, res: Response): Promise<an
 
         // Get notifications for this user only
         const notifications = await prisma.notification.findMany({
-            where: { userId: userId },
+            where: {
+                userId: userId, 
+                status: {
+                    not: 'FAILED',
+                },
+            },
             skip,
             take: limit,
             orderBy: { createdAt: 'desc' }

@@ -315,10 +315,19 @@ export const createRating = async (req: Request, res: Response): Promise<any> =>
                 orderId: order.id,
             }));
 
-            await prisma.notification.createMany({
-                data: notificationEntries,
-                skipDuplicates: true,
-            });
+            // await prisma.notification.createMany({
+            //     data: notificationEntries,
+            //     skipDuplicates: true,
+            // });
+
+            if (order?.id) {
+                await prisma.notification.createMany({
+                    data: notificationEntries,
+                    skipDuplicates: true,
+                });
+            } else {
+                console.warn('No orderId found, skipping notification creation');
+            }
         }
 
 
