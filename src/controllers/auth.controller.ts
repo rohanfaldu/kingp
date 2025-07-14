@@ -848,6 +848,9 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         where: { emailAddress, otpType: 'SIGNUP' },
     });
 
+    const isThirdPartyLogin = loginType === 'GOOGLE' || loginType === 'APPLE';
+    const verifiedStatus = isThirdPartyLogin ? true : false;
+
     if (existingOtp) {
         await prisma.otpVerify.update({
             where: { id: existingOtp.id },
