@@ -868,7 +868,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
                 emailAddress,
                 otp,
                 expireAt,
-                verified: false,
+                verified: verifiedStatus,
                 otpType: 'SIGNUP',
                 countMail: 1,
                 updatedAt: new Date(),
