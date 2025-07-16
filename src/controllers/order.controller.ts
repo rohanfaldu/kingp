@@ -3488,7 +3488,6 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
 
 
 
-
 export const getUserGstByOrderId = async (req: Request, res: Response): Promise<any> => {
     const { orderId } = req.body;
 
@@ -3519,7 +3518,18 @@ export const getUserGstByOrderId = async (req: Request, res: Response): Promise<
             return response.error(res, 'No GST details found for the given orderId');
         }
 
-        return response.success(res, 'GST details fetched successfully', gstData);
+        // If basicAmount and totalPayableAmt are equal, override gst to 0
+        const adjustedGst = Number(gstData.basicAmount) === Number(gstData.totalPayableAmt)
+            ? "0"
+            : String(gstData.gst);
+
+        const responseData = {
+            ...gstData,
+            gst: adjustedGst,         
+            gstPercentage: 18,
+        };
+
+        return response.success(res, 'GST details fetched successfully', responseData);
     } catch (error: any) {
         console.error(error);
         return response.error(res, 'Failed to fetch GST details');
