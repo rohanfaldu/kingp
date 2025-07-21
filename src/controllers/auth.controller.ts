@@ -3144,6 +3144,9 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
                     stateData: true,
                     cityData: true,
                 },
+                orderBy: {
+                    createdAt: 'desc',
+                },
             },
             "Users"
         );
