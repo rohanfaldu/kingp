@@ -15,7 +15,7 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
     try {
         const categoryData: ICategory = req.body;
 
-        if(!categoryData.name ){
+        if (!categoryData.name) {
             return response.error(res, 'Category Name required');
         }
 
@@ -83,7 +83,11 @@ export const getByIdCategory = async (req: Request, res: Response): Promise<any>
 
 export const getAllCategory = async (req: Request, res: Response): Promise<any> => {
     try {
-        const categories = await paginate(req, prisma.category, {}, "categories");
+        const categories = await paginate(req, prisma.category, {
+            orderBy: {
+                createsAt: 'desc',
+            },
+        }, "categories");
 
         if (!categories || categories.length === 0) {
             throw new Error("Categories not Found");

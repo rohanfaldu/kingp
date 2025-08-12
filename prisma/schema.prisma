@@ -182,6 +182,8 @@ model SocialMediaPlatform {
   userId                   String         @db.Uuid
   platform                 Platform?  
   userName                 String?        @db.VarChar
+  socialAccessToken              String?        @db.VarChar
+  channelId                String?        @db.VarChar
   followerCount            Int?        
   engagementRate           Int?        
   averageLikes             Int?        

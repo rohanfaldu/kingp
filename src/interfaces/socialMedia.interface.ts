@@ -3,6 +3,8 @@ import { Platform } from '../enums/userType.enum';
 export interface ISocialMediaPlatform {
     image?: string;
     userId: string;
+    socialAccessToken?: string;
+    channelId?: string;
     platform?: Platform;
     userName?: string;
     followerCount?: number;
