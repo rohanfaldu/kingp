@@ -24,6 +24,7 @@ import ContactRoutes from './routes/contact.routes';
 import TipsRoutes from './routes/tips.routes';
 import BankDetailsRoutes from './routes/bankDetail.routes';
 import AbuseReportRoutes from './routes/abuseReport.routes';
+import WorkPostRoutes from './routes/workPost.routes';
 
 
 
@@ -82,16 +83,51 @@ app.use('/api/contact', ContactRoutes);
 app.use('/api/tips', TipsRoutes);
 app.use('/api/bank', BankDetailsRoutes);
 app.use('/api/report', AbuseReportRoutes);
-
+app.use('/api/work-post', WorkPostRoutes);
+// app.use('/api/v1', authRoutes);
+// app.use('/api/v1/country', countryRoutes);
+// app.use('/api/v1/upload', imageRoutes);
+// app.use('/api/v1/categories', categoryRoutes);
+// app.use('/api/v1/sub-categories', subcategoryRoutes);
+// app.use('/api/v1', passwordRoutes);
+// app.use('/api/v1/state', stateRoutes);
+// app.use('/api/v1/city', cityRoutes);
+// app.use('/api/v1/brand-type', brandTypeRoutes);
+// app.use('/api/v1/social-media', socialMediaRoutes);
+// app.use('/api/v1/group', groupRoutes);
+// app.use('/api/v1/location', locationRoutes);
+// app.use('/api/v1/app-data', VersionControleRoutes);
+// app.use('/api/v1/badges', BadgesRoutes);
+// app.use('/api/v1/order', OrderRoutes);
+// app.use('/api/v1/media', MediaRoutes);
+// app.use('/api/v1/dashboard', DashboardRoutes);
+// app.use('/api/v1/ratings', RatingsRoutes);
+// app.use('/api/v1/notification', NotificationRoutes);
+// app.use('/api/v1/contact', ContactRoutes);
+// app.use('/api/v1/tips', TipsRoutes);
+// app.use('/api/v1/bank', BankDetailsRoutes);
+// app.use('/api/v1/report', AbuseReportRoutes);
+// app.use('/api/v1/work-post', WorkPostRoutes);
 
 
 
 app.use('/api/mail', authRoutes);
+// app.use('/api/v1/mail', authRoutes);
 
-const PORT = process.env.PORT || 3000;
+// const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+// app.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}`);
+// });
+
+// -------------------- SERVER CONFIG --------------------
+const PORT = Number(process.env.PORT) || 3000; // ✅ convert to number
+const HOST = process.env.HOST || '0.0.0.0'; // use 0.0.0.0 for external access
+
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running at http://${HOST}:${PORT}`);
 });
+
+
 
 export { app, prisma };

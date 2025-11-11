@@ -77,8 +77,11 @@ model User {
   userBadgeData            UserBadges[]
   coinwithdrawUserData     UserCoinWithdraw[]
   totalUserData            TotalGstData[]
-    abuseReportsBy     AbuseReport[] @relation("abuseReportedByDetail")
+  abuseReportsBy     AbuseReport[] @relation("abuseReportedByDetail")
   abuseReportsOnUser AbuseReport[] @relation("abuseReportedUserDetail")
+  businessOrders     WorkPosts[]  @relation("businessOrder")
+  influencer         WorkPostApplication[]  @relation("influencerApplicationInfo")
+  business           WorkPostApplication[]  @relation("businessApplicationInfo")
 }
 
 model Category {
@@ -92,6 +95,7 @@ model Category {
   updatedBy                String?       @db.Uuid
   categoryInformation      SubCategory[]
   categoryInfo             UserSubCategory[]
+  workPosts                WorkPosts[]
 }
 
 model Country {
@@ -140,7 +144,7 @@ model SubCategory {
   createdBy              String?        @db.Uuid
   updatedBy              String?        @db.Uuid
   categoryInformation    Category?      @relation(fields: [categoryId], references: [id])
-  users                  UserSubCategory[] 
+  users                  UserSubCategory[]
 }
 
 model UserDetail {
@@ -228,6 +232,7 @@ model Group {
   groupEarningData         Earnings[]
   groupRatings             Ratings[]
   abuseReportedGroupData   AbuseReport[]    @relation("abuseReportedGroupDetail")
+  group                    WorkPostApplication[]
 }
 
 model GroupUsers {
@@ -593,6 +598,53 @@ model AbuseReport {
   abuseReportedGroupData  Group?    @relation("abuseReportedGroupDetail", fields: [reportedGroupId], references: [id])
 }
 
+model WorkPosts {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId           String       @db.Uuid
+  title                String       @db.VarChar
+  description          String?      @db.VarChar
+  status               PostStatus   @default(SENT)
+  totalAmount          Decimal?     @db.Decimal(10,2)
+  categoryId           String       @db.Uuid
+  deliverables         String[]
+  platforms            String[]
+  tags                 String[]
+  attachments          String[]
+  startDate            DateTime?
+  endDate              DateTime?
+  submissionDeadline   DateTime?
+  isDraft              Boolean      @default(false)
+  createdAt            DateTime?    @default(now()) @db.Timestamp(6)
+  updatedAt            DateTime?    @updatedAt @db.Timestamp(6)
+
+  business             User          @relation("businessOrder", fields: [businessId], references: [id])
+  category             Category?    @relation(fields: [categoryId], references: [id])
+  workPost             WorkPostApplication[]
+}
+
+
+model WorkPostApplication {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workPostId    String             @db.Uuid
+  influencerId  String?            @db.Uuid    
+  groupId       String?            @db.Uuid    
+  businessId    String?            @db.Uuid   
+  offerAmount   Decimal?           @db.Decimal(10,2)
+  message       String?            @db.Text
+  attachments   String[]
+  status        ApplicationStatus  @default(PENDING)
+  createdAt     DateTime?          @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime?          @updatedAt @db.Timestamp(6)
+
+  workPost      WorkPosts          @relation(fields: [workPostId], references: [id])
+  influencer    User?              @relation("influencerApplicationInfo", fields: [influencerId], references: [id])
+  group         Group?             @relation(fields: [groupId], references: [id])
+  business      User?              @relation("businessApplicationInfo", fields: [businessId], references: [id])
+
+  @@unique([workPostId, influencerId])
+  @@unique([workPostId, groupId])
+}
+
 
 enum ReportedType {
   INFLUENCER
@@ -691,4 +743,15 @@ enum CoinStatus {
   LOCKED
   UNLOCKED
   WITHDRAWN
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum PostStatus {
+  SENT
+  CONFIRMED
 }
