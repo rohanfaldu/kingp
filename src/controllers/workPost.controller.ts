@@ -573,7 +573,7 @@ export const updateWorkPost = async (
 
     // ✅ Validate category if provided
     if (categoryId) {
-      const categoryExists = await prisma.subCategory.findUnique({
+      const categoryExists = await prisma.category.findUnique({
         where: { id: categoryId },
       });
 
@@ -641,6 +641,7 @@ export const updateWorkPost = async (
     });
 
     // ✅ Transform response (replace null → "")
+    const { category, ...restOfUpdatedPost } = updatedPost;
     const responseData = {
       ...updatedPost,
       title: updatedPost.title ?? '',
@@ -661,24 +662,31 @@ export const updateWorkPost = async (
       startDate: updatedPost.startDate ?? '',
       endDate: updatedPost.endDate ?? '',
       submissionDeadline: updatedPost.submissionDeadline ?? '',
-      subcategory: updatedPost.category
+      // subcategory: updatedPost.category
+      //   ? {
+      //       id: updatedPost.category.id,
+      //       name: updatedPost.category.name ?? '',
+      //       image: updatedPost.category.image ?? '',
+      //       status: updatedPost.category.status ?? '',
+      //       category: updatedPost.category.categoryInformation
+      //         ? {
+      //             id: updatedPost.category.categoryInformation.id,
+      //             name: updatedPost.category.categoryInformation.name ?? '',
+      //             image: updatedPost.category.categoryInformation.image ?? '',
+      //           }
+      //         : null,
+      //     }
+      //   : null,
+       category: category?.categoryInformation
         ? {
-            id: updatedPost.category.id,
-            name: updatedPost.category.name ?? '',
-            image: updatedPost.category.image ?? '',
-            status: updatedPost.category.status ?? '',
-            category: updatedPost.category.categoryInformation
-              ? {
-                  id: updatedPost.category.categoryInformation.id,
-                  name: updatedPost.category.categoryInformation.name ?? '',
-                  image: updatedPost.category.categoryInformation.image ?? '',
-                }
-              : null,
+            id: category.id,
+            name: category.name,
+            image: category.image ?? '',
           }
         : null,
     };
 
-    delete (responseData as any).category;
+    // delete (responseData as any).category;
 
     return res.status(200).json({
       success: true,
