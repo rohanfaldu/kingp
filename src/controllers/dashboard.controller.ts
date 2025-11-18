@@ -98,6 +98,8 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             take: 4,
         });
 
+        console.log("topInfluencersRaw>>>>>>>>>>", topInfluencersRaw);
+
         const topInfluencers = await Promise.all(
             topInfluencersRaw.map(async (user: any) => {
                 const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
