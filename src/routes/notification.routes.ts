@@ -8,7 +8,7 @@ const router = express.Router();
 router.post('/notify', sendNotification);
 router.post('/get', authenticateToken, listNotifications);
 
-cron.schedule('*/1 * * * *', async () => {
+cron.schedule('30 9 * * *', async () => {
 
   console.log('🕛 Running scheduled job (every 1 minute)...');
   try {
