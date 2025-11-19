@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { paginate } from '../utils/pagination';
 import response from '../utils/response';
 import { title } from 'process';
-
+import { calculateProfileCompletion } from '../utils/calculateProfileCompletion';
 // Initialize Firebase Admin only once
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -297,4 +297,79 @@ export const sendNotificationtoAllUser = async (): Promise<any> => {
   } catch (error: any) {
     console.error('Error sending FCM:', error);
   }
+};
+
+export const sendNotificationToUser = async (): Promise<any> => {
+  try {
+    // Fetch users WITHOUT any includes
+    const users = await prisma.user.findMany();
+
+    for (const user of users) {
+      const completion = calculateProfileCompletion(user);
+
+      console.log(`User: ${user.id} - Profile Completion: ${completion}%`);
+
+      // Notify if profile < 70% (your condition)
+      if (completion < 70) {
+
+        const notificationPayload = {
+          notification: {
+            title: "Complete Your Profile!",
+            body: "Finish setting up your profile to get started!",
+          },
+          data: {
+            title: "Complete Your Profile!",
+            body: "Finish setting up your profile to get started!",
+            type: 'INFO',
+            orderId: '',
+          },
+          topic: 'incomplete_profile', // 🔥 TOPIC
+        };
+
+        const response = await admin.messaging().send(notificationPayload);
+        if (response) {
+          console.log('Notification sent successfully:', response);
+        } else {
+          console.log('No notification response received');
+        }
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending notifications:", error);
+    return { success: false, error };
+    
+  }
+ 
+
+
+  // console.log(getRandomNotification(), 'getRandomNotification');
+  // // Send to topic instead of token
+  // const randomNote = getRandomNotification();
+
+  // const notificationPayload = {
+  //   notification: {
+  //     title: randomNote.title,
+  //     body: randomNote.body,
+  //   },
+  //   data: {
+  //     title: randomNote.title,
+  //     body: randomNote.body,
+  //     type: 'INFO',
+  //     orderId: '',
+  //   },
+  //   topic: 'daily_update', // 🔥 TOPIC
+  // };
+  // try {
+  //   // Send FCM
+  //   const response = await admin.messaging().send(notificationPayload);
+  //   if (response) {
+  //     console.log('FCM sent successfully:', response);
+  //   } else {
+  //     console.log('No FCM response received');
+  //   }
+  // } catch (error: any) {
+  //   console.error('Error sending FCM:', error);
+  // }
 };
