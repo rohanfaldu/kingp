@@ -114,19 +114,19 @@ app.use('/api/work-post', WorkPostRoutes);
 app.use('/api/mail', authRoutes);
 // app.use('/api/v1/mail', authRoutes);
 
-// const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-// app.listen(PORT, () => {
-//   console.log(`Server is running on port ${PORT}`);
-// });
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
 // -------------------- SERVER CONFIG --------------------
-const PORT = Number(process.env.PORT) || 3000; // ✅ convert to number
-const HOST = process.env.HOST || '0.0.0.0'; // use 0.0.0.0 for external access
+// const PORT = Number(process.env.PORT) || 3000; // ✅ convert to number
+// const HOST = process.env.HOST || '0.0.0.0'; // use 0.0.0.0 for external access
 
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 Server running at http://${HOST}:${PORT}`);
-});
+// app.listen(PORT, HOST, () => {
+//   console.log(`🚀 Server running at http://${HOST}:${PORT}`);
+// });
 
 
 

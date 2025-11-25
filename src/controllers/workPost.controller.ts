@@ -520,10 +520,7 @@ export const getAllWorkPosts = async (
   }
 };
 
-export const updateWorkPost = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+export const updateWorkPost = async (req: Request, res: Response): Promise<any> => {
   try {
     const userId = req.user?.userId;
 
@@ -531,7 +528,8 @@ export const updateWorkPost = async (
       return response.error(res, 'Unauthorized user');
     }
 
-    const { id } = req.params; // Work post ID from URL
+    const { id } = req.params;
+
     const {
       title,
       description,
@@ -547,7 +545,7 @@ export const updateWorkPost = async (
       isDraft,
     } = req.body;
 
-    // ✅ Check if work post exists
+    // Check existing post
     const existingPost = await prisma.workPosts.findUnique({
       where: { id },
     });
@@ -557,32 +555,29 @@ export const updateWorkPost = async (
     }
 
     if (existingPost.businessId !== userId) {
-      return response.error(
-        res,
-        'You are not authorized to edit this work post'
-      );
+      return response.error(res, 'You are not authorized to edit this work post');
     }
 
     if (!title) {
       return response.error(res, 'Title is required');
     }
 
-    if (!categoryId) {
-      return response.error(res, 'Category ID is required');
-    }
+    // 🔥 FIX — Validate category ONLY when changed
+    let finalCategoryId = existingPost.categoryId;
 
-    // ✅ Validate category if provided
-    if (categoryId) {
+    if (categoryId && categoryId !== existingPost.categoryId) {
       const categoryExists = await prisma.category.findUnique({
-        where: { id: categoryId },
+        where: { id: String(categoryId) },
       });
 
       if (!categoryExists) {
         return response.error(res, 'Invalid category ID — category not found');
       }
+
+      finalCategoryId = categoryId;
     }
 
-    // ✅ Safe conversions (same as create API)
+    // Array formatter
     const toArray = (val: any): string[] => {
       if (Array.isArray(val)) return val;
       if (typeof val === 'string' && val.trim() !== '')
@@ -592,29 +587,30 @@ export const updateWorkPost = async (
 
     const safeString = (val: any): string => (val ? String(val) : '');
 
-    // ✅ Update Work Post
+    // Update
     const updatedPost = await prisma.workPosts.update({
       where: { id },
       data: {
-        title: title !== undefined ? safeString(title) : existingPost.title,
-        description:
-          description !== undefined
-            ? safeString(description)
-            : existingPost.description,
+        title: safeString(title),
+        description: safeString(description),
         totalAmount:
           totalAmount !== undefined && totalAmount !== null
             ? parseFloat(totalAmount)
             : existingPost.totalAmount,
-        categoryId: categoryId ?? existingPost.categoryId,
+
+        categoryId: finalCategoryId,
+
         deliverables: toArray(deliverables),
         platforms: toArray(platforms),
         tags: toArray(tags),
         attachments: toArray(attachments),
+
         startDate: startDate ? new Date(startDate) : existingPost.startDate,
         endDate: endDate ? new Date(endDate) : existingPost.endDate,
         submissionDeadline: submissionDeadline
           ? new Date(submissionDeadline)
           : existingPost.submissionDeadline,
+
         isDraft: isDraft ?? existingPost.isDraft,
       },
       include: {
@@ -640,59 +636,29 @@ export const updateWorkPost = async (
       },
     });
 
-    // ✅ Transform response (replace null → "")
-    const { category, ...restOfUpdatedPost } = updatedPost;
-    const responseData = {
-      ...updatedPost,
-      title: updatedPost.title ?? '',
-      description: updatedPost.description ?? '',
-      totalAmount: updatedPost.totalAmount
-        ? Number(updatedPost.totalAmount).toFixed(2)
-        : '',
-      deliverables: Array.isArray(updatedPost.deliverables)
-        ? updatedPost.deliverables
-        : [],
-      platforms: Array.isArray(updatedPost.platforms)
-        ? updatedPost.platforms
-        : [],
-      tags: Array.isArray(updatedPost.tags) ? updatedPost.tags : [],
-      attachments: Array.isArray(updatedPost.attachments)
-        ? updatedPost.attachments
-        : [],
-      startDate: updatedPost.startDate ?? '',
-      endDate: updatedPost.endDate ?? '',
-      submissionDeadline: updatedPost.submissionDeadline ?? '',
-      // subcategory: updatedPost.category
-      //   ? {
-      //       id: updatedPost.category.id,
-      //       name: updatedPost.category.name ?? '',
-      //       image: updatedPost.category.image ?? '',
-      //       status: updatedPost.category.status ?? '',
-      //       category: updatedPost.category.categoryInformation
-      //         ? {
-      //             id: updatedPost.category.categoryInformation.id,
-      //             name: updatedPost.category.categoryInformation.name ?? '',
-      //             image: updatedPost.category.categoryInformation.image ?? '',
-      //           }
-      //         : null,
-      //     }
-      //   : null,
-       category: category?.categoryInformation
-        ? {
-            id: category.id,
-            name: category.name,
-            image: category.image ?? '',
-          }
-        : null,
-    };
-
-    // delete (responseData as any).category;
-
+    // Response structure
     return res.status(200).json({
       success: true,
       message: 'Work post updated successfully',
-      data: responseData,
+      data: {
+        ...updatedPost,
+        totalAmount: updatedPost.totalAmount
+          ? Number(updatedPost.totalAmount).toFixed(2)
+          : '',
+        deliverables: updatedPost.deliverables || [],
+        platforms: updatedPost.platforms || [],
+        tags: updatedPost.tags || [],
+        attachments: updatedPost.attachments || [],
+        category: updatedPost.category?.categoryInformation
+          ? {
+              id: updatedPost.category.id,
+              name: updatedPost.category.name,
+              image: updatedPost.category.image ?? '',
+            }
+          : null,
+      },
     });
+
   } catch (error: any) {
     console.error('Error updating work post:', error);
     return res.status(500).json({
@@ -702,6 +668,7 @@ export const updateWorkPost = async (
     });
   }
 };
+
 
 export const deleteWorkPost = async (
   req: Request,
