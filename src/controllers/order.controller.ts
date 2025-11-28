@@ -11,7 +11,7 @@ import { formatEarningToTransaction, formatWithdrawToTransaction, TransactionHis
 import { formatBirthDate } from '../controllers/auth.controller'
 import { UserType } from '../enums/userType.enum';
 import { sendFCMNotificationToUsers } from '../utils/notification';
-import { CoinType } from '@prisma/client';
+import { CoinType, CoinStatus } from '@prisma/client';
 import { paginate } from '../utils/pagination';
 import { paymentRefund, getBageData, initiateTransfer } from "../utils/commonFunction";
 import { sendEmailWithOptionalPdf, generateInvoicePdf } from "../utils/sendMail";
@@ -22,233 +22,6 @@ import { isDate } from 'util/types';
 
 const prisma = new PrismaClient();
 
-
-// export const createOrder = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const orderData: IOrder = req.body;
-//         const {
-//             businessId,
-//             influencerId,
-//             completionDate,
-//             ...restFields
-//         } = orderData;
-
-//         if (!businessId) {
-//             return res.status(400).json({ error: 'businessId is required' });
-//         }
-
-//         if (orderData.groupId) {
-//             // Step 1: Fetch invited users (with requestAccept) and adminUserId for the group
-//             const groupUsersList = await prisma.groupUsersList.findMany({
-//                 where: { groupId: orderData.groupId, status: true },
-//                 select: {
-//                     invitedUserId: true,
-//                     adminUserId: true,
-//                     requestAccept: true,
-//                 },
-//             });
-//             if (groupUsersList.length === 0) {
-//                 return response.error(res, 'No group members found.');
-//             }
-
-//             // Step 2: Get adminUserId from first entry (assuming same across entries)
-//             const adminUserId = groupUsersList[0].adminUserId;
-
-//             // Step 3: Collect only those invited users who are ACCEPTED
-//             const acceptedInvitedUserIds = groupUsersList
-//                 .filter(u => u.requestAccept === RequestStatus.ACCEPTED)
-//                 .map(u => u.invitedUserId);
-
-//             // Step 4: Check bank details for admin
-//             const adminBankDetails = await prisma.userBankDetails.findFirst({
-//                 where: { userId: adminUserId, status: true },
-//             });
-
-//             if (!adminBankDetails) {
-//                 return response.error(res, 'Admin must add bank details before proceeding.');
-//             }
-
-//             if (acceptedInvitedUserIds.length > 0) {
-//                 const acceptedWithBankDetails = await prisma.userBankDetails.findMany({
-//                     where: {
-//                         userId: { in: acceptedInvitedUserIds },
-//                         status: true,
-//                     },
-//                     select: { userId: true },
-//                 });
-
-//                 const bankUserIds = acceptedWithBankDetails.map(b => b.userId);
-
-//                 const missingBankDetails = acceptedInvitedUserIds.filter(
-//                     id => !bankUserIds.includes(id)
-//                 );
-
-//                 if (missingBankDetails.length > 0) {
-//                     return response.error(
-//                         res,
-//                         'All accepted invited users must add bank details before proceeding.'
-//                     );
-//                 }
-//             }
-//         }
-
-//         if (influencerId) {
-//             const influencer = await prisma.user.findUnique({
-//                 where: { id: influencerId, status: true },
-//             });
-
-//             if (!influencer) {
-//                 return response.error(res, 'Invalid influencer ID provided.');
-//             }
-//             //  Check if bank details exist for this influencer
-//             const bankDetails = await prisma.userBankDetails.findFirst({
-//                 where: {
-//                     userId: influencerId,
-//                     status: true,
-//                 },
-//             });
-
-//             if (!bankDetails) {
-//                 return response.error(res, 'Influencer must add bank details before Creating offers.');
-//             }
-//         }
-
-
-//         let parsedCompletionDate: Date | undefined = undefined;
-//         const statusEnumValue = getStatusName(restFields.status ?? 0);
-
-
-//         if (completionDate && typeof completionDate === 'number') {
-//             parsedCompletionDate = addDays(new Date(), completionDate);
-//         } else {
-//             parsedCompletionDate = completionDate;
-//         }
-
-//         const generateOrderId = (): string => {
-//             const random1 = Math.floor(100 + Math.random() * 900); // 3-digit
-//             const random2 = Math.floor(10000 + Math.random() * 90000); // 5-digit
-//             return `ORD-${random1}-${random2}`;
-//         };
-
-//         const generateUniqueOrderId = async (): Promise<string> => {
-//             let unique = false;
-//             let orderId = '';
-
-//             while (!unique) {
-//                 orderId = generateOrderId();
-
-//                 const existingOrder = await prisma.orders.findUnique({
-//                     where: { orderId }
-//                 });
-
-//                 if (!existingOrder) {
-//                     unique = true;
-//                 }
-//             }
-
-//             return orderId;
-//         };
-
-//         const orderId = await generateUniqueOrderId();
-//         const newOrder = await prisma.orders.create({
-//             data: {
-//                 orderId,
-//                 ...restFields,
-//                 businessId,
-//                 influencerId,
-//                 completionDate: parsedCompletionDate,
-//                 status: statusEnumValue,
-//                 paymentStatus: restFields.paymentStatus ?? 'PENDING',
-//             },
-//             include: {
-//                 groupOrderData: {},
-//                 influencerOrderData: {
-//                     include: {
-//                         socialMediaPlatforms: true,
-//                         brandData: true,
-//                         countryData: true,
-//                         stateData: true,
-//                         cityData: true,
-//                     }
-//                 },
-//                 businessOrderData: {
-//                     include: {
-//                         socialMediaPlatforms: true,
-//                         brandData: true,
-//                         countryData: true,
-//                         stateData: true,
-//                         cityData: true,
-//                     }
-//                 }
-//             }
-//         });
-
-//         const formatUser = async (user: any) => {
-//             if (!user) return null;
-//             const userCategoriesWithSubcategories = await getUserCategoriesWithSubcategories(user.id);
-//             return {
-//                 ...user,
-//                 categories: userCategoriesWithSubcategories,
-//                 countryName: user.countryData?.name ?? null,
-//                 stateName: user.stateData?.name ?? null,
-//                 cityName: user.cityData?.name ?? null,
-//             };
-//         };
-
-//         const responseData = {
-//             ...newOrder,
-//             influencerOrderData: await formatUser(newOrder.influencerOrderData),
-//             businessOrderData: await formatUser(newOrder.businessOrderData),
-//             groupOrderData: await formatUser(newOrder.groupOrderData),
-//         };
-
-//         // Send Notification to Business (from Influencer)
-//         const businessUser = await prisma.user.findUnique({
-//             where: { id: newOrder.businessId },
-//         });
-
-//         if (businessUser?.fcmToken) {
-//             const recipientId = businessUser.id;
-//             const fcmToken = businessUser.fcmToken;
-
-//             // Determine if order is from group or influencer
-//             let senderName = '';
-//             let senderType = '';
-
-//             if (newOrder.influencerOrderData) {
-//                 senderName = newOrder.influencerOrderData?.name || 'an influencer';
-//                 senderType = 'Influencer';
-//             } else if (newOrder.groupOrderData) {
-//                 const groupAdminId = newOrder.groupOrderData?.userId;
-
-//                 if (groupAdminId) {
-//                     const groupAdminUser = await prisma.user.findUnique({
-//                         where: { id: groupAdminId },
-//                     });
-
-//                     senderName = groupAdminUser?.name || 'a group';
-//                     senderType = 'Group';
-//                 } else {
-//                     senderName = 'a group';
-//                     senderType = 'Group';
-//                 }
-//             }
-
-//             await sendFCMNotificationToUsers(
-//                 [{ id: recipientId, fcmToken }],
-//                 'New Offer Received',
-//                 `You have received a new Offer from ${senderName}`,
-//                 'ORDER_CREATED',
-//                 responseData.id
-
-//             );
-//         }
-
-//         return response.success(res, 'Order created successfully!', responseData);
-//     } catch (error: any) {
-//         return response.error(res, error.message);
-//     }
-// };
 
 
 export const createOrder = async (req: Request, res: Response): Promise<any> => {
@@ -554,8 +327,6 @@ export const createOrder = async (req: Request, res: Response): Promise<any> => 
         return response.error(res, error.message);
     }
 };
-
-
 
 
 export const getByIdOrder = async (req: Request, res: Response): Promise<any> => {
@@ -923,8 +694,6 @@ export const getByIdOrder = async (req: Request, res: Response): Promise<any> =>
         return response.error(res, error.message);
     }
 };
-
-
 
 
 
@@ -2693,7 +2462,6 @@ export const getAllOrderListAlternative = async (req: Request, res: Response): P
 
 
 
-
 export const orderSubmit = async (req: Request, res: Response): Promise<any> => {
     try {
         const {
@@ -2900,7 +2668,6 @@ export const orderSubmit = async (req: Request, res: Response): Promise<any> => 
 };
 
 
-
 export const withdrawAmount = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, withdrawAmount, withdrawalType } = req.body;
@@ -3044,7 +2811,6 @@ const formatUserData = async (user: any) => {
         cityName: user.cityData?.name ?? null,
     };
 };
-
 
 
 export const getTransactionHistory = async (req: Request, res: Response): Promise<any> => {
@@ -3312,7 +3078,6 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
 };
 
 
-
 export const withdrawCoins = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, withdrawAmount } = req.body;
@@ -3386,8 +3151,62 @@ export const withdrawCoins = async (req: Request, res: Response): Promise<any> =
     }
 };
 
+export const addCoins = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { userId, addAmount } = req.body;
 
+        // Validate
+        if (!userId || typeof addAmount !== "number" || addAmount <= 0) {
+            return response.error(res, "userId and valid addAmount are required");
+        }
 
+        // Fetch summary
+        const summary = await prisma.referralCoinSummary.findFirst({
+            where: { userId },
+        });
+
+        if (!summary) {
+            return response.error(res, "Referral coin summary not found");
+        }
+
+        const currentTotal = Number(summary.totalAmount || 0);
+        const currentWithdraw = Number(summary.withdrawAmount || 0);
+
+        // Calculate updated amounts
+        const updatedTotal = currentTotal + addAmount;
+        const updatedNet = updatedTotal - currentWithdraw;
+
+        // Update + History in transaction
+        const [updatedSummary, addRecord] = await prisma.$transaction([
+            prisma.referralCoinSummary.update({
+                where: { id: summary.id },
+                data: {
+                    totalAmount: updatedTotal,
+                    netAmount: updatedNet,
+                },
+            }),
+
+            prisma.coinTransaction.create({
+                data: {
+                    userId,
+                    amount: addAmount,      // ✔ plain number
+                    type: CoinType.SPIN,
+                    status: CoinStatus.UNLOCKED,
+                },
+            }),
+        ]);
+
+        return response.success(res, "Coins added successfully", {
+            addedAmount: addAmount,
+            summary: updatedSummary,
+            addHistory: addRecord,
+        });
+
+    } catch (error: any) {
+        console.error("Add Coins Error:", error);
+        return response.error(res, error.message || "Something went wrong while adding coins");
+    }
+};
 
 export const getUserCoinHistory = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -3487,7 +3306,6 @@ export const getUserCoinHistory = async (req: Request, res: Response): Promise<a
 };
 
 
-
 export const getUserGstByOrderId = async (req: Request, res: Response): Promise<any> => {
     const { orderId } = req.body;
 
@@ -3535,8 +3353,6 @@ export const getUserGstByOrderId = async (req: Request, res: Response): Promise<
         return response.error(res, 'Failed to fetch GST details');
     }
 };
-
-
 
 
 export const getDataByOrderId = async (req: Request, res: Response): Promise<any> => {
@@ -3637,8 +3453,6 @@ export const getDataByOrderId = async (req: Request, res: Response): Promise<any
         return response.error(res, error.message || 'Something went wrong');
     }
 };
-
-
 
 
 export const updateOrderStatusAndInsertEarnings = async (req: Request, res: Response): Promise<any> => {

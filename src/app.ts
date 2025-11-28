@@ -25,6 +25,7 @@ import TipsRoutes from './routes/tips.routes';
 import BankDetailsRoutes from './routes/bankDetail.routes';
 import AbuseReportRoutes from './routes/abuseReport.routes';
 import WorkPostRoutes from './routes/workPost.routes';
+import productRoutes from './routes/product.routes';
 
 
 
@@ -84,6 +85,7 @@ app.use('/api/tips', TipsRoutes);
 app.use('/api/bank', BankDetailsRoutes);
 app.use('/api/report', AbuseReportRoutes);
 app.use('/api/work-post', WorkPostRoutes);
+app.use('/api/product', productRoutes);
 // app.use('/api/v1', authRoutes);
 // app.use('/api/v1/country', countryRoutes);
 // app.use('/api/v1/upload', imageRoutes);
@@ -114,19 +116,19 @@ app.use('/api/work-post', WorkPostRoutes);
 app.use('/api/mail', authRoutes);
 // app.use('/api/v1/mail', authRoutes);
 
-// const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001;
 
-// app.listen(PORT, () => {
-//   console.log(`Server is running on port ${PORT}`);
-// });
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
 // -------------------- SERVER CONFIG --------------------
-const PORT = Number(process.env.PORT) || 3001; // ✅ convert to number
-const HOST = process.env.HOST || '0.0.0.0'; // use 0.0.0.0 for external access
+// const PORT = Number(process.env.PORT) || 3001; // ✅ convert to number
+// const HOST = process.env.HOST || '0.0.0.0'; // use 0.0.0.0 for external access
 
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 Server running at http://${HOST}:${PORT}`);
-});
+// app.listen(PORT, HOST, () => {
+//   console.log(`🚀 Server running at http://${HOST}:${PORT}`);
+// });
 
 
 

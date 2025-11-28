@@ -82,6 +82,7 @@ model User {
   businessOrders     WorkPosts[]  @relation("businessOrder")
   influencer         WorkPostApplication[]  @relation("influencerApplicationInfo")
   business           WorkPostApplication[]  @relation("businessApplicationInfo")
+  userProductDetail          ProductPurchase[]
 }
 
 model Category {
@@ -645,6 +646,46 @@ model WorkPostApplication {
   @@unique([workPostId, groupId])
 }
 
+model Product {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productCode   String?     @unique @db.VarChar  // PRODUCT-1001 format
+  title         String      @db.VarChar
+  images        String[]    @db.VarChar
+  description   String?     @db.VarChar
+  coins         Decimal     @db.Decimal(10, 2)   // 190.00 format
+  status        Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime    @updatedAt @db.Timestamp(6)
+  createdBy     String?     @db.Uuid
+  updatedBy     String?     @db.Uuid
+
+  userProduct   ProductPurchase[]
+}
+
+model ProductPurchase {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId   String    @db.Uuid
+  userId      String    @db.Uuid
+  coins       Decimal   @db.Decimal(10, 2)        // coins paid at purchase
+  addressLine1  String  @db.VarChar
+  addressLine2  String? @db.VarChar
+  city          String?  @db.VarChar
+  state         String?  @db.VarChar
+  zipCode       String?
+  country       String?  @db.VarChar
+  status      PurchaseStatus @default(PENDING)
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamp(6)
+
+  userProduct Product   @relation(fields: [productId], references: [id])
+  userProductDetail        User    @relation(fields: [userId], references: [id])
+}
+
+enum PurchaseStatus {
+  PENDING
+  ONTHEWAY
+  DELIVERED
+}
 
 enum ReportedType {
   INFLUENCER
@@ -737,6 +778,7 @@ enum CoinType {
   REFERRAL
   FIRST_DEAL_REFFERAL
   CASHOUT_BONUS
+  SPIN
 }
 
 enum CoinStatus {
