@@ -3155,9 +3155,14 @@ export const addCoins = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, addAmount } = req.body;
 
-        // Validate
-        if (!userId || typeof addAmount !== "number" || addAmount <= 0) {
-            return response.error(res, "userId and valid addAmount are required");
+        // Validate userId
+        if (!userId || typeof userId !== "string") {
+            return response.error(res, "Valid userId is required");
+        }
+
+        // Validate addAmount as number (positive or negative allowed)
+        if (typeof addAmount !== "number" || addAmount === 0) {
+            return response.error(res, "addAmount must be a non-zero number");
         }
 
         // Fetch summary
@@ -3169,19 +3174,32 @@ export const addCoins = async (req: Request, res: Response): Promise<any> => {
             return response.error(res, "Referral coin summary not found");
         }
 
-        const currentTotal = Number(summary.totalAmount || 0);
-        const currentWithdraw = Number(summary.withdrawAmount || 0);
+        const currentTotal     = Number(summary.totalAmount || 0);
+        const currentWithdraw  = Number(summary.withdrawAmount || 0);
+        const currentNet       = Number(summary.netAmount || 0);
 
-        // Calculate updated amounts
-        const updatedTotal = currentTotal + addAmount;
-        const updatedNet = updatedTotal - currentWithdraw;
+        // Now UPDATE based on sign of addAmount
+        let updatedTotal = currentTotal;
+        let updatedWithdraw = currentWithdraw;
 
-        // Update + History in transaction
+        if (addAmount > 0) {
+            // ADDING COINS
+            updatedTotal = currentTotal + addAmount;
+        } else {
+            // USING / DEDUCTING COINS  (addAmount is negative)
+            const used = Math.abs(addAmount);
+            updatedWithdraw = currentWithdraw + used;
+        }
+
+        const updatedNet = updatedTotal - updatedWithdraw;
+
+        // Update + History
         const [updatedSummary, addRecord] = await prisma.$transaction([
             prisma.referralCoinSummary.update({
                 where: { id: summary.id },
                 data: {
                     totalAmount: updatedTotal,
+                    withdrawAmount: updatedWithdraw,
                     netAmount: updatedNet,
                 },
             }),
@@ -3189,22 +3207,22 @@ export const addCoins = async (req: Request, res: Response): Promise<any> => {
             prisma.coinTransaction.create({
                 data: {
                     userId,
-                    amount: addAmount,      // ✔ plain number
-                    type: CoinType.SPIN,
+                    amount: addAmount,   // negative or positive
+                    type: addAmount > 0 ? CoinType.SPIN : CoinType.USED,
                     status: CoinStatus.UNLOCKED,
                 },
             }),
         ]);
 
-        return response.success(res, "Coins added successfully", {
-            addedAmount: addAmount,
+        return response.success(res, "Coin transaction successful", {
+            amountChange: addAmount,
             summary: updatedSummary,
-            addHistory: addRecord,
+            transaction: addRecord,
         });
 
     } catch (error: any) {
         console.error("Add Coins Error:", error);
-        return response.error(res, error.message || "Something went wrong while adding coins");
+        return response.error(res, error.message || "Something went wrong while updating coins");
     }
 };
 

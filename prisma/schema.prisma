@@ -470,7 +470,7 @@ model ReferralCoinSummary {
   id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId              String        @unique @db.Uuid
   totalAmount         Decimal?      @db.Decimal
-  unlocked            Boolean       @default(false)  
+  unlocked            Boolean       @default(true)  
   withdrawAmount      Decimal?      @db.Decimal
   netAmount           Decimal?      @db.Decimal
   unlockedAt          DateTime?
@@ -779,6 +779,7 @@ enum CoinType {
   FIRST_DEAL_REFFERAL
   CASHOUT_BONUS
   SPIN
+  USED
 }
 
 enum CoinStatus {
