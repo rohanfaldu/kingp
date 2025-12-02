@@ -10,7 +10,11 @@ router.post('/get', authenticateToken, listNotifications);
 
 cron.schedule('30 9 * * *', async () => {
 
-  console.log('🕛 Running scheduled job (every 1 minute)...');
+  const now = new Date();
+  console.log('🕛 Running scheduled job (every 1 minute)...', now);
+  console.log('UTC Time:', now.toISOString());
+  console.log('Current Time:', now.toLocaleTimeString());
+
   try {
     await sendNotificationtoAllUser();
     console.log('✅ Job completed successfully.');

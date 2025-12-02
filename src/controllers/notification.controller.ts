@@ -269,9 +269,9 @@ export const sendNotificationtoAllUser = async (): Promise<any> => {
     ];
   };
 
-  console.log(getRandomNotification(), 'getRandomNotification');
   // Send to topic instead of token
   const randomNote = getRandomNotification();
+  console.log(randomNote, 'Selected Notification');
 
   const notificationPayload = {
     notification: {
@@ -284,16 +284,11 @@ export const sendNotificationtoAllUser = async (): Promise<any> => {
       type: 'INFO',
       orderId: '',
     },
-    topic: 'daily_update', // 🔥 TOPIC
+    topic: 'daily_update',
   };
   try {
-    // Send FCM
     const response = await admin.messaging().send(notificationPayload);
-    if (response) {
-      console.log('FCM sent successfully:', response);
-    } else {
-      console.log('No FCM response received');
-    }
+    console.log('FCM sent successfully:', response);
   } catch (error: any) {
     console.error('Error sending FCM:', error);
   }
@@ -311,15 +306,14 @@ export const sendNotificationToUser = async (): Promise<any> => {
 
       // Notify if profile < 70% (your condition)
       if (completion < 70) {
-
         const notificationPayload = {
           notification: {
-            title: "Complete Your Profile!",
-            body: "Finish setting up your profile to get started!",
+            title: 'Complete Your Profile!',
+            body: 'Finish setting up your profile to get started!',
           },
           data: {
-            title: "Complete Your Profile!",
-            body: "Finish setting up your profile to get started!",
+            title: 'Complete Your Profile!',
+            body: 'Finish setting up your profile to get started!',
             type: 'INFO',
             orderId: '',
           },
@@ -337,12 +331,9 @@ export const sendNotificationToUser = async (): Promise<any> => {
 
     return { success: true };
   } catch (error) {
-    console.error("Error sending notifications:", error);
+    console.error('Error sending notifications:', error);
     return { success: false, error };
-    
   }
- 
-
 
   // console.log(getRandomNotification(), 'getRandomNotification');
   // // Send to topic instead of token
