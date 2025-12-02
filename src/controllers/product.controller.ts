@@ -4,6 +4,7 @@ import response from '../utils/response';
 import { validate as isUuid } from 'uuid';
 import { paginate } from '../utils/pagination';
 import { resolveStatus } from '../utils/commonFunction';
+import { CoinType, CoinStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 // const userId = req.user?.userId;
@@ -393,6 +394,16 @@ export const createPurchase = async (
         netAmount: Number((userNetCoins - productCoins).toFixed(2)),
       },
     });
+
+    await prisma.coinTransaction.create({
+      data: {
+        userId,
+        amount: -productCoins, 
+        type: CoinType.PURCHASE, 
+        status: CoinStatus.UNLOCKED,
+      },
+    });
+
 
     // Format response
     const formattedPurchase = {

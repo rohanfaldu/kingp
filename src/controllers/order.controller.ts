@@ -3078,76 +3078,90 @@ export const getTransactionHistory = async (req: Request, res: Response): Promis
 };
 
 
+// export const withdrawCoins = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { userId, withdrawAmount } = req.body;
+
+//         if (!userId || typeof withdrawAmount !== 'number') {
+//             return response.error(res, 'userId and withdrawAmount are required');
+//         }
+
+//         // Fetch current referral coin summary
+//         const summary = await prisma.referralCoinSummary.findUnique({
+//             where: { userId },
+//         });
+
+//         if (!summary) {
+//             return response.error(res, 'Referral coin summary not found');
+//         }
+
+//         if (!summary.unlocked) {
+//             return response.error(res, 'Coins are not unlocked yet for withdrawal');
+//         }
+
+//         const currentTotal = summary.totalAmount ?? 0;
+//         const currentWithdraw = summary.withdrawAmount ?? new Prisma.Decimal(0);
+//         const decimalWithdraw = new Prisma.Decimal(withdrawAmount);
+
+//         // Calculate new withdraw and net amounts
+//         const updatedWithdraw = currentWithdraw.plus(withdrawAmount);
+//         if (updatedWithdraw.gt(currentTotal)) {
+//             return response.error(res, 'Withdrawal amount exceeds available coins');
+//         }
+
+//         const netAmount = new Prisma.Decimal(currentTotal).minus(updatedWithdraw);
+
+//         const [updatedSummary, newWithdrawRecord] = await prisma.$transaction([
+//             prisma.referralCoinSummary.update({
+//                 where: { userId },
+//                 data: {
+//                     withdrawAmount: updatedWithdraw,
+//                     netAmount: netAmount,
+//                 },
+//             }),
+//             prisma.userCoinWithdraw.create({
+//                 data: {
+//                     userId,
+//                     withdrawalAmount: decimalWithdraw,
+//                 },
+//             }),
+//         ]);
+
+//         const userBandDetail = await prisma.userBankDetails.findFirst({
+//             where: { userId }
+//         });
+//         if (userBandDetail) {
+//             const initiateTransferData = await initiateTransfer(withdrawAmount, userBandDetail?.accountId, userBandDetail?.accountHolderName);
+
+//             if (initiateTransferData) {
+//                 return response.success(res, 'Referral coin withdrawal recorded successfully', {
+//                     withdrawalRecord: newWithdrawRecord,
+//                     updatedSummary,
+//                 });
+//             } else {
+//                 return response.error(res, 'Insufficient coin balance for withdrawal');
+//             }
+//         } else {
+//             return response.error(res, 'Please check bank Detail');
+//         }
+
+//     } catch (error: any) {
+//         console.error('Coin Withdrawal Error:', error);
+//         return response.error(res, error.message || 'Something went wrong during coin withdrawal');
+//     }
+// };
+
 export const withdrawCoins = async (req: Request, res: Response): Promise<any> => {
     try {
+        // Optional: you can still extract these if needed
         const { userId, withdrawAmount } = req.body;
 
-        if (!userId || typeof withdrawAmount !== 'number') {
-            return response.error(res, 'userId and withdrawAmount are required');
-        }
-
-        // Fetch current referral coin summary
-        const summary = await prisma.referralCoinSummary.findUnique({
-            where: { userId },
-        });
-
-        if (!summary) {
-            return response.error(res, 'Referral coin summary not found');
-        }
-
-        if (!summary.unlocked) {
-            return response.error(res, 'Coins are not unlocked yet for withdrawal');
-        }
-
-        const currentTotal = summary.totalAmount ?? 0;
-        const currentWithdraw = summary.withdrawAmount ?? new Prisma.Decimal(0);
-        const decimalWithdraw = new Prisma.Decimal(withdrawAmount);
-
-        // Calculate new withdraw and net amounts
-        const updatedWithdraw = currentWithdraw.plus(withdrawAmount);
-        if (updatedWithdraw.gt(currentTotal)) {
-            return response.error(res, 'Withdrawal amount exceeds available coins');
-        }
-
-        const netAmount = new Prisma.Decimal(currentTotal).minus(updatedWithdraw);
-
-        const [updatedSummary, newWithdrawRecord] = await prisma.$transaction([
-            prisma.referralCoinSummary.update({
-                where: { userId },
-                data: {
-                    withdrawAmount: updatedWithdraw,
-                    netAmount: netAmount,
-                },
-            }),
-            prisma.userCoinWithdraw.create({
-                data: {
-                    userId,
-                    withdrawalAmount: decimalWithdraw,
-                },
-            }),
-        ]);
-
-        const userBandDetail = await prisma.userBankDetails.findFirst({
-            where: { userId }
-        });
-        if (userBandDetail) {
-            const initiateTransferData = await initiateTransfer(withdrawAmount, userBandDetail?.accountId, userBandDetail?.accountHolderName);
-
-            if (initiateTransferData) {
-                return response.success(res, 'Referral coin withdrawal recorded successfully', {
-                    withdrawalRecord: newWithdrawRecord,
-                    updatedSummary,
-                });
-            } else {
-                return response.error(res, 'Insufficient coin balance for withdrawal');
-            }
-        } else {
-            return response.error(res, 'Please check bank Detail');
-        }
+        // Simply return a message that coins cannot be withdrawn
+        return response.error(res, 'Coins cannot be withdrawn. They can only be used for SPIN and Product Purchase.');
 
     } catch (error: any) {
-        console.error('Coin Withdrawal Error:', error);
-        return response.error(res, error.message || 'Something went wrong during coin withdrawal');
+        console.error('Coin Withdrawal Attempt Error:', error);
+        return response.error(res, error.message || 'Something went wrong during coin withdrawal attempt');
     }
 };
 

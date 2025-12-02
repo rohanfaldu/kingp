@@ -780,6 +780,7 @@ enum CoinType {
   CASHOUT_BONUS
   SPIN
   USED
+  PURCHASE
 }
 
 enum CoinStatus {
