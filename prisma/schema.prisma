@@ -542,6 +542,20 @@ model UserBankDetails {
   updatedAt           DateTime            @updatedAt @db.Timestamp(6)
 }
 
+model UserPaypalDetails {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String?   @db.Uuid
+  paypalId           String?   @db.VarChar
+  paypalEmail        String?   @db.VarChar
+  paypalPayerId      String?   @db.VarChar
+  paypalMerchantId   String?   @db.VarChar
+  accountHolderName  String?   @db.VarChar
+  status             Boolean   @default(true)
+  createdAt          DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamp(6)
+}
+
+
 model OrderInvoice {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orderId                 String          @db.Uuid

@@ -90,32 +90,6 @@ export const createUserBankDetails = async (req: Request, res: Response): Promis
 };
 
 
-
-// Get Bank Details by UserId
-// export const getUserBankDetailsByUserId = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const { userId } = req.body;
-
-//     if (!userId) return response.error(res, "userId is required.");
-
-//     const bankDetails = await prisma.userBankDetails.findFirst({
-//       where: { userId, status: true },
-//     });
-
-//     if (!bankDetails) return response.error(res, "No bank details found for this user.");
-
-//     const decryptedData = {
-//       ...bankDetails,
-//       accountNumber: bankDetails.accountNumber ? parseInt(decrypt(bankDetails.accountNumber)) : null,
-//       accountId: bankDetails.accountId || null,
-//     };
-
-//     return response.success(res, "Bank details fetched successfully.", decryptedData);
-//   } catch (error: any) {
-//     return response.error(res, error.message || "Something went wrong.");
-//   }
-// };
-
 export const getUserBankDetailsByUserId = async (req: Request, res: Response): Promise<any> => {
   try {
     const { userId } = req.body;
@@ -261,5 +235,232 @@ export const deleteUserBankDetails = async (req: Request, res: Response): Promis
     return response.success(res, "Bank details deleted successfully.", updatedBank);
   } catch (error: any) {
     return response.error(res, error.message || "Something went wrong.");
+  }
+};
+
+// ----------------- Paypal Details ------------------- //
+
+export const createUserPaypalDetails = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const {
+      userId,
+      paypalId,
+      paypalEmail,
+      paypalPayerId,
+      paypalMerchantId,
+      accountHolderName
+    } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required",
+      });
+    }
+    if (!paypalId) {
+      return res.status(400).json({
+        success: false,
+        message: "paypalId is required",
+      });
+    }
+
+    // 1️⃣ Check if user exists
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },  
+      select: { id: true },
+    });
+
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // 2️⃣ Check if Paypal details already exist for this user
+    const existingPaypal = await prisma.userPaypalDetails.findFirst({
+      where: { userId },
+    });
+
+    if (existingPaypal) {
+      return res.status(409).json({
+        success: false,
+        message: "Paypal details already exist for this user",
+      });
+    }
+
+    // 3️⃣ Insert data
+    const paypalData = await prisma.userPaypalDetails.create({
+      data: {
+        userId,
+        paypalId: paypalId || null,
+        paypalEmail: paypalEmail || null,
+        paypalPayerId: paypalPayerId || null,
+        paypalMerchantId: paypalMerchantId || null,
+        accountHolderName: accountHolderName || null,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Paypal details successfully stored",
+      data: paypalData,
+    });
+
+  } catch (error: any) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+export const updateUserPaypalDetails = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const paypalRecordId = req.params.id; // this is UserPaypalDetails.id
+
+    const {
+      paypalId,
+      paypalEmail,
+      paypalPayerId,
+      paypalMerchantId,
+      accountHolderName
+    } = req.body;
+
+    // 1️⃣ Check if record exists
+    const existingRecord = await prisma.userPaypalDetails.findUnique({
+      where: { id: paypalRecordId },
+      select: { id: true, userId: true },
+    });
+
+    if (!existingRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Paypal record not found",
+      });
+    }
+
+    // 2️⃣ Perform update (userId NOT editable)
+    const updatedData = await prisma.userPaypalDetails.update({
+      where: { id: paypalRecordId },
+      data: {
+        paypalId: paypalId ?? undefined,
+        paypalEmail: paypalEmail ?? undefined,
+        paypalPayerId: paypalPayerId ?? undefined,
+        paypalMerchantId: paypalMerchantId ?? undefined,
+        accountHolderName: accountHolderName ?? undefined,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Paypal details updated successfully",
+      data: updatedData,
+    });
+
+  } catch (error: any) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+export const getUserPaypalDetails = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required",
+      });
+    }
+
+    // 1️⃣ Check if user exists
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // 2️⃣ Fetch PayPal details
+    const paypalDetails = await prisma.userPaypalDetails.findFirst({
+      where: { userId },
+    });
+
+    if (!paypalDetails) {
+      return res.status(404).json({
+        success: false,
+        message: "PayPal details not found for this user",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "PayPal details fetched successfully",
+      data: paypalDetails,
+    });
+
+  } catch (error: any) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteUserPaypalDetails = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params; // UserPaypalDetails.id
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "PayPal record ID is required",
+      });
+    }
+
+    // 1️⃣ Check if PayPal record exists
+    const existingRecord = await prisma.userPaypalDetails.findUnique({
+      where: { id },
+    });
+
+    if (!existingRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "PayPal details not found",
+      });
+    }
+
+    // 2️⃣ Delete record
+    await prisma.userPaypalDetails.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "PayPal details deleted successfully",
+    });
+
+  } catch (error: any) {
+    console.error("Delete Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
