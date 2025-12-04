@@ -438,7 +438,7 @@ export const getUserPaypalDetails = async (req: Request, res: Response): Promise
     });
 
     if (!paypalDetails) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: "PayPal details not found for this user",
       });
