@@ -482,10 +482,16 @@ export const deleteUserPaypalDetails = async (req: Request, res: Response): Prom
         message: "PayPal details not found",
       });
     }
+    console.log(existingRecord, '>>>>>>>>>>> existingRecord');
 
     // 2️⃣ Delete record
     await prisma.userPaypalDetails.delete({
       where: { id },
+    });
+
+    await prisma.user.update({
+      where: { id: existingRecord.userId },
+      data: { paypalDetails: false },
     });
 
     return res.status(200).json({
