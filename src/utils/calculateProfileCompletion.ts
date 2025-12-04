@@ -31,23 +31,21 @@ export { calculateProfileCompletion };
 
 const calculateBusinessProfileCompletion = (user: any, loginType: string): number => {
     let completedFields = 0;
-    const totalFields = 15;
+    const totalFields = 13;
 
     if (user.type) completedFields++;
     if (user.name) completedFields++;
     if (user.emailAddress) completedFields++;
-    if (user.password && user.password !== 'SOCIAL_LOGIN') completedFields++;
+    // if (user.password && user.password !== 'SOCIAL_LOGIN') completedFields++;
     if (user.countryId) completedFields++;
     if (user.stateId) completedFields++;
     if (user.cityId) completedFields++;
     if (user.brandTypeId) completedFields++;
-    // if (user.referralCode) completedFields++;
     if (user.userImage) completedFields++;
     if (user.applicationLink) completedFields++;
-    if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
+    if (user.subCategories && user.subCategories.length > 0) completedFields++;
     if (user.description) completedFields++;
     if (user.contactPersonName) completedFields++;
-    if (user.contactPersonPhoneNumber) completedFields++;
     if (user.gstNumber) completedFields++;
 
     return Math.round((completedFields / totalFields) * 100);
