@@ -257,10 +257,10 @@ export const createUserPaypalDetails = async (req: Request, res: Response): Prom
         message: "userId is required",
       });
     }
-    if (!paypalId) {
+    if (!paypalEmail) {
       return res.status(400).json({
         success: false,
-        message: "paypalId is required",
+        message: "paypal Email is required",
       });
     }
 
