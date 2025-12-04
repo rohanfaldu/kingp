@@ -5,11 +5,11 @@ const calculateProfileCompletion = (user: any): number => {
     if (user.type) completedFields++;
     if (user.name) completedFields++;
     if (user.emailAddress) completedFields++;
-    if (user.password && user.password !== 'SOCIAL_LOGIN') completedFields++;
     if (user.countryId) completedFields++;
     if (user.stateId) completedFields++;
     if (user.cityId) completedFields++;
-    if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
+    // if (user.userSubCategories && user.userSubCategories.length > 0) completedFields++;
+    if ( user.categories && user.categories.length > 0 && user.categories.some(cat => cat.subcategories && cat.subcategories.length > 0)) { completedFields++;}
     if (user.userImage) completedFields++;
     if (user.contactPersonName) completedFields++;
     if (user.socialMediaPlatforms && user.socialMediaPlatforms.length > 0) completedFields++;
@@ -17,7 +17,8 @@ const calculateProfileCompletion = (user: any): number => {
     if (user.gender) completedFields++;
     if (user.sampleWorkLink) completedFields++;
     if (user.aboutYou) completedFields++;
-    if (user.bankDetails) completedFields++;
+    if (user.bankDetails === true) completedFields++;
+    if (user.paypalDetails === true) completedFields++;
         
 
     return Math.round((completedFields / totalFields) * 100);

@@ -289,15 +289,53 @@ export const createUserPaypalDetails = async (req: Request, res: Response): Prom
       });
     }
 
-    // 3️⃣ Insert data
-    const paypalData = await prisma.userPaypalDetails.create({
+    // 3️⃣ Insert data + Update user record to set paypalDetails to true
+    const [paypalData] = await prisma.$transaction([
+      prisma.userPaypalDetails.create({
+        data: {
+          userId,
+          paypalId: paypalId || null,
+          paypalEmail: paypalEmail || null,
+          paypalPayerId: paypalPayerId || null,
+          paypalMerchantId: paypalMerchantId || null,
+          accountHolderName: accountHolderName || null,
+        },
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: { paypalDetails: true },
+      }),
+    ]);
+
+    // 4️⃣ Fetch updated user including userSubCategories and socialMediaPlatforms
+    const userData = await prisma.user.findFirst({
+      where: { id: userId }
+    });
+
+    const userSubCategories = await prisma.userSubCategory.findMany({
+      where: {
+        userId: userId
+      }
+    })
+
+    const socialMediaPlatforms = await prisma.socialMediaPlatform.findMany({
+      where: {
+        userId: userId
+      }
+    })
+
+    // 5️⃣ Calculate profile completion
+    const profileCompletion = calculateProfileCompletion({
+      ...userData,
+      userSubCategories,
+      socialMediaPlatforms
+    });
+
+    // 6️⃣ Update user's profileCompletion %
+    await prisma.user.update({
+      where: { id: userId },
       data: {
-        userId,
-        paypalId: paypalId || null,
-        paypalEmail: paypalEmail || null,
-        paypalPayerId: paypalPayerId || null,
-        paypalMerchantId: paypalMerchantId || null,
-        accountHolderName: accountHolderName || null,
+        profileCompletion,
       },
     });
 

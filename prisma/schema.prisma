@@ -46,6 +46,7 @@ model User {
   fcmToken                 String?
   socialId                 String?
   bankDetails              Boolean      @default(false)
+  paypalDetails            Boolean      @default(false)
 
   countryData              Country?         @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]

@@ -35,6 +35,7 @@ export interface IUser {
   createdBy: string;
   updatedBy: string;
   bankDetails: Boolean;
+  paypalDetails: Boolean;
 }
 
 
