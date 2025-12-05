@@ -670,10 +670,7 @@ export const updateWorkPost = async (req: Request, res: Response): Promise<any> 
 };
 
 
-export const deleteWorkPost = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+export const deleteWorkPost = async (req: Request, res: Response): Promise<any> => {
   try {
     const userId = req.user?.userId;
 
@@ -705,20 +702,35 @@ export const deleteWorkPost = async (
       });
     }
 
-    // ✅ Delete the work post
+    // Check how many applications exist
+    const applicationsCount = await prisma.workPostApplication.count({
+      where: { workPostId: id },
+    });
+
+    // If applications exist → delete them first
+    if (applicationsCount > 0) {
+      await prisma.workPostApplication.deleteMany({
+        where: { workPostId: id },
+      });
+    }
+
+    // Now delete the work post
     await prisma.workPosts.delete({
       where: { id },
     });
 
     return res.status(200).json({
       success: true,
-      message: 'Work post deleted successfully',
+      message:
+        applicationsCount > 0
+          ? "Work post and its applications deleted successfully"
+          : "Work post deleted successfully",
     });
   } catch (error: any) {
-    console.error('Error deleting work post:', error);
+    console.error("Error deleting work post:", error);
     return res.status(500).json({
       success: false,
-      message: 'Something went wrong while deleting work post',
+      message: "Something went wrong while deleting work post",
       error: error.message,
     });
   }

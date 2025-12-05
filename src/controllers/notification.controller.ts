@@ -273,6 +273,27 @@ export const sendNotificationtoAllUser = async (): Promise<any> => {
   const randomNote = getRandomNotification();
   console.log(randomNote, 'Selected Notification');
 
+  const users = await prisma.user.findMany({
+    where: {
+      fcmToken: { not: null },
+    },
+    select: { fcmToken: true },
+  });
+
+  // 2️⃣ Remove duplicates + empty tokens
+  const tokens = [
+    ...new Set(
+      users.map((u) => u.fcmToken).filter((t) => t && t.trim() !== '')
+    ),
+  ];
+
+  console.log('Total unique FCM tokens:', tokens.length);
+
+  if (tokens.length === 0) {
+    console.log('No valid FCM tokens found');
+    return;
+  }
+
   const notificationPayload = {
     notification: {
       title: randomNote.title,
