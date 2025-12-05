@@ -99,7 +99,13 @@ export const getByIdCountry = async (req: Request, res: Response): Promise<any> 
 
 export const getAllCountry = async (req: Request, res: Response): Promise<any> => {
     try {
-        const countries = await paginate(req, prisma.country, {}, "countries");
+        const filter = {
+            orderBy: {
+                name: 'asc'   // alphabetical order
+            }
+        };
+
+        const countries = await paginate(req, prisma.country, filter, "countries");
 
         if (!countries || countries.countries.length === 0) {
             throw new Error("Country not Found");
@@ -110,7 +116,8 @@ export const getAllCountry = async (req: Request, res: Response): Promise<any> =
     } catch (error: any) {
         return response.error(res, error.message);
     }
-}
+};
+
 
 export const deleteCountry = async (req: Request, res: Response): Promise<any> => {
     try {
