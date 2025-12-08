@@ -136,7 +136,9 @@ export const getCityByStateId = async (req: Request, res: Response): Promise<any
         const state = await prisma.state.findUnique({
             where: { id },
             include: {
-                stateKey: true 
+                stateKey: {
+                    orderBy: { name: 'asc' } 
+                }
             }
         });
 

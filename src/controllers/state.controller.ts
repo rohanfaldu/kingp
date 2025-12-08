@@ -129,7 +129,7 @@ export const getStateByCountryId = async (req: Request, res: Response): Promise<
             include: {
                 countryKey: {
                     orderBy:
-                        { createsAt: 'desc' },
+                        { createsAt: 'asc' },
                 }
             }
         });
