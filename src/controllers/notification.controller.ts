@@ -6,6 +6,9 @@ import { paginate } from '../utils/pagination';
 import response from '../utils/response';
 import { title } from 'process';
 import { calculateProfileCompletion } from '../utils/calculateProfileCompletion';
+import fs from "fs";
+import path from "path";
+
 // Initialize Firebase Admin only once
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -229,71 +232,60 @@ export const listNotifications = async (
 
 export const sendNotificationtoAllUser = async (): Promise<any> => {
   const notificationsList = [
-    {
-      title: "Today's Surprise Gift! 🎁",
-      body: 'Open the app and claim your reward before it expires!',
-    },
-    {
-      title: 'Sync & Start Fresh!',
-      body: 'Open the app to refresh your updates for today.',
-    },
-    {
-      title: 'Your Daily Bonus Is Ready!',
-      body: 'Tap now to unlock today’s bonus and stay updated! ✨',
-    },
-    {
-      title: "Don't Miss Your Reward!",
-      body: 'A new surprise is waiting for you inside the app.',
-    },
-    {
-      title: 'Daily Refresh Complete!',
-      body: 'Open the app to view your updated info.',
-    },
-    {
-      title: 'Start Your Day with a Gift!',
-      body: 'A fresh surprise awaits — tap to open the app!',
-    },
-    {
-      title: 'Open & Sync Now!',
-      body: 'Your daily updates are ready. Refresh now!',
-    },
-    {
-      title: "Today's Update Is Ready!",
-      body: 'Tap to see what’s new for you today.',
-    },
+    { title: "Today's Surprise Gift! 🎁", body: "Open the app and claim your reward before it expires!" },
+    { title: "Sync & Start Fresh!", body: "Open the app to refresh your updates for today." },
+    { title: "Your Daily Bonus Is Ready!", body: "Tap now to unlock today’s bonus and stay updated! ✨" },
+    { title: "Don't Miss Your Reward!", body: "A new surprise is waiting for you inside the app." },
+    { title: "Daily Refresh Complete!", body: "Open the app to view your updated info." },
+    { title: "Start Your Day with a Gift!", body: "A fresh surprise awaits — tap to open the app!" },
+    { title: "Open & Sync Now!", body: "Your daily updates are ready. Refresh now!" },
+    { title: "Today's Update Is Ready!", body: "Tap to see what’s new for you today." }
   ];
 
-  const getRandomNotification = () => {
-    return notificationsList[
-      Math.floor(Math.random() * notificationsList.length)
-    ];
-  };
+  const getRandomNotification = () =>
+    notificationsList[Math.floor(Math.random() * notificationsList.length)];
 
-  // Send to topic instead of token
   const randomNote = getRandomNotification();
-  console.log(randomNote, 'Selected Notification');
+
+  // 📌 SENT TIME ADDED
+  const sentTime = new Date().toISOString();
+
+  console.log("Selected Notification:", randomNote);
 
   const users = await prisma.user.findMany({
-    where: {
-      fcmToken: { not: null },
-    },
-    select: { fcmToken: true },
+    where: { fcmToken: { not: null } },
+    select: { id: true, name: true, fcmToken: true },
   });
 
-  // 2️⃣ Remove duplicates + empty tokens
-  const tokens = [
-    ...new Set(
-      users.map((u) => u.fcmToken).filter((t) => t && t.trim() !== '')
-    ),
-  ];
+  const validUsers = users.filter((u) => u.fcmToken && u.fcmToken.trim() !== "");
 
-  console.log('Total unique FCM tokens:', tokens.length);
+  // 📌 Prepare log object with RECEIVED TIME placeholder
+  const logData: any = {
+    sentTime: sentTime,
+    notification: randomNote,
+    totalUsers: validUsers.length,
+    users: validUsers.map((u) => ({
+      id: u.id,
+      name: u.name,
+      token: u.fcmToken,
+      receivedTime: null // 📌 app will update later via API
+    })),
+    status: null,
+    fcmResponse: null,
+    error: null
+  };
 
-  if (tokens.length === 0) {
-    console.log('No valid FCM tokens found');
-    return;
+  // 📁 Create logs folder
+  const logsDir = path.join(process.cwd(), "logs", "notifications");
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
   }
 
+  // 📄 File name (unique)
+  const fileName = `${sentTime.replace(/[:]/g, "-")}.json`;
+  const filePath = path.join(logsDir, fileName);
+
+  // 📩 Notification payload
   const notificationPayload = {
     notification: {
       title: randomNote.title,
@@ -302,17 +294,30 @@ export const sendNotificationtoAllUser = async (): Promise<any> => {
     data: {
       title: randomNote.title,
       body: randomNote.body,
-      type: 'INFO',
-      orderId: '',
+      type: "INFO",
+      sentTime: sentTime // 📌 send time to mobile
     },
-    topic: 'daily_update',
+    topic: "daily_update",
   };
+
   try {
     const response = await admin.messaging().send(notificationPayload);
-    console.log('FCM sent successfully:', response);
+    console.log("FCM sent successfully:", response);
+
+    logData.status = "success";
+    logData.fcmResponse = response;
   } catch (error: any) {
-    console.error('Error sending FCM:', error);
+    console.error("Error sending FCM:", error);
+
+    logData.status = "failed";
+    logData.error = error.message || error;
   }
+
+  // 📝 Save log file
+  fs.writeFileSync(filePath, JSON.stringify(logData, null, 2));
+
+  console.log("📁 Log saved to:", filePath);
+  return logData;
 };
 
 export const sendNotificationToUser = async (): Promise<any> => {
