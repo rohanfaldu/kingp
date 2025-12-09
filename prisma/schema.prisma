@@ -47,6 +47,7 @@ model User {
   socialId                 String?
   bankDetails              Boolean      @default(false)
   paypalDetails            Boolean      @default(false)
+  isSpin                   Boolean      @default(true)
 
   countryData              Country?         @relation(fields: [countryId], references: [id])
   UserDetail               UserDetail[]
@@ -78,12 +79,12 @@ model User {
   userBadgeData            UserBadges[]
   coinwithdrawUserData     UserCoinWithdraw[]
   totalUserData            TotalGstData[]
-  abuseReportsBy     AbuseReport[] @relation("abuseReportedByDetail")
-  abuseReportsOnUser AbuseReport[] @relation("abuseReportedUserDetail")
-  businessOrders     WorkPosts[]  @relation("businessOrder")
-  influencer         WorkPostApplication[]  @relation("influencerApplicationInfo")
-  business           WorkPostApplication[]  @relation("businessApplicationInfo")
-  userProductDetail          ProductPurchase[]
+  abuseReportsBy           AbuseReport[] @relation("abuseReportedByDetail")
+  abuseReportsOnUser       AbuseReport[] @relation("abuseReportedUserDetail")
+  businessOrders           WorkPosts[]  @relation("businessOrder")
+  influencer               WorkPostApplication[]  @relation("influencerApplicationInfo")
+  business                 WorkPostApplication[]  @relation("businessApplicationInfo")
+  userProductDetail        ProductPurchase[]
 }
 
 model Category {
@@ -477,6 +478,7 @@ model ReferralCoinSummary {
   unlockedAt          DateTime?
   createdAt           DateTime      @default(now()) @db.Timestamp(6)
   updatedAt           DateTime      @updatedAt @db.Timestamp(6)
+  redeemEmailSent     Boolean       @default(false) 
 
   userReferralCoinSummary                User?         @relation(fields: [userId], references: [id])
 }
@@ -694,6 +696,26 @@ model ProductPurchase {
 
   userProduct Product   @relation(fields: [productId], references: [id])
   userProductDetail        User    @relation(fields: [userId], references: [id])
+}
+
+model EmailTemplate {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug       String   @unique @db.VarChar(100)     
+  subject    String   @db.VarChar(255)
+  body       String   @db.Text       
+  type       EmailTemplateType @default(WELCOME_EMAIL)             
+  isActive   Boolean  @default(true)
+
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime @updatedAt @db.Timestamp(6)
+}
+
+enum EmailTemplateType {
+  WELCOME_EMAIL
+  REDEEM_POINTS_3500
+  PROFILE_INCOMPLETE
+  PROFILE_COMPLETE_NOTIFY
+  ALERT
 }
 
 enum PurchaseStatus {

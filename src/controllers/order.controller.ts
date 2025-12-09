@@ -3939,3 +3939,54 @@ export const updateOrderStatusAndInsertEarnings = async (
     return response.error(res, error.message || 'Something went wrong');
   }
 };
+
+export const markSpinUsed = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(400).json({
+        status: false,
+        message: "Unauthorized user",
+      });
+    }
+
+    // Check user
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found",
+        data: null
+      });
+    }
+
+    if (!user.isSpin) {
+      return res.status(400).json({
+        status: false,
+        message: "User has already used today's free spin",
+        data: null
+      });
+    }
+
+    // Update isSpin to false
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { isSpin: false },
+    });
+
+    return res.json({
+      status: true,
+      message: "Free spin used successfully",
+      data: updatedUser,
+    });
+
+  } catch (error: any) {
+    console.error("Mark Spin Used Error:", error);
+    return res.status(500).json({
+      status: false,
+      message: error.message || "Something went wrong",
+    });
+  }
+};

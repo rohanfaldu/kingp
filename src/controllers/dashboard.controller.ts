@@ -196,12 +196,23 @@ export const getDashboardData = async (req: Request, res: Response): Promise<any
             return acc;
         }, {} as Record<string, string | boolean>);
 
+        // ✅ Fetch logged-in user's isSpin field for isFreeSpin
+        let isFreeSpin = false;
+        if (loginUserId) {
+            const user = await prisma.user.findUnique({
+                where: { id: loginUserId },
+                select: { isSpin: true },
+            });
+            isFreeSpin = user?.isSpin ?? false;
+        }
+
         // Send combined response
         return response.success(res, 'Dashboard data fetched successfully!', {
             bannerData,
             topInfluencers,
             recentViews,
             appSettingsData,
+            isFreeSpin,
         });
 
     } catch (error: any) {

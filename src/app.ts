@@ -26,6 +26,7 @@ import BankDetailsRoutes from './routes/bankDetail.routes';
 import AbuseReportRoutes from './routes/abuseReport.routes';
 import WorkPostRoutes from './routes/workPost.routes';
 import productRoutes from './routes/product.routes';
+import mailRoutes from './routes/mail.routes';
 
 
 
@@ -86,6 +87,9 @@ app.use('/api/bank', BankDetailsRoutes);
 app.use('/api/report', AbuseReportRoutes);
 app.use('/api/work-post', WorkPostRoutes);
 app.use('/api/product', productRoutes);
+app.use('/api/mail', mailRoutes);
+// app.use('/api/v1/mail', mailRoutes);
+
 // app.use('/api/v1', authRoutes);
 // app.use('/api/v1/country', countryRoutes);
 // app.use('/api/v1/upload', imageRoutes);

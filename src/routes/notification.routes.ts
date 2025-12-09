@@ -2,7 +2,9 @@ import express from 'express';
 import { sendNotification, listNotifications, sendNotificationtoAllUser, sendNotificationToUser } from '../controllers/notification.controller';
 import { authenticateToken } from '../services/authorization';
 import cron from 'node-cron';
+import { PrismaClient, Prisma } from '@prisma/client';
 
+const prisma = new PrismaClient();
 const router = express.Router();
 
 router.post('/notify', sendNotification);
@@ -34,4 +36,21 @@ cron.schedule('0 9 * * *', async () => {
   } 
 });
 
+
+// Runs every day at 00:00 (12 AM server time)
+cron.schedule("0 0 * * *", async () => {
+    try {
+        console.log("⏳ Resetting spin status for all users...");
+
+        await prisma.user.updateMany({
+            data: {
+                isSpin: true
+            }
+        });
+
+        console.log("✅ Spin status reset successfully!");
+    } catch (error) {
+        console.error("❌ Failed to reset spin status:", error);
+    }
+});
 export default router;  

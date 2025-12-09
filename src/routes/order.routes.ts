@@ -1,5 +1,5 @@
 import express from 'express';
-import { createOrder, getByIdOrder, updateOrderStatus, getAllOrderList, getAdminAllOrderList, orderSubmit, withdrawAmount, getTransactionHistory, updateOrderStatusAndInsertEarnings, withdrawCoins, addCoins, getUserCoinHistory, getUserGstByOrderId, getDataByOrderId } from '../controllers/order.controller';
+import { createOrder, getByIdOrder, updateOrderStatus, getAllOrderList, getAdminAllOrderList, orderSubmit, withdrawAmount, getTransactionHistory, updateOrderStatusAndInsertEarnings, withdrawCoins, addCoins, getUserCoinHistory, getUserGstByOrderId, getDataByOrderId, markSpinUsed } from '../controllers/order.controller';
 import { authenticateToken } from '../services/authorization';
 
 
@@ -23,6 +23,8 @@ router.post('/getUsersCoinSummary',authenticateToken, getUserCoinHistory);
 router.post('/getDataByOrderId',authenticateToken, getDataByOrderId);
 
 router.post('/getUserGstByOrderId',authenticateToken, getUserGstByOrderId);
+router.post('/markSpinUsed',authenticateToken, markSpinUsed);
+
 
 
 
