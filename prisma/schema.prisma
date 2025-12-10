@@ -156,6 +156,7 @@ model UserDetail {
   name                   String?        @db.VarChar
   image                  String?        @db.VarChar
   status                 Boolean        @default(false)
+  profileCompleteMailSend Boolean       @default(false)
   createsAt              DateTime?      @default(now())@db.Timestamp(6)
   updatedAt              DateTime?      @updatedAt @db.Timestamp(6)
   User                   User?          @relation(fields: [userId], references: [id])

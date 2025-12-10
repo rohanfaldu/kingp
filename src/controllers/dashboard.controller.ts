@@ -512,6 +512,16 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             return acc;
         }, {} as Record<string, string | boolean>);
 
+         // ✅ Fetch logged-in user's isSpin field for isFreeSpin
+        let isFreeSpin = false;
+        if (loggedInUserId) {
+            const user = await prisma.user.findUnique({
+                where: { id: loggedInUserId },
+                select: { isSpin: true },
+            });
+            isFreeSpin = user?.isSpin ?? false;
+        }
+
         return response.success(res, "Influencer dashboard data fetched successfully", {
             profileCompletion: user.profileCompletion,
             dailyTips: dailyTips,
@@ -522,6 +532,7 @@ export const influencerDashboard = async (req: Request, res: Response): Promise<
             analyticSummary,
             badges: userBadges.map(b => b.userBadgeTitleData),
             appSettingsData,
+            isFreeSpin,
         });
     } catch (error: any) {
         return response.error(res, error.message);

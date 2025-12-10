@@ -21,7 +21,6 @@ import {
 } from '../utils/calculateProfileCompletion';
 import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
 import { omit } from 'lodash';
-import { Resend } from 'resend';
 import { Role } from '@prisma/client';
 import { RequestStatus } from '@prisma/client';
 import { contains } from 'class-validator/types';
@@ -29,6 +28,7 @@ import { generateUniqueReferralCode } from '../utils/referral';
 import { CoinType } from '@prisma/client';
 import { subMonths } from 'date-fns';
 import { paymentRefund } from '../utils/commonFunction';
+import { sendRedeemPointsEmailToUser, sendWelcomeEmailToUser } from '../controllers/mail.controller';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
@@ -348,6 +348,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         userId: newUser.id,
         name: userFields.name || '',
         image: userFields.userImage || '',
+
       },
     });
 
@@ -409,17 +410,22 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     where: { userId: newUser.id },
   });
   if (signupSummary) {
-    await prisma.referralCoinSummary.update({
+    const updatedSummary = await prisma.referralCoinSummary.update({
       where: { userId: newUser.id },
       data: {
         totalAmount: (Number(signupSummary.totalAmount) || 0) + 50,
         netAmount: (Number(signupSummary.netAmount) || 0) + 50,
       },
     });
+    // Check if user qualifies for redeem points email (totalAmount >= 3500)
+    if (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500) {
+      await sendRedeemPointsEmailToUser(newUser.id);
+    }
   } else {
     await prisma.referralCoinSummary.create({
       data: { userId: newUser.id, totalAmount: 50, netAmount: 50 },
     });
+    // New user with only 50 points, no need to check
   }
 
   // Profile Completion Reward if 100%
@@ -437,17 +443,22 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
       where: { userId: newUser.id },
     });
     if (profileSummary) {
-      await prisma.referralCoinSummary.update({
+      const updatedProfileSummary = await prisma.referralCoinSummary.update({
         where: { userId: newUser.id },
         data: {
           totalAmount: (Number(profileSummary.totalAmount) || 0) + 50,
           netAmount: (Number(profileSummary.netAmount) || 0) + 50,
         },
       });
+      // Check if user qualifies for redeem points email (totalAmount >= 3500)
+      if (Number(updatedProfileSummary.totalAmount) >= 3500 || Number(updatedProfileSummary.netAmount) >= 3500) {
+        await sendRedeemPointsEmailToUser(newUser.id);
+      }
     } else {
       await prisma.referralCoinSummary.create({
         data: { userId: newUser.id, totalAmount: 50, netAmount: 50 },
       });
+      // New user with only 50 points, no need to check
     }
   }
 
@@ -478,17 +489,22 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         where: { userId: referrer.id },
       });
       if (referralSummary) {
-        await prisma.referralCoinSummary.update({
+        const updatedReferralSummary = await prisma.referralCoinSummary.update({
           where: { userId: referrer.id },
           data: {
             totalAmount: (Number(referralSummary.totalAmount) || 0) + 50,
             netAmount: (Number(referralSummary.netAmount) || 0) + 50,
           },
         });
+        // Check if referrer qualifies for redeem points email (totalAmount >= 3500)
+        if (Number(updatedReferralSummary.totalAmount) >= 3500 || Number(updatedReferralSummary.netAmount) >= 3500) {
+          await sendRedeemPointsEmailToUser(referrer.id);
+        }
       } else {
         await prisma.referralCoinSummary.create({
           data: { userId: referrer.id, totalAmount: 50, netAmount: 50 },
         });
+        // New referrer with only 50 points, no need to check
       }
     }
   }
@@ -557,28 +573,10 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     });
   }
 
-  const resend = new Resend('re_FKsFJzvk_4L1x2111AwnSDMqGCYGsLJeH');
-
-  const user = await prisma.user.findUnique({
-    where: { emailAddress },
-    select: { name: true, status: true },
-  });
-
-  const htmlContent = `
-    <p>Hello ${user?.name || emailAddress},</p>
-    <p>Welcome to <strong>KringP</strong>! Thank you for signing up.</p>
-    <p>To verify your email address and complete your registration, please use the following One-Time Password (OTP):</p>
-    <p>Your OTP is: <strong>${otp}</strong></p>
-    <p>This OTP is valid for a limited time. Please do not share it with anyone for security reasons.</p>
-    <p>If you did not initiate this registration, please ignore this email.</p>
-  `;
-
-  const sendEmail = await resend.emails.send({
-    from: 'KringP <info@kringp.com>',
-    to: emailAddress,
-    subject: 'Hello from KringP',
-    html: htmlContent,
-  });
+  // Send welcome email with OTP to new user (only for new signups, not re-signups)
+  if (newUser) {
+    await sendWelcomeEmailToUser(newUser.id, otp);
+  }
 
   const successMessage = isReSignup
     ? 'Re-signup successful!'
@@ -2618,8 +2616,18 @@ export const editProfile = async (
 
     finalUpdateData.profileCompletion = calculatedProfileCompletion;
 
-    //  If profile is 100% complete, add PROFILE_COMPLETE reward (LOCKED)
-    if (calculatedProfileCompletion === 100) {
+   // If profile is 100% complete, add PROFILE_COMPLETE reward (UNLOCKED)
+  if (calculatedProfileCompletion === 100) {
+    // Check if the user already has PROFILE_COMPLETION coin
+    const existingProfileCoin = await prisma.coinTransaction.findFirst({
+      where: {
+        userId: existingUser.id,
+        type: CoinType.PROFILE_COMPLETION,
+      },
+    });
+
+    if (!existingProfileCoin) {
+      // Only create the coin if it doesn't exist yet
       await prisma.coinTransaction.create({
         data: {
           userId: existingUser.id,
@@ -2634,16 +2642,26 @@ export const editProfile = async (
       });
 
       if (profileSummary) {
-        await prisma.referralCoinSummary.update({
+        const updatedSummary = await prisma.referralCoinSummary.update({
           where: { userId: existingUser.id },
-          data: { totalAmount: (Number(profileSummary.totalAmount) || 0) + 50 },
+          data: {
+            totalAmount: (Number(profileSummary.totalAmount) || 0) + 50,
+            netAmount: (Number(profileSummary.netAmount) || 0) + 50,
+          },
         });
+
+        // Check if user qualifies for redeem points email (totalAmount >= 3500)
+        if (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500) {
+          await sendRedeemPointsEmailToUser(existingUser.id);
+        }
       } else {
         await prisma.referralCoinSummary.create({
-          data: { userId: existingUser.id, totalAmount: 50 },
+          data: { userId: existingUser.id, totalAmount: 50, netAmount: 50 },
         });
+        // New user with only 50 points, no need to check
       }
     }
+  }
 
     const token = req.headers.authorization?.split(' ')[1] || req.token;
 
@@ -3222,4 +3240,120 @@ const formatUserData = async (user: any) => {
     stateName: user.stateData?.name ?? null,
     cityName: user.cityData?.name ?? null,
   };
+};
+
+
+export const getAllUsersForEmail = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { type, profileCompletionPercent, page = 1, limit = 10, search  } = req.body;
+
+    const filter: any = {};
+
+    // -----------------------------
+    // 1️⃣ TYPE FILTER
+    // -----------------------------
+    if (type) {
+      const normalizedType = type.toUpperCase();
+      if (!["BUSINESS", "INFLUENCER"].includes(normalizedType)) {
+        return response.error(
+          res,
+          "Invalid type. Allowed: BUSINESS, INFLUENCER"
+        );
+      }
+      filter.type = normalizedType;
+    }
+
+    // -----------------------------
+    // 2️⃣ PROFILE COMPLETION %
+    // -----------------------------
+    if (profileCompletionPercent !== undefined) {
+      const percentValue = parseInt(profileCompletionPercent);
+
+      if (isNaN(percentValue) || percentValue < 0 || percentValue > 100) {
+        return response.error(
+          res,
+          "Invalid profileCompletionPercent. Must be between 0 and 100."
+        );
+      }
+
+      filter.profileCompletion = { lt: percentValue };
+    }
+
+     if (search) {
+      filter.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { emailAddress: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    // -----------------------------
+    // 3️⃣ PAGINATION VALUES
+    // -----------------------------
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+    const skip = (pageNumber - 1) * pageSize;    
+
+    // -----------------------------
+    // 4️⃣ COUNT TOTAL USERS
+    // -----------------------------
+    const total = await prisma.user.count({
+      where: {
+        status: true,
+        type: { not: "ADMIN" }, // 🚫 EXCLUDE ADMINS
+        ...filter,
+      },
+    });
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    // -----------------------------
+    // 5️⃣ FETCH USERS (PAGINATED)
+    // -----------------------------
+    const users = await prisma.user.findMany({
+      where: {
+        status: true,
+        ...filter,
+      },
+      include: {
+        countryData: true,
+        stateData: true,
+        cityData: true,
+      },
+      orderBy: {
+        createsAt: "desc",
+      },
+      skip,
+      take: pageSize,
+    });
+
+    // -----------------------------
+    // 6️⃣ FORMAT USERS
+    // -----------------------------
+    const formatted = users.map((u: any) => ({
+      id: u.id,
+      name: u.name,
+      emailAddress: u.emailAddress,
+      type: u.type,
+      profileCompletion: u.profileCompletion,
+      countryName: u.countryData?.name ?? null,
+      stateName: u.stateData?.name ?? null,
+      cityName: u.cityData?.name ?? null,
+      createdAt: u.createsAt,
+    }));
+
+    return response.success(res, "Users fetched successfully!", {
+      pagination: {
+        total,
+        totalPages,
+        currentPage: pageNumber,
+        limit: pageSize,
+      },
+      users: formatted,
+    });
+  } catch (error: any) {
+    return response.error(res, error.message);
+  }
 };

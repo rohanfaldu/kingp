@@ -322,16 +322,16 @@ export const sendNotificationtoAllUser = async (): Promise<any> => {
 
 export const sendNotificationToUser = async (): Promise<any> => {
   try {
-    // Fetch users WITHOUT any includes
     const users = await prisma.user.findMany();
 
     for (const user of users) {
       const completion = calculateProfileCompletion(user);
 
-      console.log(`User: ${user.id} - Profile Completion: ${completion}%`);
-
-      // Notify if profile < 70% (your condition)
       if (completion < 70) {
+        if (!user.fcmToken || typeof user.fcmToken !== 'string' || user.fcmToken.length < 100) {
+          continue;
+        }
+
         const notificationPayload = {
           notification: {
             title: 'Complete Your Profile!',
@@ -343,14 +343,24 @@ export const sendNotificationToUser = async (): Promise<any> => {
             type: 'INFO',
             orderId: '',
           },
-          topic: 'incomplete_profile', // 🔥 TOPIC
+          token: user.fcmToken,
         };
 
-        const response = await admin.messaging().send(notificationPayload);
-        if (response) {
+        try {
+          const response = await admin.messaging().send(notificationPayload);
           console.log('Notification sent successfully:', response);
-        } else {
-          console.log('No notification response received');
+        } catch (error: any) {
+          console.error(`Error sending to ${user.id}`, error);
+
+          // 🚀 FIX: Auto-remove expired/unregistered token
+          if (error.errorInfo?.code === "messaging/registration-token-not-registered") {
+            console.log(`🔄 Removing invalid token for user ${user.id}`);
+
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { fcmToken: null },
+            });
+          }
         }
       }
     }
@@ -360,33 +370,4 @@ export const sendNotificationToUser = async (): Promise<any> => {
     console.error('Error sending notifications:', error);
     return { success: false, error };
   }
-
-  // console.log(getRandomNotification(), 'getRandomNotification');
-  // // Send to topic instead of token
-  // const randomNote = getRandomNotification();
-
-  // const notificationPayload = {
-  //   notification: {
-  //     title: randomNote.title,
-  //     body: randomNote.body,
-  //   },
-  //   data: {
-  //     title: randomNote.title,
-  //     body: randomNote.body,
-  //     type: 'INFO',
-  //     orderId: '',
-  //   },
-  //   topic: 'daily_update', // 🔥 TOPIC
-  // };
-  // try {
-  //   // Send FCM
-  //   const response = await admin.messaging().send(notificationPayload);
-  //   if (response) {
-  //     console.log('FCM sent successfully:', response);
-  //   } else {
-  //     console.log('No FCM response received');
-  //   }
-  // } catch (error: any) {
-  //   console.error('Error sending FCM:', error);
-  // }
 };

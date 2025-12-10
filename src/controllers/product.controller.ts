@@ -395,6 +395,15 @@ export const createPurchase = async (
       },
     });
 
+    if (Number(updatedSummary.netAmount) < 3500) {
+      await prisma.referralCoinSummary.update({
+        where: { userId },
+        data: {
+          redeemEmailSent: false,
+        },
+      });
+    }
+
     await prisma.coinTransaction.create({
       data: {
         userId,

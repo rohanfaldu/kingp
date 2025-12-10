@@ -31,6 +31,7 @@ import {
   sendEmailWithOptionalPdf,
   generateInvoicePdf,
 } from '../utils/sendMail';
+import { sendRedeemPointsEmailToUser } from './mail.controller';
 import fs from 'fs';
 import path from 'path';
 import { isDate } from 'util/types';
@@ -2075,7 +2076,7 @@ export const updateOrderStatus = async (
                                     new Prisma.Decimal(businessSummary.withdrawAmount ?? 0)
                                 )
                     */
-          await prisma.referralCoinSummary.update({
+          const updatedBusinessSummary = await prisma.referralCoinSummary.update({
             where: { userId: updated.businessId },
             data: {
               totalAmount: FinalTotalAmount,
@@ -2083,6 +2084,11 @@ export const updateOrderStatus = async (
               unlocked: true,
             },
           });
+
+          // Check if business user qualifies for redeem points email (totalAmount >= 3500)
+          if (Number(updatedBusinessSummary.totalAmount) >= 3500 || Number(updatedBusinessSummary.netAmount) >= 3500) {
+            await sendRedeemPointsEmailToUser(updated.businessId);
+          }
         } else {
           await prisma.referralCoinSummary.create({
             data: {
@@ -2091,6 +2097,10 @@ export const updateOrderStatus = async (
               netAmount: kringPCoins,
             },
           });
+          // New user with only kringPCoins, check if it's >= 3500
+          if (Number(kringPCoins) >= 3500) {
+            await sendRedeemPointsEmailToUser(updated.businessId);
+          }
         }
       }
 
@@ -2198,7 +2208,7 @@ export const updateOrderStatus = async (
                 });
 
                 if (summary) {
-                  await prisma.referralCoinSummary.update({
+                  const updatedReferralSummary = await prisma.referralCoinSummary.update({
                     where: { userId: referral.referrerId },
                     data: {
                       totalAmount: (Number(summary.totalAmount) || 0) + 50,
@@ -2206,6 +2216,11 @@ export const updateOrderStatus = async (
                       unlockedAt: now,
                     },
                   });
+
+                  // Check if referrer qualifies for redeem points email (totalAmount >= 3500)
+                  if (Number(updatedReferralSummary.totalAmount) >= 3500) {
+                    await sendRedeemPointsEmailToUser(referral.referrerId);
+                  }
                 } else {
                   await prisma.referralCoinSummary.create({
                     data: {
@@ -2215,6 +2230,7 @@ export const updateOrderStatus = async (
                       unlockedAt: now,
                     },
                   });
+                  // New referrer with only 50 points, no need to check
                 }
 
                 // Mark referral as rewarded
@@ -2968,7 +2984,7 @@ export const withdrawAmount = async (
       });
 
       if (existingSummary) {
-        await prisma.referralCoinSummary.update({
+        const updatedSummary = await prisma.referralCoinSummary.update({
           where: { userId },
           data: {
             totalAmount: Number(existingSummary.totalAmount ?? 0) + kringPCoins,
@@ -2979,6 +2995,11 @@ export const withdrawAmount = async (
             unlockedAt: new Date(),
           },
         });
+
+        // Check if user qualifies for redeem points email (totalAmount >= 3500)
+        if (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500) {
+          await sendRedeemPointsEmailToUser(userId);
+        }
       } else {
         await prisma.referralCoinSummary.create({
           data: {
@@ -2989,6 +3010,10 @@ export const withdrawAmount = async (
             unlockedAt: new Date(),
           },
         });
+        // New user with only kringPCoins, check if it's >= 3500
+        if (Number(kringPCoins) >= 3500) {
+          await sendRedeemPointsEmailToUser(userId);
+        }
       }
     }
 
@@ -3478,6 +3503,19 @@ export const addCoins = async (req: Request, res: Response): Promise<any> => {
         },
       }),
     ]);
+
+    // Check if user qualifies for redeem points email (totalAmount >= 3500) - only if coins were added
+    if (addAmount > 0 && (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500)) {
+      await sendRedeemPointsEmailToUser(userId);
+    }
+
+    // 🔹 NEW LOGIC: If coins were DEDUCTED and net goes BELOW 3500 → update user redeem status
+    if (addAmount < 0 && updatedNet < 3500) {
+      await prisma.referralCoinSummary.update({
+        where: { userId },
+        data: { redeemEmailSent: false }, // change to desired field
+      });
+    }
 
     return response.success(res, 'Coin transaction successful', {
       amountChange: addAmount,
