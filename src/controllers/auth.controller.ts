@@ -1064,6 +1064,22 @@ export const getByIdUser = async (
       },
     });
 
+    // Fetch referral coin summary for the user
+    const referralCoinSummaryRow = await prisma.referralCoinSummary.findUnique({
+      where: { userId: user.id },
+      select: {
+        totalAmount: true,
+        netAmount: true,
+      },
+    });
+
+    // Format like rewards
+    const referralCoinSummary = {
+      totalAmount: referralCoinSummaryRow?.totalAmount?.toNumber?.() ?? 0,
+      netAmount: referralCoinSummaryRow?.netAmount?.toNumber?.() ?? 0,
+    };
+
+
     return response.success(res, 'User fetched successfully!', {
       user: responseUser,
       token: token?.UserAuthToken,
@@ -1071,6 +1087,7 @@ export const getByIdUser = async (
       analyticSummary,
       rewards,
       earningsSummary,
+      referralCoinSummary
     });
   } catch (error: any) {
     return response.error(res, error.message);
