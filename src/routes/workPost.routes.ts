@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/create', authenticateToken, createWorkPost);
 router.get('/get', authenticateToken, getWorkPosts);
 router.get('/getById', getWorkPostById);
-router.post('/getAll', getAllWorkPosts);
+router.post('/getAll', authenticateToken, getAllWorkPosts);
 router.post('/update/:id', authenticateToken, updateWorkPost);
 router.delete('/delete/:id', authenticateToken, deleteWorkPost);
 

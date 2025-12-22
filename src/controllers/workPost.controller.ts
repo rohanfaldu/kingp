@@ -406,6 +406,8 @@ export const getAllWorkPosts = async (
   res: Response
 ): Promise<any> => {
   try {
+    const userId = req.user?.userId;
+
     const { categoryId, search, page = 1, limit = 10 } = req.body;
 
     const pageNumber = Number(page);
@@ -458,6 +460,19 @@ export const getAllWorkPosts = async (
       prisma.workPosts.count({ where: whereCondition }),
     ]);
 
+    // ✅ Fetch all applications by this user for these posts
+    let userApplications: string[] = [];
+    if (userId) {
+      const applications = await prisma.workPostApplication.findMany({
+        where: {
+          workPostId: { in: posts.map((p) => p.id) },
+          influencerId: userId,
+        },
+        select: { workPostId: true },
+      });
+      userApplications = applications.map((a) => a.workPostId);
+    }
+
     // ✅ Format response (replace null → "")
     const formattedPosts = posts.map((post) => ({
       id: post.id,
@@ -496,6 +511,7 @@ export const getAllWorkPosts = async (
               : '',
           }
         : '',
+       applyWorkPost: userId ? userApplications.includes(post.id) : false, 
     }));
 
     // ✅ Final response
