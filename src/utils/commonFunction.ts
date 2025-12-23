@@ -66,18 +66,18 @@ export const paymentRefund = async (razorpayPaymentId: string, refundAmount: num
         }
 
         // Step 3: Refund the amount (in paise)
-        const refundResponse = await axios.post(
-            `https://api.razorpay.com/v1/payments/${razorpayPaymentId}/refund`,
-            { amount: refundAmount * 100 }, // refundAmount is in ₹, Razorpay expects paise
-            {
-                auth: {
-                    username: process.env.RAZORPAY_KEY_ID!,
-                    password: process.env.RAZORPAY_KEY_SECRET!,
-                },
-            }
-        );
+        // const refundResponse = await axios.post(
+        //     `https://api.razorpay.com/v1/payments/${razorpayPaymentId}/refund`,
+        //     { amount: refundAmount * 100 }, // refundAmount is in ₹, Razorpay expects paise
+        //     {
+        //         auth: {
+        //             username: process.env.RAZORPAY_KEY_ID!,
+        //             password: process.env.RAZORPAY_KEY_SECRET!,
+        //         },
+        //     }
+        // );
 
-        console.log('✅ Refund successful:', refundResponse.data);
+        // console.log('✅ Refund successful:', refundResponse.data);
         return true;
 
     } catch (error: any) {
