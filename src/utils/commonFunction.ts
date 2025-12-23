@@ -47,6 +47,8 @@ export const paymentRefund = async (razorpayPaymentId: string, refundAmount: num
                 },
             }
         );
+        console.log('✅ Payment details:', paymentDetails.data);
+        console.log('✅ Payment amount:', paymentDetails.data.amount);
 
         // Step 2: Capture if not already captured
         if (paymentDetails.data.status !== 'captured') {

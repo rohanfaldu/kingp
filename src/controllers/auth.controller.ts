@@ -864,6 +864,26 @@ export const getByIdUser = async (
       },
     });
 
+    const userLevelBadges = await prisma.userBadges.findMany({
+      where: { userId: user.id },
+       orderBy: {
+        createdAt: 'desc', 
+      },
+      include: {
+        userBadgeTitleData: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    const badgeLevels = userLevelBadges
+      .map(badge => badge.userBadgeTitleData?.title)
+      .filter(Boolean)
+      .join(', ');
+
+
     const formattedUserStats = userStats
       ? {
           ...userStats,
@@ -883,7 +903,8 @@ export const getByIdUser = async (
           repeatClient: userStats.repeatClient
             ? Number(userStats.repeatClient)
             : 0,
-          level: userStats.level ? Number(userStats.level) : 0,
+          // level: userStats.level ? Number(userStats.level) : 0,
+          level: badgeLevels || "",
           onTimeDelivery: userStats.onTimeDelivery
             ? Number(userStats.onTimeDelivery)
             : 0,
@@ -899,7 +920,7 @@ export const getByIdUser = async (
           totalDeals: 0,
           averageValue: '0.00',
           repeatClient: 0,
-          level: 0,
+          level: badgeLevels || null,
           onTimeDelivery: 0,
           netEarning: '0.00',
         };

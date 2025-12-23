@@ -984,6 +984,13 @@ export const updateOrderStatus = async (
           //const refundAmountInPaise = 1;
           const razorpayPaymentId = currentOrder.transactionId;
 
+          console.log(
+            refundAmountInPaise,
+            'refundAmountInPaise',
+            razorpayPaymentId,
+            'razorpayPaymentId'
+          );
+
           const paymentRefundResponse = await paymentRefund(
             razorpayPaymentId,
             refundAmountInPaise
