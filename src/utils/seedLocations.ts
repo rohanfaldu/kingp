@@ -7,13 +7,16 @@ async function main() {
   const countries = await readJsonFile();
 
   for (const country of countries) {
-
-    // Check country already exists
+    // ── COUNTRIES ───────────────────────
     let dbCountry = await prisma.country.findFirst({
-      where: { name: country.name }
+      where: {
+        OR: [
+          { name: country.name },
+          { countryCode: country.iso3 } // check unique constraint
+        ]
+      }
     });
 
-    // Insert only if new
     if (!dbCountry) {
       dbCountry = await prisma.country.create({
         data: {
@@ -27,52 +30,49 @@ async function main() {
     }
 
     // ── STATES ─────────────────────────
-    if (country.states && country.states.length > 0) {
-      for (const state of country.states) {
+    if (!country.states?.length) continue;
 
-        let dbState = await prisma.state.findFirst({
-          where: {
+    for (const state of country.states) {
+      let dbState = await prisma.state.findFirst({
+        where: {
+          name: state.name,
+          countryId: dbCountry.id
+        }
+      });
+
+      if (!dbState) {
+        dbState = await prisma.state.create({
+          data: {
             name: state.name,
             countryId: dbCountry.id
           }
         });
+        console.log(`  Inserted NEW State: ${dbState.name}`);
+      } else {
+        console.log(`  Existing State skipped: ${dbState.name}`);
+      }
 
-        if (!dbState) {
-          dbState = await prisma.state.create({
+      // ── CITIES ─────────────────────
+      if (!state.cities?.length) continue;
+
+      for (const city of state.cities) {
+        const dbCity = await prisma.city.findFirst({
+          where: {
+            name: city.name,
+            stateId: dbState.id
+          }
+        });
+
+        if (!dbCity) {
+          await prisma.city.create({
             data: {
-              name: state.name,
-              countryId: dbCountry.id
+              name: city.name,
+              stateId: dbState.id
             }
           });
-          console.log(`  Inserted NEW State: ${dbState.name}`);
+          console.log(`    Inserted NEW City: ${city.name}`);
         } else {
-          console.log(`  Existing State skipped: ${dbState.name}`);
-        }
-
-        // ── CITIES ─────────────────────
-        if (state.cities && state.cities.length > 0) {
-          for (const city of state.cities) {
-
-            const dbCity = await prisma.city.findFirst({
-              where: {
-                name: city.name,
-                stateId: dbState.id
-              }
-            });
-
-            if (!dbCity) {
-              await prisma.city.create({
-                data: {
-                  name: city.name,
-                  stateId: dbState.id
-                }
-              });
-
-              console.log(`    Inserted NEW City: ${city.name}`);
-            } else {
-              console.log(`    Existing City skipped: ${city.name}`);
-            }
-          }
+          console.log(`    Existing City skipped: ${dbCity.name}`);
         }
       }
     }
@@ -82,5 +82,5 @@ async function main() {
 }
 
 main()
-  .catch((err) => console.error(err))
+  .catch(err => console.error(err))
   .finally(() => prisma.$disconnect());
