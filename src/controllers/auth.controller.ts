@@ -2546,22 +2546,45 @@ export const editProfile = async (
     finalUpdateData.gender = gender as unknown as any;
   }
 
-  if (stateId) {
-    const state = await prisma.state.findUnique({ where: { id: stateId } });
+  const normalizeId = (value: any) =>
+    value === '' || value === null ? undefined : value;
+
+  const normalizedStateId = normalizeId(stateId);
+  const normalizedCityId = normalizeId(cityId);
+  const normalizedCountryId = normalizeId(countryId);
+
+
+  if (stateId === null || stateId === '') {
+    finalUpdateData.stateData = { disconnect: true };
+    finalUpdateData.cityData = { disconnect: true };
+  } else if (normalizedStateId) {
+    const state = await prisma.state.findUnique({
+      where: { id: normalizedStateId },
+    });
+
     if (!state) return response.error(res, 'Invalid stateId');
-    if (countryId && state.countryId !== countryId) {
+
+    if (normalizedCountryId && state.countryId !== normalizedCountryId) {
       return response.error(res, 'State does not belong to provided country');
     }
-    finalUpdateData.stateData = { connect: { id: stateId } };
+
+    finalUpdateData.stateData = { connect: { id: normalizedStateId } };
   }
 
-  if (cityId) {
-    const city = await prisma.city.findUnique({ where: { id: cityId } });
+  if (cityId === null || cityId === '') {
+    finalUpdateData.cityData = { disconnect: true };
+  } else if (normalizedCityId) {
+    const city = await prisma.city.findUnique({
+      where: { id: normalizedCityId },
+    });
+
     if (!city) return response.error(res, 'Invalid cityId');
-    if (stateId && city.stateId !== stateId) {
+
+    if (normalizedStateId && city.stateId !== normalizedStateId) {
       return response.error(res, 'City does not belong to provided State');
     }
-    finalUpdateData.cityData = { connect: { id: cityId } };
+
+    finalUpdateData.cityData = { connect: { id: normalizedCityId } };
   }
 
   if (countryId) {
