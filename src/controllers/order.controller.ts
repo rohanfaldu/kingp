@@ -2905,6 +2905,20 @@ export const withdrawAmount = async (
     const user = await prisma.userStats.findFirst({ where: { userId } });
     if (!user) return response.error(res, 'User stats not found');
 
+    const userProfile = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        countryData: { select: { name: true } },
+      },
+    });
+
+    if (!userProfile) {
+      return response.error(res, 'User not found');
+    }
+
+    const country = userProfile.countryData?.name;
+
+
     const currentEarnings = user.totalEarnings ?? 0;
     const currentWithdrawals = user.totalWithdraw ?? 0;
 
@@ -2923,23 +2937,50 @@ export const withdrawAmount = async (
     }
 
     // Fetch bank details
-    const userBankDetail = await prisma.userBankDetails.findFirst({
-      where: { userId },
-    });
+    let payoutAccountId: string;
+let payoutAccountHolderName: string;
 
-    if (
-      !userBankDetail ||
-      !userBankDetail.accountId ||
-      !userBankDetail.accountHolderName
-    ) {
-      return response.error(res, 'Bank details are incomplete.');
-    }
+if (country === 'India') {
+  const bankDetails = await prisma.userBankDetails.findFirst({
+    where: { userId, status: true },
+  });
+
+  if (
+    !bankDetails ||
+    !bankDetails.accountId ||
+    !bankDetails.accountHolderName
+  ) {
+    return response.error(
+      res,
+      'Please add valid bank details before withdrawing (India).'
+    );
+  }
+
+  payoutAccountId = bankDetails.accountId;
+  payoutAccountHolderName = bankDetails.accountHolderName;
+} else {
+  const paypalDetails = await prisma.userPaypalDetails.findFirst({
+    where: { userId, status: true },
+  });
+
+  if (!paypalDetails || !paypalDetails.paypalEmail) {
+    return response.error(
+      res,
+      'Please add valid PayPal details before withdrawing (Non-India).'
+    );
+  }
+
+  // Use PayPal email as payout identifier
+  payoutAccountId = paypalDetails.paypalPayerId || paypalDetails.paypalEmail;
+  payoutAccountHolderName = paypalDetails.paypalEmail;
+}
+
 
     // Step 1: Attempt to transfer FIRST
     const initiateTransferData = await initiateTransfer(
       withdrawAmount,
-      userBankDetail.accountId,
-      userBankDetail.accountHolderName
+      payoutAccountId,
+      payoutAccountHolderName
     );
 
     console.log('Transfer Result:', initiateTransferData);

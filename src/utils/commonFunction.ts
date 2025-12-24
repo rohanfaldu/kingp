@@ -102,63 +102,81 @@ export const getBageData = async (userId: string): Promise<any> => {
     }
 }
 
-
-export const initiateTransfer = async (amount: number, accountId: string, userName: string): Promise<any> => {
-    try {
-        const response = await axios.post(
-            'https://api.razorpay.com/v1/orders',
-            {
-                amount: amount * 100, // in paise (₹10)
-                currency: 'INR',
-                transfers: [
-                    {
-                        account: accountId, // ✅ Replace with real Razorpay sub-account ID
-                        amount: amount * 100,
-                        currency: 'INR',
-                        notes: {
-                            branch: 'Acme Corp Bangalore North',
-                            name: userName,
-                        },
-                        linked_account_notes: ['branch'],
-                        on_hold: false,
-                    },
-                ],
-            },
-            {
-                auth: {
-                    username: process.env.RAZORPAY_KEY_ID!,
-                    password: process.env.RAZORPAY_KEY_SECRET!,
-                },
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-
-        console.log('✅ Transfer successful:', response.data);
-
-        return {
-            status: true,
-            message: 'Success',
-            data: null,
-        };
-    } catch (error: any) {
-        // console.error('❌ Transfer failed:', error.response?.data || error.message);
-        // return response.error(res, 'The account must be 18 characters.');
-        // // return false;
-
-        const errorMessage =
-            error.response?.data?.error?.description ||
-            error.response?.data?.error ||
-            error.message ||
-            'Something went wrong during the transfer.';
-        return {
-            status: false,
-            message: errorMessage,
-            data: null,
-        };
+export const initiateTransfer = async ( amount: number, accountId: string, userName: string ): Promise<any> => {
+  try {
+    /* ---------- BASIC CHECK ---------- */
+    if (!accountId || accountId.trim() === "") {
+      return {
+        status: false,
+        message: "Account ID is required",
+        data: null,
+      };
     }
-}
+
+    /* ---------- SKIP NON-RAZORPAY ACCOUNTS (PayPal etc.) ---------- */
+    if (!accountId.startsWith("acc_")) {
+      console.log("ℹ️ Non-Razorpay account detected, transfer skipped:", accountId);
+
+      return {
+        status: true,
+        message: "Non-Razorpay payout, Razorpay transfer skipped",
+        data: null,
+      };
+    }
+
+    /* ---------- RAZORPAY TRANSFER ---------- */
+    const response = await axios.post(
+      "https://api.razorpay.com/v1/orders",
+      {
+        amount: amount * 100, // in paise
+        currency: "INR",
+        transfers: [
+          {
+            account: accountId, // ✅ Razorpay sub-account only
+            amount: amount * 100,
+            currency: "INR",
+            notes: {
+              branch: "Acme Corp Bangalore North",
+              name: userName,
+            },
+            linked_account_notes: ["branch"],
+            on_hold: false,
+          },
+        ],
+      },
+      {
+        auth: {
+          username: process.env.RAZORPAY_KEY_ID!,
+          password: process.env.RAZORPAY_KEY_SECRET!,
+        },
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ Transfer successful:", response.data);
+
+    return {
+      status: true,
+      message: "Success",
+      data: response.data,
+    };
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.error?.description ||
+      error.response?.data?.error ||
+      error.message ||
+      "Something went wrong during the transfer.";
+
+    return {
+      status: false,
+      message: errorMessage,
+      data: null,
+    };
+  }
+};
+
 
 export const generateSlug = (text: string) => {
   return text
