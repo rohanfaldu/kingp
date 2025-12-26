@@ -20,6 +20,7 @@ model User {
   applicationLink          String?      @db.VarChar
   description              String?      @db.VarChar
   contactPersonName        String?      @db.VarChar
+  contactCountryCode       String?      @db.VarChar
   contactPersonPhoneNumber String?      @db.VarChar
   gstNumber                String?      @db.VarChar
   status                   Boolean?     @default(true)

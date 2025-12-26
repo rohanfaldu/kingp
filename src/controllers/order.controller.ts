@@ -874,6 +874,7 @@ export const updateOrderStatus = async (
             select: {
               name: true,
               emailAddress: true,
+              contactCountryCode: true,
               contactPersonPhoneNumber: true,
               cityData: { select: { name: true } },
               stateData: { select: { name: true } },
@@ -883,6 +884,7 @@ export const updateOrderStatus = async (
             select: {
               name: true,
               emailAddress: true,
+              contactCountryCode: true,
               contactPersonPhoneNumber: true,
               cityData: { select: { name: true } },
               stateData: { select: { name: true } },
@@ -916,6 +918,7 @@ export const updateOrderStatus = async (
           select: {
             name: true,
             emailAddress: true,
+            contactCountryCode: true,
             contactPersonPhoneNumber: true,
             cityData: { select: { name: true } },
             stateData: { select: { name: true } },

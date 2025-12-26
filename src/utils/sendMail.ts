@@ -167,9 +167,14 @@ export const generateInvoicePdf = async (
     ? 'info@kringp.com'
     : order.influencerOrderData?.emailAddress || 'N/A';
 
+  const contactCountryCode = order.influencerOrderData?.contactCountryCode;
+  const contactPhoneNumber = order.influencerOrderData?.contactPersonPhoneNumber;
+
   const senderPhone = isGroupOrder
     ? ''
-    : order.influencerOrderData?.contactPersonPhoneNumber || 'N/A';
+    : contactCountryCode && contactPhoneNumber
+      ? `${contactCountryCode}${contactPhoneNumber}`
+      : 'N/A';
 
   const senderCity = isGroupOrder
     ? ''
@@ -261,7 +266,7 @@ export const generateInvoicePdf = async (
   billToY += 15;
 
   doc
-    .text(order.businessOrderData?.contactPersonPhoneNumber || 'N/A', 400, billToY, { align: 'right' });
+    .text( order.businessOrderData?.contactCountryCode && order.businessOrderData?.contactPersonPhoneNumber || 'N/A', 400, billToY, { align: 'right' });
 
   billToY += 15;
 

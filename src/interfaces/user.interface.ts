@@ -14,6 +14,7 @@ export interface IUser {
   applicationLink?: string;
   description?: string;
   contactPersonName?: string;
+  contactCountryCode?: string;
   contactPersonPhoneNumber?: string;
   gstNumber?: string;
   status?: boolean;
