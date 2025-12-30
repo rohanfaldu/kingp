@@ -2,6 +2,7 @@ import { admin } from 'firebase-admin';
 import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import response from '../utils/response';
+import { sendFCMNotificationToUsers } from '../utils/notification';
 
 const prisma = new PrismaClient();
 
@@ -948,7 +949,7 @@ export const applyForWorkPost = async (
             user && index === self.findIndex((u) => u.id === user.id)
         ), // remove duplicates
     };
-
+    
     const responseData = {
       ...newApplication,
       workPost: {
@@ -967,6 +968,31 @@ export const applyForWorkPost = async (
       },
       ...(formattedGroup && { group: formattedGroup }),
     };
+
+    /* 🔔 SEND NOTIFICATION TO WORK-POST CREATOR */
+    try {
+      const businessUser = await prisma.user.findUnique({
+        where: { id: workPost.businessId },
+        select: { id: true, fcmToken: true },
+      });
+
+      if (businessUser) {
+        const applicantName =
+          newApplication.group?.groupName ||
+          newApplication.influencer?.name ||
+          'Someone';
+
+        await sendFCMNotificationToUsers(
+          [businessUser],
+          'New Application Received!',
+          `${applicantName} applied to your work post`,
+          'WORK_POST_APPLIED',
+          workPost.id
+        );
+      }
+    } catch (notifError) {
+      console.error('Notification error:', notifError);
+    }
 
     return res.status(201).json({
       success: true,
