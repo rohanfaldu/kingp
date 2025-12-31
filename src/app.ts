@@ -39,8 +39,8 @@ const prisma = new PrismaClient();
 const app = express();
 console.log(process.env.FRONT_URL,'>>>>>>>>>>>> process');
 
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(express.json({ limit: '1024mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1024mb' }));
 
 app.use(cors({
     origin: "*", 
