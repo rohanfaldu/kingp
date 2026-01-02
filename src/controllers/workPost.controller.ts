@@ -80,7 +80,6 @@ export const createWorkPost = async (
 
     const finalCountryId = normalizeId(countryId) ?? null;
     const finalStateId = normalizeId(stateId) ?? null;
-    const finalCityIds = toArray(cityId).map(normalizeId).filter(Boolean);
 
 
     // ---------- Create Work Post ----------
@@ -731,6 +730,9 @@ export const updateWorkPost = async (
       }
     }
 
+    const finalCountryId = normalizeId(countryId) ?? null;
+    const finalStateId = normalizeId(stateId) ?? null;
+
     // ---------- Update Work Post ----------
     const updatedPost = await prisma.workPosts.update({
       where: { id },
@@ -751,8 +753,8 @@ export const updateWorkPost = async (
           : existingPost.submissionDeadline,
         isDraft: finalIsDraft,
         isGlobal: finalIsGlobal,
-        countryId: countryId ?? existingPost.countryId,
-        stateId: stateId ?? existingPost.stateId,
+        countryId: finalCountryId ?? existingPost.countryId,
+        stateId: finalStateId ?? existingPost.stateId,
         cityId: toArray(cityId).length ? toArray(cityId) : existingPost.cityId,
         // Replace existing categories if new ones provided
         workPostCategory: subCategoryIds.length
