@@ -214,7 +214,7 @@ export const validateLocation = async (
   const trimmedStateId = stateId?.trim();
   const trimmedCityIds = cityIds.map(c => c.trim()).filter(c => c);
 
-  if (isGlobal) {
+  if (!isGlobal) {
     if (!trimmedCountryId || !trimmedStateId || trimmedCityIds.length === 0) {
       throw new Error('Country, state and city are required for global post');
     }
