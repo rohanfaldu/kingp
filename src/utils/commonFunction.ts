@@ -201,6 +201,12 @@ export const generateSlug = (text: string) => {
 };
 
 
+export const normalizeId = (val?: string | null): string | undefined => {
+  if (!val) return undefined;
+  const trimmed = val.trim();
+  return trimmed === '' ? undefined : trimmed;
+};
+
 
 // Validate locations
 export const validateLocation = async (
@@ -210,13 +216,16 @@ export const validateLocation = async (
   cityIds: string[] = []
 ): Promise<void> => {
 
-  const trimmedCountryId = countryId?.trim();
-  const trimmedStateId = stateId?.trim();
-  const trimmedCityIds = cityIds.map(c => c.trim()).filter(c => c);
+  const trimmedCountryId = normalizeId(countryId);
+  const trimmedStateId = normalizeId(stateId);
+  const trimmedCityIds = cityIds
+    .map(c => c.trim())
+    .filter(Boolean);
 
+  // ❗ Non-global posts REQUIRE full location
   if (!isGlobal) {
     if (!trimmedCountryId || !trimmedStateId || trimmedCityIds.length === 0) {
-      throw new Error('Country, state and city are required for global post');
+      throw new Error('Country, state and city are required for non-global post');
     }
   }
 
@@ -241,7 +250,10 @@ export const validateLocation = async (
 
   if (trimmedCityIds.length > 0 && trimmedStateId) {
     const count = await prisma.city.count({
-      where: { id: { in: trimmedCityIds }, stateId: trimmedStateId },
+      where: {
+        id: { in: trimmedCityIds },
+        stateId: trimmedStateId,
+      },
     });
 
     if (count !== trimmedCityIds.length) {

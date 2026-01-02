@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import response from '../utils/response';
 import { sendFCMNotificationToUsers } from '../utils/notification';
-import { validateLocation } from '../utils/commonFunction';
+import { validateLocation, normalizeId } from '../utils/commonFunction';
 
 const prisma = new PrismaClient();
 
@@ -78,6 +78,11 @@ export const createWorkPost = async (
       return response.error(res, 'One or more subCategories are invalid');
     }
 
+    const finalCountryId = normalizeId(countryId) ?? null;
+    const finalStateId = normalizeId(stateId) ?? null;
+    const finalCityIds = toArray(cityId).map(normalizeId).filter(Boolean);
+
+
     // ---------- Create Work Post ----------
     const newPost = await prisma.workPosts.create({
       data: {
@@ -96,8 +101,8 @@ export const createWorkPost = async (
           : undefined,
         isDraft: finalIsDraft,
         isGlobal: finalIsGlobal,
-        countryId: countryId ?? null,
-        stateId: stateId ?? null,
+        countryId: finalCountryId,
+        stateId: finalStateId,
         cityId: toArray(cityId),
         workPostCategory: {
           create: subCategoryIds.map((subCategoryId: string) => ({
