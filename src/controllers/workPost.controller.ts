@@ -757,10 +757,10 @@ export const updateWorkPost = async (
         stateId: finalStateId ?? existingPost.stateId,
         cityId: toArray(cityId).length ? toArray(cityId) : existingPost.cityId,
         // Replace existing categories if new ones provided
-        workPostCategory: subCategoryIds.length
+        workPostCategory: subCategoryIds.length > 0
           ? {
               deleteMany: {}, // remove old
-              create: subCategoryIds.map((subCategoryId) => ({
+              create: subCategoryIds.map((subCategoryId: string) => ({
                 subCategoryId,
               })),
             }
