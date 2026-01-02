@@ -374,6 +374,7 @@ export const getWorkPostById = async (
                 name: true,
                 emailAddress: true,
                 userImage: true,
+                fcmToken: true,
               },
             },
             business: {
