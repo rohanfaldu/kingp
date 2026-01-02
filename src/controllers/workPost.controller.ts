@@ -202,14 +202,13 @@ export const getWorkPosts = async (
     const skip = (pageNumber - 1) * pageSize;
 
     const whereCondition: any = { businessId: userId };
-    if (typeof isDraft === 'boolean') { 
+    if (typeof isDraft === 'boolean') {
       whereCondition.isDraft = isDraft;
     }
 
-    if (typeof isGlobal === 'boolean') {  
+    if (typeof isGlobal === 'boolean') {
       whereCondition.isGlobal = isGlobal;
     }
-
 
     // ---------- Fetch work posts ----------
     const workPosts = await prisma.workPosts.findMany({
@@ -261,6 +260,16 @@ export const getWorkPosts = async (
 
     const cityMap = Object.fromEntries(cities.map((c) => [c.id, c.name]));
 
+    const applicantsCount = await prisma.workPostApplication.groupBy({
+      by: ['workPostId'],
+      where: { workPostId: { in: workPosts.map((p) => p.id) } },
+      _count: true,
+    });
+
+    const applicantsMap = Object.fromEntries(
+      applicantsCount.map((g) => [g.workPostId, g._count])
+    );
+
     // ---------- Format response ----------
     const formattedPosts = workPosts.map((post) => ({
       id: post.id,
@@ -279,6 +288,7 @@ export const getWorkPosts = async (
       submissionDeadline: post.submissionDeadline ?? '',
       isDraft: post.isDraft,
       isGlobal: post.isGlobal,
+      applicantsCount: applicantsMap[post.id] || 0,
       business: post.business,
       workPostCategory: post.workPostCategory,
       country: post.workPostCountry || null,
@@ -356,6 +366,32 @@ export const getWorkPostById = async (
             },
           },
         },
+        workPost: {
+          include: {
+            influencer: {
+              select: {
+                id: true,
+                name: true,
+                emailAddress: true,
+                userImage: true,
+              },
+            },
+            business: {
+              select: {
+                id: true,
+                name: true,
+                emailAddress: true,
+                userImage: true,
+              },
+            },
+            group: {
+              select: {
+                id: true,
+                groupName: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -373,6 +409,21 @@ export const getWorkPostById = async (
             select: { id: true, name: true },
           })
         : [];
+
+    const applications = workPost.workPost.map((app) => ({
+      id: app.id,
+      offerAmount:
+        app.offerAmount !== null && app.offerAmount !== undefined
+          ? Number(app.offerAmount).toFixed(2)
+          : '',
+      message: app.message ?? '',
+      attachments: Array.isArray(app.attachments) ? app.attachments : [],
+      status: app.status,
+      influencer: app.influencer || null,
+      business: app.business || null,
+      group: app.group || null,
+      createdAt: app.createdAt ?? '',
+    }));
 
     // ---------- Format response ----------
     const formattedPost = {
@@ -403,6 +454,8 @@ export const getWorkPostById = async (
       cities: cities.map((c) => ({ id: c.id, name: c.name ?? '' })),
       createdAt: workPost.createdAt ?? '',
       updatedAt: workPost.updatedAt ?? '',
+
+      applications,
     };
 
     return res.status(200).json({
@@ -847,8 +900,6 @@ export const deleteWorkPost = async (
   }
 };
 
-
-
 // Post Applications
 
 export const applyForWorkPost = async (
@@ -1177,10 +1228,20 @@ export const getWorkPostApplications = async (
             groupUsersList: {
               include: {
                 adminUser: {
-                  select: { id: true, name: true, emailAddress: true, userImage: true },
+                  select: {
+                    id: true,
+                    name: true,
+                    emailAddress: true,
+                    userImage: true,
+                  },
                 },
                 invitedUser: {
-                  select: { id: true, name: true, emailAddress: true, userImage: true },
+                  select: {
+                    id: true,
+                    name: true,
+                    emailAddress: true,
+                    userImage: true,
+                  },
                 },
               },
             },
@@ -1234,7 +1295,8 @@ export const getWorkPostApplications = async (
               if (!baseUser) return null;
               return {
                 ...baseUser,
-                isAdmin: !!entry.adminUser && entry.adminUser.id === baseUser.id,
+                isAdmin:
+                  !!entry.adminUser && entry.adminUser.id === baseUser.id,
                 requestAccept: entry.requestAccept,
               };
             })
@@ -1250,7 +1312,9 @@ export const getWorkPostApplications = async (
         workPostId: wp.id,
         influencerId: app.influencerId,
         groupId: app.groupId,
-        offerAmount: app.offerAmount ? Number(app.offerAmount).toFixed(2) : null,
+        offerAmount: app.offerAmount
+          ? Number(app.offerAmount).toFixed(2)
+          : null,
         message: app.message ?? '',
         attachments: Array.isArray(app.attachments) ? app.attachments : [],
         status: app.status,
