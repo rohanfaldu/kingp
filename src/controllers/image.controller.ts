@@ -93,7 +93,7 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
                     name: file.filename,
                     path: filePath,
                     url: `${isUrl}/${filePath}`,
-                    size: `${(file.size / 1024 / 1024).toFixed(2)} GB`,
+                    size: `${(file.size / 1024 / 1024).toFixed(2)} KB`,
                     type: category,
                     extension: path.extname(file.filename).toLowerCase()
                 };
