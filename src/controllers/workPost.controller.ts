@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import response from '../utils/response';
 import { sendFCMNotificationToUsers } from '../utils/notification';
+import { validateLocation } from '../utils/commonFunction';
 
 const prisma = new PrismaClient();
 
@@ -12,16 +13,14 @@ export const createWorkPost = async (
 ): Promise<any> => {
   try {
     const userId = req.user?.userId;
+    if (!userId) return response.error(res, 'Unauthorized user');
 
-    if (!userId) {
-      return response.error(res, 'Unauthorized user');
-    }
-
+    // ---------- Destructure request ----------
     const {
       title,
       description,
       totalAmount,
-      categoryId,
+      subCategoryIds = [],
       deliverables = [],
       platforms = [],
       tags = [],
@@ -30,30 +29,17 @@ export const createWorkPost = async (
       endDate,
       submissionDeadline,
       isDraft,
+      isGlobal,
+      countryId,
+      stateId,
+      cityId = [],
     } = req.body;
 
-    if (!title) {
-      return response.error(res, 'Title is required');
-    }
+    if (!title) return response.error(res, 'Title is required');
+    if (!Array.isArray(subCategoryIds) || subCategoryIds.length === 0)
+      return response.error(res, 'At least one subCategory is required');
 
-    if (!categoryId) {
-      return response.error(res, 'Category ID is required');
-    }
-    console.log(categoryId,'>>>>>>>>>>>categoryId');
-
-    // ✅ Validate category existence
-    const categoryExists = await prisma.category.findUnique({
-      where: { id: categoryId as any },
-    });
-
-    if (!categoryExists) {
-      return response.error(
-        res,
-        `Invalid Category ID: ${categoryId} — category not found`
-      );
-    }
-
-    // ✅ Safe conversions
+    // ---------- Helper functions ----------
     const toArray = (val: any): string[] => {
       if (Array.isArray(val)) return val;
       if (typeof val === 'string' && val.trim() !== '')
@@ -62,15 +48,43 @@ export const createWorkPost = async (
     };
 
     const safeString = (val: any): string => (val ? String(val) : '');
+    const safeBoolean = (val: any): boolean => {
+      if (typeof val === 'boolean') return val;
+      if (typeof val === 'string') return val.toLowerCase() === 'true';
+      return false;
+    };
 
-    // ✅ Create Work Post
+    const finalIsGlobal = safeBoolean(isGlobal);
+    const finalIsDraft = safeBoolean(isDraft);
+
+    // ---------- Validate locations ----------
+    try {
+      await validateLocation(
+        finalIsGlobal,
+        countryId,
+        stateId,
+        toArray(cityId)
+      );
+    } catch (err: any) {
+      return response.error(res, err.message);
+    }
+
+    // ---------- Validate SubCategories ----------
+    const validSubCategories = await prisma.subCategory.findMany({
+      where: { id: { in: subCategoryIds } },
+      select: { id: true },
+    });
+    if (validSubCategories.length !== subCategoryIds.length) {
+      return response.error(res, 'One or more subCategories are invalid');
+    }
+
+    // ---------- Create Work Post ----------
     const newPost = await prisma.workPosts.create({
       data: {
         businessId: userId,
         title: safeString(title),
         description: safeString(description),
         totalAmount: totalAmount ? parseFloat(totalAmount) : undefined,
-        categoryId,
         deliverables: toArray(deliverables),
         platforms: toArray(platforms),
         tags: toArray(tags),
@@ -80,7 +94,16 @@ export const createWorkPost = async (
         submissionDeadline: submissionDeadline
           ? new Date(submissionDeadline)
           : undefined,
-        isDraft: isDraft ?? false,
+        isDraft: finalIsDraft,
+        isGlobal: finalIsGlobal,
+        countryId: countryId ?? null,
+        stateId: stateId ?? null,
+        cityId: toArray(cityId),
+        workPostCategory: {
+          create: subCategoryIds.map((subCategoryId: string) => ({
+            subCategoryId,
+          })),
+        },
       },
       include: {
         business: {
@@ -95,47 +118,56 @@ export const createWorkPost = async (
             cityData: { select: { id: true, name: true } },
           },
         },
-        category: {
+        workPostCategory: {
           include: {
-            categoryInformation: {
-              select: { id: true, name: true, image: true },
+            workSubCategory: {
+              select: {
+                id: true,
+                name: true,
+                categoryInformation: {
+                  select: { id: true, name: true, image: true },
+                },
+              },
             },
           },
         },
       },
     });
 
-    // ✅ Transform response (replace null → "")
-      const { category, ...restOfNewPost } = newPost;
+    // ---------- Fetch Country, State, and Cities ----------
+    const [country, state, cities] = await Promise.all([
+      countryId
+        ? prisma.country.findUnique({
+            where: { id: countryId },
+            select: { id: true, name: true },
+          })
+        : null,
+      stateId
+        ? prisma.state.findUnique({
+            where: { id: stateId },
+            select: { id: true, name: true },
+          })
+        : null,
+      cityId.length > 0
+        ? prisma.city.findMany({
+            where: { id: { in: toArray(cityId) }, stateId },
+            select: { id: true, name: true },
+          })
+        : [],
+    ]);
+
+    // ---------- Format response ----------
     const responseData = {
       ...newPost,
-      description: newPost.description ?? '',
       totalAmount: newPost.totalAmount
         ? Number(newPost.totalAmount).toFixed(2)
         : '',
-      startDate: newPost.startDate ? newPost.startDate : '',
-      endDate: newPost.endDate ? newPost.endDate : '',
-      submissionDeadline: newPost.submissionDeadline
-        ? newPost.submissionDeadline
-        : '',
-        category: category?.categoryInformation
-        ? {
-            id: category.id,
-            name: category.name,
-            image: category.image ?? '',
-          }
-        : null,
-      // subcategory: category
-      //   ? {
-      //       id: category.id,
-      //       name: category.name ?? '',
-      //       image: category.image ?? '',
-      //       status: category.status ?? '',
-      //     }
-      //   : null,
+      isDraft: newPost.isDraft,
+      isGlobal: newPost.isGlobal,
+      country: country || null,
+      state: state || null,
+      cities,
     };
-
-    // delete (responseData as any).category;
 
     return res.status(201).json({
       success: true,
@@ -158,33 +190,33 @@ export const getWorkPosts = async (
 ): Promise<any> => {
   try {
     const userId = req.user?.userId;
-
     if (!userId) {
       return res
         .status(401)
         .json({ success: false, message: 'Unauthorized user' });
     }
 
-    const { page = 1, limit = 10, isDraft } = req.body;
-
+    const { page = 1, limit = 10, isDraft, isGlobal } = req.body;
     const pageNumber = parseInt(page as string);
     const pageSize = parseInt(limit as string);
     const skip = (pageNumber - 1) * pageSize;
 
-    // ✅ Build filter condition
     const whereCondition: any = { businessId: userId };
-    if (typeof isDraft === 'boolean') {
+    if (typeof isDraft === 'boolean') { 
       whereCondition.isDraft = isDraft;
     }
 
-    // ✅ Count total posts
-    const totalCount = await prisma.workPosts.count({
-      where: whereCondition,
-    });
+    if (typeof isGlobal === 'boolean') {  
+      whereCondition.isGlobal = isGlobal;
+    }
 
-    // ✅ Fetch posts with filters
+
+    // ---------- Fetch work posts ----------
     const workPosts = await prisma.workPosts.findMany({
       where: whereCondition,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: 'desc' },
       include: {
         business: {
           select: {
@@ -198,34 +230,40 @@ export const getWorkPosts = async (
             cityData: { select: { id: true, name: true } },
           },
         },
-        category: {
+        workPostCountry: { select: { id: true, name: true } },
+        workPostState: { select: { id: true, name: true } },
+        workPostCategory: {
           include: {
-            categoryInformation: {
-              select: { id: true, name: true, image: true },
+            workSubCategory: {
+              select: {
+                id: true,
+                name: true,
+                categoryInformation: {
+                  select: { id: true, name: true, image: true },
+                },
+              },
             },
           },
         },
       },
-      skip,
-      take: pageSize,
-      orderBy: { createdAt: 'desc' },
     });
 
-    const postIds = workPosts.map((p) => p.id);
+    // ---------- Fetch city names in bulk ----------
+    const allCityIds = workPosts.flatMap((post) => post.cityId || []);
+    const uniqueCityIds = Array.from(new Set(allCityIds));
 
-    const applicantsCount = await prisma.workPostApplication.groupBy({
-      by: ['workPostId'],
-      where: { workPostId: { in: postIds } },
-      _count: true,
-    });
+    const cities = uniqueCityIds.length
+      ? await prisma.city.findMany({
+          where: { id: { in: uniqueCityIds } },
+          select: { id: true, name: true },
+        })
+      : [];
 
-    const applicantsMap = Object.fromEntries(
-      applicantsCount.map((g) => [g.workPostId, g._count])
-    );
+    const cityMap = Object.fromEntries(cities.map((c) => [c.id, c.name]));
 
-    // ✅ Format data (null → "")
+    // ---------- Format response ----------
     const formattedPosts = workPosts.map((post) => ({
-      ...post,
+      id: post.id,
       title: post.title ?? '',
       description: post.description ?? '',
       totalAmount:
@@ -239,30 +277,19 @@ export const getWorkPosts = async (
       startDate: post.startDate ?? '',
       endDate: post.endDate ?? '',
       submissionDeadline: post.submissionDeadline ?? '',
-      createdAt: post.createdAt ?? '',
-      updatedAt: post.updatedAt ?? '',
-      applicantsCount: applicantsMap[post.id] || 0,
-      subcategory: post.category
-        ? {
-            id: post.category.id,
-            name: post.category.name ?? '',
-            image: post.category.image ?? '',
-            status: post.category.status ?? '',
-            category: post.category.categoryInformation
-              ? {
-                  id: post.category.categoryInformation.id,
-                  name: post.category.categoryInformation.name ?? '',
-                  image: post.category.categoryInformation.image ?? '',
-                }
-              : null,
-          }
-        : null,
+      isDraft: post.isDraft,
+      isGlobal: post.isGlobal,
+      business: post.business,
+      workPostCategory: post.workPostCategory,
+      country: post.workPostCountry || null,
+      state: post.workPostState || null,
+      cities: (post.cityId || []).map((cid) => ({
+        id: cid,
+        name: cityMap[cid] || '', // map ID → name
+      })),
     }));
 
-    // ✅ Remove old category field
-    formattedPosts.forEach((p: any) => delete p.category);
-
-    // ✅ Pagination response
+    const totalCount = await prisma.workPosts.count({ where: whereCondition });
     const totalPages = Math.ceil(totalCount / pageSize);
 
     return res.status(200).json({
@@ -314,23 +341,18 @@ export const getWorkPostById = async (
             cityData: { select: { id: true, name: true } },
           },
         },
-        // workPost: true,
-        workPost: {
+        workPostCountry: { select: { id: true, name: true } },
+        workPostState: { select: { id: true, name: true } },
+        workPostCategory: {
           include: {
-            influencer: {
+            workSubCategory: {
               select: {
                 id: true,
                 name: true,
-                userImage: true,
-                fcmToken: true,
+                categoryInformation: {
+                  select: { id: true, name: true, image: true },
+                },
               },
-            },
-          },
-        },
-        category: {
-          include: {
-            categoryInformation: {
-              select: { id: true, name: true, image: true },
             },
           },
         },
@@ -343,22 +365,24 @@ export const getWorkPostById = async (
         .json({ success: false, message: 'Work post not found' });
     }
 
-    // ✅ Format totalAmount with fallback
-    const formattedTotalAmount =
-      workPost.totalAmount !== undefined && workPost.totalAmount !== null
-        ? Number(workPost.totalAmount).toFixed(2)
-        : '';
+    // ---------- Fetch city names ----------
+    const cities =
+      workPost.cityId && workPost.cityId.length
+        ? await prisma.city.findMany({
+            where: { id: { in: workPost.cityId } },
+            select: { id: true, name: true },
+          })
+        : [];
 
-    // ✅ Transform data and replace null with ""
-    const responseData = {
-      ...workPost,
+    // ---------- Format response ----------
+    const formattedPost = {
+      id: workPost.id,
       title: workPost.title ?? '',
       description: workPost.description ?? '',
-      startDate: workPost.startDate ?? '',
-      endDate: workPost.endDate ?? '',
-      submissionDeadline: workPost.submissionDeadline ?? '',
-      createdAt: workPost.createdAt ?? '',
-      updatedAt: workPost.updatedAt ?? '',
+      totalAmount:
+        workPost.totalAmount !== undefined && workPost.totalAmount !== null
+          ? Number(workPost.totalAmount).toFixed(2)
+          : '',
       deliverables: Array.isArray(workPost.deliverables)
         ? workPost.deliverables
         : [],
@@ -367,30 +391,24 @@ export const getWorkPostById = async (
       attachments: Array.isArray(workPost.attachments)
         ? workPost.attachments
         : [],
-      totalAmount: formattedTotalAmount,
-      subcategory: workPost.category
-        ? {
-            id: workPost.category.id,
-            name: workPost.category.name ?? '',
-            image: workPost.category.image ?? '',
-            status: workPost.category.status ?? '',
-            category: workPost.category.categoryInformation
-              ? {
-                  id: workPost.category.categoryInformation.id,
-                  name: workPost.category.categoryInformation.name ?? '',
-                  image: workPost.category.categoryInformation.image ?? '',
-                }
-              : null,
-          }
-        : null,
+      startDate: workPost.startDate ?? '',
+      endDate: workPost.endDate ?? '',
+      submissionDeadline: workPost.submissionDeadline ?? '',
+      isDraft: workPost.isDraft ?? false,
+      isGlobal: workPost.isGlobal ?? false,
+      business: workPost.business,
+      workPostCategory: workPost.workPostCategory,
+      country: workPost.workPostCountry || null,
+      state: workPost.workPostState || null,
+      cities: cities.map((c) => ({ id: c.id, name: c.name ?? '' })),
+      createdAt: workPost.createdAt ?? '',
+      updatedAt: workPost.updatedAt ?? '',
     };
-
-    delete (responseData as any).category;
 
     return res.status(200).json({
       success: true,
       message: 'Work post fetched successfully',
-      data: responseData,
+      data: formattedPost,
     });
   } catch (error: any) {
     console.error('Error fetching work post by ID:', error);
@@ -409,16 +427,30 @@ export const getAllWorkPosts = async (
   try {
     const userId = req.user?.userId;
 
-    const { categoryId, search, page = 1, limit = 10 } = req.body;
+    const {
+      subCategoryIds = [], // array of subcategory IDs
+      countryId,
+      stateId,
+      cityIds = [], // array of city IDs
+      search,
+      page = 1,
+      limit = 10,
+    } = req.body;
 
     const pageNumber = Number(page);
     const pageSize = Number(limit);
     const skip = (pageNumber - 1) * pageSize;
 
-    // ✅ Dynamic filter
+    // ---------- Build dynamic where condition ----------
     const whereCondition: any = { isDraft: false };
 
-    if (categoryId) whereCondition.categoryId = String(categoryId);
+    if (countryId) whereCondition.countryId = countryId;
+    if (stateId) whereCondition.stateId = stateId;
+    if (cityIds.length > 0) whereCondition.cityId = { hasSome: cityIds };
+    if (subCategoryIds.length > 0)
+      whereCondition.workPostCategory = {
+        some: { subCategoryId: { in: subCategoryIds } },
+      };
 
     if (search) {
       whereCondition.OR = [
@@ -429,7 +461,7 @@ export const getAllWorkPosts = async (
       ];
     }
 
-    // ✅ Fetch data and count in parallel
+    // ---------- Fetch posts and count ----------
     const [posts, totalCount] = await Promise.all([
       prisma.workPosts.findMany({
         where: whereCondition,
@@ -446,10 +478,18 @@ export const getAllWorkPosts = async (
               cityData: { select: { id: true, name: true } },
             },
           },
-          category: {
+          workPostCountry: { select: { id: true, name: true } },
+          workPostState: { select: { id: true, name: true } },
+          workPostCategory: {
             include: {
-              categoryInformation: {
-                select: { id: true, name: true, image: true },
+              workSubCategory: {
+                select: {
+                  id: true,
+                  name: true,
+                  categoryInformation: {
+                    select: { id: true, name: true, image: true },
+                  },
+                },
               },
             },
           },
@@ -461,8 +501,19 @@ export const getAllWorkPosts = async (
       prisma.workPosts.count({ where: whereCondition }),
     ]);
 
-    // ✅ Fetch all applications by this user for these posts
-    let userApplications: string[] = [];
+    // ---------- Fetch all city names for mapping ----------
+    const allCityIds = posts.flatMap((p) => p.cityId || []);
+    const uniqueCityIds = Array.from(new Set(allCityIds));
+    const cities = uniqueCityIds.length
+      ? await prisma.city.findMany({
+          where: { id: { in: uniqueCityIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const cityMap = Object.fromEntries(cities.map((c) => [c.id, c.name]));
+
+    // ---------- Fetch applications by current user ----------
+    let userAppliedWorkPostIds: Set<string> = new Set();
     if (userId) {
       const applications = await prisma.workPostApplication.findMany({
         where: {
@@ -471,21 +522,18 @@ export const getAllWorkPosts = async (
         },
         select: { workPostId: true },
       });
-      userApplications = applications.map((a) => a.workPostId);
+      userAppliedWorkPostIds = new Set(applications.map((a) => a.workPostId));
     }
 
-    // ✅ Format response (replace null → "")
+    // ---------- Format posts ----------
     const formattedPosts = posts.map((post) => ({
       id: post.id,
-      businessId: post.businessId ?? '',
       title: post.title ?? '',
       description: post.description ?? '',
-      status: post.status ?? '',
       totalAmount:
         post.totalAmount !== undefined && post.totalAmount !== null
           ? Number(post.totalAmount).toFixed(2)
           : '',
-      categoryId: post.categoryId ?? '',
       deliverables: Array.isArray(post.deliverables) ? post.deliverables : [],
       platforms: Array.isArray(post.platforms) ? post.platforms : [],
       tags: Array.isArray(post.tags) ? post.tags : [],
@@ -494,28 +542,20 @@ export const getAllWorkPosts = async (
       endDate: post.endDate ?? '',
       submissionDeadline: post.submissionDeadline ?? '',
       isDraft: post.isDraft ?? false,
+      isGlobal: post.isGlobal ?? false,
       createdAt: post.createdAt ?? '',
       updatedAt: post.updatedAt ?? '',
       business: post.business ?? {},
-      subcategory: post.category
-        ? {
-            id: post.category.id,
-            name: post.category.name ?? '',
-            image: post.category.image ?? '',
-            status: post.category.status ?? '',
-            category: post.category.categoryInformation
-              ? {
-                  id: post.category.categoryInformation.id,
-                  name: post.category.categoryInformation.name ?? '',
-                  image: post.category.categoryInformation.image ?? '',
-                }
-              : '',
-          }
-        : '',
-       applyWorkPost: userId ? userApplications.includes(post.id) : false, 
+      workPostCategory: post.workPostCategory || [],
+      country: post.workPostCountry || null,
+      state: post.workPostState || null,
+      cities: (post.cityId || []).map((cid) => ({
+        id: cid,
+        name: cityMap[cid] || '',
+      })),
+      applyWorkPost: userId ? userAppliedWorkPostIds.has(post.id) : false,
     }));
 
-    // ✅ Final response
     return res.status(200).json({
       success: true,
       message: 'Work posts fetched successfully',
@@ -537,10 +577,12 @@ export const getAllWorkPosts = async (
   }
 };
 
-export const updateWorkPost = async (req: Request, res: Response): Promise<any> => {
+export const updateWorkPost = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const userId = req.user?.userId;
-
     if (!userId) {
       return response.error(res, 'Unauthorized user');
     }
@@ -551,7 +593,7 @@ export const updateWorkPost = async (req: Request, res: Response): Promise<any> 
       title,
       description,
       totalAmount,
-      categoryId,
+      subCategoryIds = [],
       deliverables = [],
       platforms = [],
       tags = [],
@@ -560,11 +602,18 @@ export const updateWorkPost = async (req: Request, res: Response): Promise<any> 
       endDate,
       submissionDeadline,
       isDraft,
+      isGlobal,
+      countryId,
+      stateId,
+      cityId = [],
     } = req.body;
 
-    // Check existing post
+    // ---------- Check existing post ----------
     const existingPost = await prisma.workPosts.findUnique({
       where: { id },
+      include: {
+        workPostCategory: true, // include current categories
+      },
     });
 
     if (!existingPost) {
@@ -572,29 +621,17 @@ export const updateWorkPost = async (req: Request, res: Response): Promise<any> 
     }
 
     if (existingPost.businessId !== userId) {
-      return response.error(res, 'You are not authorized to edit this work post');
+      return response.error(
+        res,
+        'You are not authorized to edit this work post'
+      );
     }
 
     if (!title) {
       return response.error(res, 'Title is required');
     }
 
-    // 🔥 FIX — Validate category ONLY when changed
-    let finalCategoryId = existingPost.categoryId;
-
-    if (categoryId && categoryId !== existingPost.categoryId) {
-      const categoryExists = await prisma.category.findUnique({
-        where: { id: String(categoryId) },
-      });
-
-      if (!categoryExists) {
-        return response.error(res, 'Invalid category ID — category not found');
-      }
-
-      finalCategoryId = categoryId;
-    }
-
-    // Array formatter
+    // ---------- Helper functions ----------
     const toArray = (val: any): string[] => {
       if (Array.isArray(val)) return val;
       if (typeof val === 'string' && val.trim() !== '')
@@ -603,32 +640,70 @@ export const updateWorkPost = async (req: Request, res: Response): Promise<any> 
     };
 
     const safeString = (val: any): string => (val ? String(val) : '');
+    const safeBoolean = (val: any): boolean => {
+      if (typeof val === 'boolean') return val;
+      if (typeof val === 'string') return val.toLowerCase() === 'true';
+      return false;
+    };
 
-    // Update
+    const finalIsGlobal = safeBoolean(isGlobal);
+    const finalIsDraft = safeBoolean(isDraft);
+
+    // ---------- Validate locations ----------
+    try {
+      await validateLocation(
+        finalIsGlobal,
+        countryId,
+        stateId,
+        toArray(cityId)
+      );
+    } catch (err: any) {
+      return response.error(res, err.message);
+    }
+
+    // ---------- Validate SubCategories ----------
+    if (subCategoryIds.length > 0) {
+      const validSubCategories = await prisma.subCategory.findMany({
+        where: { id: { in: subCategoryIds } },
+        select: { id: true },
+      });
+      if (validSubCategories.length !== subCategoryIds.length) {
+        return response.error(res, 'One or more subCategories are invalid');
+      }
+    }
+
+    // ---------- Update Work Post ----------
     const updatedPost = await prisma.workPosts.update({
       where: { id },
       data: {
         title: safeString(title),
         description: safeString(description),
-        totalAmount:
-          totalAmount !== undefined && totalAmount !== null
-            ? parseFloat(totalAmount)
-            : existingPost.totalAmount,
-
-        categoryId: finalCategoryId,
-
+        totalAmount: totalAmount
+          ? parseFloat(totalAmount)
+          : existingPost.totalAmount,
         deliverables: toArray(deliverables),
         platforms: toArray(platforms),
         tags: toArray(tags),
         attachments: toArray(attachments),
-
         startDate: startDate ? new Date(startDate) : existingPost.startDate,
         endDate: endDate ? new Date(endDate) : existingPost.endDate,
         submissionDeadline: submissionDeadline
           ? new Date(submissionDeadline)
           : existingPost.submissionDeadline,
-
-        isDraft: isDraft ?? existingPost.isDraft,
+        isDraft: finalIsDraft,
+        isGlobal: finalIsGlobal,
+        countryId: countryId ?? existingPost.countryId,
+        stateId: stateId ?? existingPost.stateId,
+        cityId: toArray(cityId).length ? toArray(cityId) : existingPost.cityId,
+        // Replace existing categories if new ones provided
+        workPostCategory: subCategoryIds.length
+          ? {
+              deleteMany: {}, // remove old
+              create: subCategoryIds.map((subCategoryId) => ({
+                subCategoryId,
+              })),
+            }
+          : undefined,
       },
       include: {
         business: {
@@ -643,39 +718,55 @@ export const updateWorkPost = async (req: Request, res: Response): Promise<any> 
             cityData: { select: { id: true, name: true } },
           },
         },
-        category: {
+        workPostCountry: { select: { id: true, name: true } },
+        workPostState: { select: { id: true, name: true } },
+        workPostCategory: {
           include: {
-            categoryInformation: {
-              select: { id: true, name: true, image: true },
+            workSubCategory: {
+              select: {
+                id: true,
+                name: true,
+                categoryInformation: {
+                  select: { id: true, name: true, image: true },
+                },
+              },
             },
           },
         },
       },
     });
 
-    // Response structure
+    // ---------- Format response ----------
+    const responseData = {
+      id: updatedPost.id,
+      title: updatedPost.title ?? '',
+      description: updatedPost.description ?? '',
+      totalAmount: updatedPost.totalAmount
+        ? Number(updatedPost.totalAmount).toFixed(2)
+        : '',
+      deliverables: updatedPost.deliverables || [],
+      platforms: updatedPost.platforms || [],
+      tags: updatedPost.tags || [],
+      attachments: updatedPost.attachments || [],
+      startDate: updatedPost.startDate ?? '',
+      endDate: updatedPost.endDate ?? '',
+      submissionDeadline: updatedPost.submissionDeadline ?? '',
+      isDraft: updatedPost.isDraft,
+      isGlobal: updatedPost.isGlobal,
+      business: updatedPost.business,
+      country: updatedPost.workPostCountry || null,
+      state: updatedPost.workPostState || null,
+      cities: (updatedPost.cityId || []).map((cid) => ({ id: cid, name: cid })),
+      workPostCategory: updatedPost.workPostCategory,
+      createdAt: updatedPost.createdAt ?? '',
+      updatedAt: updatedPost.updatedAt ?? '',
+    };
+
     return res.status(200).json({
       success: true,
       message: 'Work post updated successfully',
-      data: {
-        ...updatedPost,
-        totalAmount: updatedPost.totalAmount
-          ? Number(updatedPost.totalAmount).toFixed(2)
-          : '',
-        deliverables: updatedPost.deliverables || [],
-        platforms: updatedPost.platforms || [],
-        tags: updatedPost.tags || [],
-        attachments: updatedPost.attachments || [],
-        category: updatedPost.category?.categoryInformation
-          ? {
-              id: updatedPost.category.id,
-              name: updatedPost.category.name,
-              image: updatedPost.category.image ?? '',
-            }
-          : null,
-      },
+      data: responseData,
     });
-
   } catch (error: any) {
     console.error('Error updating work post:', error);
     return res.status(500).json({
@@ -686,20 +777,23 @@ export const updateWorkPost = async (req: Request, res: Response): Promise<any> 
   }
 };
 
-
-export const deleteWorkPost = async (req: Request, res: Response): Promise<any> => {
+export const deleteWorkPost = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res
-        .status(401)
-        .json({ success: false, message: 'Unauthorized user' });
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized user',
+      });
     }
 
     const { id } = req.params; // work post ID from URL
 
-    // ✅ Check if work post exists
+    // ---------- Check if work post exists ----------
     const existingPost = await prisma.workPosts.findUnique({
       where: { id },
     });
@@ -711,7 +805,7 @@ export const deleteWorkPost = async (req: Request, res: Response): Promise<any> 
       });
     }
 
-    // ✅ Ensure only the creator (business) can delete
+    // ---------- Ensure only the creator can delete ----------
     if (existingPost.businessId !== userId) {
       return res.status(403).json({
         success: false,
@@ -719,39 +813,41 @@ export const deleteWorkPost = async (req: Request, res: Response): Promise<any> 
       });
     }
 
-    // Check how many applications exist
-    const applicationsCount = await prisma.workPostApplication.count({
-      where: { workPostId: id },
-    });
+    // ---------- Fetch counts for related data ----------
+    const [applicationsCount, subCategoriesCount] = await Promise.all([
+      prisma.WorkPostApplication.count({ where: { workPostId: id } }),
+      prisma.workPostSubCategory.count({ where: { workPostId: id } }),
+    ]);
 
-    // If applications exist → delete them first
-    if (applicationsCount > 0) {
-      await prisma.workPostApplication.deleteMany({
-        where: { workPostId: id },
-      });
-    }
-
-    // Now delete the work post
-    await prisma.workPosts.delete({
-      where: { id },
-    });
+    // ---------- Delete everything in a transaction ----------
+    await prisma.$transaction([
+      // Delete applications
+      prisma.WorkPostApplication.deleteMany({ where: { workPostId: id } }),
+      // Delete subcategories
+      prisma.workPostSubCategory.deleteMany({ where: { workPostId: id } }),
+      // Delete the work post itself
+      prisma.workPosts.delete({ where: { id } }),
+    ]);
 
     return res.status(200).json({
       success: true,
-      message:
-        applicationsCount > 0
-          ? "Work post and its applications deleted successfully"
-          : "Work post deleted successfully",
+      message: `Work post deleted successfully${
+        applicationsCount || subCategoriesCount
+          ? ` (also deleted ${applicationsCount} application(s) and ${subCategoriesCount} subcategory link(s))`
+          : ''
+      }`,
     });
   } catch (error: any) {
-    console.error("Error deleting work post:", error);
+    console.error('Error deleting work post:', error);
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while deleting work post",
+      message: 'Something went wrong while deleting work post',
       error: error.message,
     });
   }
 };
+
+
 
 // Post Applications
 
@@ -767,9 +863,10 @@ export const applyForWorkPost = async (
     groupId = groupId?.trim() || null;
 
     if (!workPostId) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Work post ID is required' });
+      return res.status(400).json({
+        success: false,
+        message: 'Work post ID is required',
+      });
     }
 
     if (!influencerId && !groupId) {
@@ -779,31 +876,51 @@ export const applyForWorkPost = async (
       });
     }
 
+    // ---------- Fetch work post ----------
     const workPost = await prisma.workPosts.findUnique({
       where: { id: workPostId },
       include: {
-        category: { include: { categoryInformation: true } },
-        business: { select: { id: true, name: true, emailAddress: true } },
+        business: {
+          select: {
+            id: true,
+            name: true,
+            emailAddress: true,
+          },
+        },
+        workPostCategory: {
+          include: {
+            workSubCategory: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
     if (!workPost) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Work post not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Work post not found',
+      });
     }
 
     if (workPost.isDraft) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Cannot apply to a draft work post' });
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot apply to a draft work post',
+      });
     }
 
+    // ---------- Validate influencer ----------
     if (influencerId) {
       const influencerExists = await prisma.user.findUnique({
         where: { id: influencerId },
         select: { id: true },
       });
+
       if (!influencerExists) {
         return res.status(400).json({
           success: false,
@@ -812,7 +929,8 @@ export const applyForWorkPost = async (
       }
     }
 
-    let groupData = null;
+    // ---------- Validate group ----------
+    let groupData: any = null;
     if (groupId) {
       if (!influencerId) {
         return res.status(400).json({
@@ -828,11 +946,10 @@ export const applyForWorkPost = async (
       if (!isMember) {
         return res.status(403).json({
           success: false,
-          message: 'You are not a Admin of this group',
+          message: 'You are not an Admin of this group',
         });
       }
 
-      // ✅ Fetch full group details (admin + invited users with requestAccept)
       groupData = await prisma.group.findUnique({
         where: { id: groupId },
         include: {
@@ -866,6 +983,7 @@ export const applyForWorkPost = async (
       }
     }
 
+    // ---------- Prevent duplicate application ----------
     const existingApplication = await prisma.workPostApplication.findFirst({
       where: {
         workPostId,
@@ -883,6 +1001,7 @@ export const applyForWorkPost = async (
       });
     }
 
+    // ---------- Create new application ----------
     const newApplication = await prisma.workPostApplication.create({
       data: {
         workPostId,
@@ -896,60 +1015,45 @@ export const applyForWorkPost = async (
       },
       include: {
         influencer: {
-          select: {
-            id: true,
-            name: true,
-            emailAddress: true,
-            userImage: true,
-          },
+          select: { id: true, name: true, emailAddress: true, userImage: true },
         },
         group: {
-          select: {
-            id: true,
-            groupName: true,
-          },
+          select: { id: true, groupName: true },
         },
       },
     });
 
-    const formattedCategory = workPost.categoryId
-      ? {
-          id: workPost.categoryId,
-          name: workPost.category?.name ?? '',
-          image: workPost.category?.image ?? '',
-          status: workPost.category?.status ?? '',
-          category: workPost.category?.categoryInformation
-            ? {
-                id: workPost.category.categoryInformation.id,
-                name: workPost.category.categoryInformation.name,
-                image: workPost.category.categoryInformation.image ?? '',
-              }
-            : null,
-        }
-      : null;
+    // ---------- Format category ----------
+    const formattedCategory = workPost.workPostCategory.map((wc) => ({
+      id: wc.workSubCategory.id,
+      name: wc.workSubCategory.name,
+    }));
 
-    // ✅ Build unified group members (admin + invited users) with requestAccept
-    const formattedGroup = groupData && {
-      id: groupData.id,
-      groupName: groupData.groupName,
-      groupImage: groupData.groupImage,
-      groupBio: groupData.groupBio,
-      members: groupData.groupUsersList
-        .map((entry) => {
-          const baseUser = entry.invitedUser || entry.adminUser;
-          if (!baseUser) return null;
-          return {
-            ...baseUser,
-            isAdmin: !!entry.adminUser && entry.adminUser.id === baseUser.id,
-            requestAccept: entry.requestAccept,
-          };
-        })
-        .filter(
-          (user, index, self) =>
-            user && index === self.findIndex((u) => u.id === user.id)
-        ), // remove duplicates
-    };
-    
+    // ---------- Format group members ----------
+    const formattedGroup =
+      groupData &&
+      ({
+        id: groupData.id,
+        groupName: groupData.groupName,
+        groupImage: groupData.groupImage,
+        groupBio: groupData.groupBio,
+        members: groupData.groupUsersList
+          .map((entry) => {
+            const baseUser = entry.invitedUser || entry.adminUser;
+            if (!baseUser) return null;
+            return {
+              ...baseUser,
+              isAdmin: !!entry.adminUser && entry.adminUser.id === baseUser.id,
+              requestAccept: entry.requestAccept,
+            };
+          })
+          .filter(
+            (user, index, self) =>
+              user && index === self.findIndex((u) => u.id === user.id)
+          ),
+      } as any);
+
+    // ---------- Build response ----------
     const responseData = {
       ...newApplication,
       workPost: {
@@ -969,7 +1073,7 @@ export const applyForWorkPost = async (
       ...(formattedGroup && { group: formattedGroup }),
     };
 
-    /* 🔔 SEND NOTIFICATION TO WORK-POST CREATOR */
+    // ---------- Send notification to business ----------
     try {
       const businessUser = await prisma.user.findUnique({
         where: { id: workPost.businessId },
@@ -1009,173 +1113,6 @@ export const applyForWorkPost = async (
   }
 };
 
-// export const getWorkPostApplications = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const { influencerId, groupId } = req.body;
-
-//     if (!influencerId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "influencerId is required",
-//       });
-//     }
-
-//     let filter: any = { influencerId: influencerId as string };
-
-//     // ✅ If groupId is passed, validate influencer is in the group
-//     if (groupId) {
-//       const isMember = await prisma.groupUsers.findFirst({
-//         where: {
-//           groupId: groupId as string,
-//           userId: influencerId as string,
-//           status: true,
-//         },
-//       });
-
-//       if (!isMember) {
-//         return res.status(403).json({
-//           success: false,
-//           message: "Influencer is not part of the provided group",
-//         });
-//       }
-
-//       filter = { groupId: groupId as string };
-//     }
-
-//     // ✅ Fetch applications based on mode (influencer or group)
-//     const applications = await prisma.workPostApplication.findMany({
-//       where: filter,
-//       include: {
-//         influencer: {
-//           select: { id: true, name: true, emailAddress: true, userImage: true },
-//         },
-//         group: {
-//           include: {
-//             groupUsersList: {
-//               include: {
-//                 adminUser: {
-//                   select: {
-//                     id: true,
-//                     name: true,
-//                     emailAddress: true,
-//                     userImage: true,
-//                   },
-//                 },
-//                 invitedUser: {
-//                   select: {
-//                     id: true,
-//                     name: true,
-//                     emailAddress: true,
-//                     userImage: true,
-//                   },
-//                 },
-//               },
-//             },
-//           },
-//         },
-//         workPost: {
-//           include: {
-//             category: {
-//               include: { categoryInformation: true },
-//             },
-//             business: {
-//               select: { id: true, name: true, emailAddress: true },
-//             },
-//           },
-//         },
-//       },
-//       orderBy: { createdAt: "desc" },
-//     });
-
-//     // ✅ Format each application same as "applyForWorkPost" response
-//     const formatted = applications.map((app) => {
-//       const wp = app.workPost;
-
-//       // Format category
-//       const formattedCategory = wp.categoryId
-//         ? {
-//             id: wp.categoryId,
-//             name: wp.category?.name ?? "",
-//             image: wp.category?.image ?? "",
-//             status: wp.category?.status ?? "",
-//             category: wp.category?.categoryInformation
-//               ? {
-//                   id: wp.category.categoryInformation.id,
-//                   name: wp.category.categoryInformation.name,
-//                   image: wp.category.categoryInformation.image ?? "",
-//                 }
-//               : null,
-//           }
-//         : null;
-
-//       // Format group members if group exists
-//       let formattedGroup = null;
-//       if (app.group) {
-//         const adminUsers = new Map<string, any>();
-//         const invitedUsers: any[] = [];
-
-//         app.group.groupUsersList.forEach((g) => {
-//           if (g.adminUser && !adminUsers.has(g.adminUser.id)) {
-//             adminUsers.set(g.adminUser.id, {
-//               ...g.adminUser,
-//               requestAccept: g.requestAccept,
-//             });
-//           }
-//           if (g.invitedUser) {
-//             invitedUsers.push({
-//               ...g.invitedUser,
-//               requestAccept: g.requestAccept,
-//             });
-//           }
-//         });
-
-//         formattedGroup = {
-//           id: app.group.id,
-//           groupName: app.group.groupName,
-//           groupImage: app.group.groupImage,
-//           groupBio: app.group.groupBio,
-//           members: {
-//             admins: Array.from(adminUsers.values()),
-//             invitedUsers,
-//           },
-//         };
-//       }
-
-//       return {
-//         ...app,
-//         workPost: {
-//           id: wp.id,
-//           title: wp.title,
-//           description: wp.description,
-//           totalAmount: wp.totalAmount,
-//           startDate: wp.startDate ?? "",
-//           endDate: wp.endDate ?? "",
-//           submissionDeadline: wp.submissionDeadline ?? "",
-//           attachments: wp.attachments ?? [],
-//           subcategory: formattedCategory,
-//           business: wp.business,
-//           createdAt: wp.createdAt,
-//           updatedAt: wp.updatedAt,
-//         },
-//         ...(formattedGroup && { group: formattedGroup }),
-//       };
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Applications fetched successfully",
-//       data: formatted,
-//     });
-//   } catch (error: any) {
-//     console.error("Error fetching applications:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Something went wrong while fetching applications",
-//       error: error.message,
-//     });
-//   }
-// };
-
 export const getWorkPostApplications = async (
   req: Request,
   res: Response
@@ -1195,15 +1132,14 @@ export const getWorkPostApplications = async (
 
     let filter: any = {};
 
-    // ✅ Case 1: Only influencerId (fetch individual applications only)
+    // Case 1: Only influencerId (fetch individual applications only)
     if (!groupId) {
       filter = {
         influencerId: influencerId as string,
-        groupId: null, // exclude group applications
+        groupId: null,
       };
     }
-
-    // ✅ Case 2: influencerId + groupId (fetch group applications)
+    // Case 2: influencerId + groupId (fetch group applications)
     else {
       // Validate influencer is part of this group
       const isMember = await prisma.groupUsers.findFirst({
@@ -1224,12 +1160,12 @@ export const getWorkPostApplications = async (
       filter = { groupId: groupId as string };
     }
 
-    // ✅ Get total count
+    // Total count
     const totalCount = await prisma.workPostApplication.count({
       where: filter,
     });
 
-    // ✅ Fetch paginated applications
+    // Fetch paginated applications
     const applications = await prisma.workPostApplication.findMany({
       where: filter,
       include: {
@@ -1241,20 +1177,10 @@ export const getWorkPostApplications = async (
             groupUsersList: {
               include: {
                 adminUser: {
-                  select: {
-                    id: true,
-                    name: true,
-                    emailAddress: true,
-                    userImage: true,
-                  },
+                  select: { id: true, name: true, emailAddress: true, userImage: true },
                 },
                 invitedUser: {
-                  select: {
-                    id: true,
-                    name: true,
-                    emailAddress: true,
-                    userImage: true,
-                  },
+                  select: { id: true, name: true, emailAddress: true, userImage: true },
                 },
               },
             },
@@ -1262,11 +1188,11 @@ export const getWorkPostApplications = async (
         },
         workPost: {
           include: {
-            category: {
-              include: { categoryInformation: true },
-            },
-            business: {
-              select: { id: true, name: true, emailAddress: true },
+            business: { select: { id: true, name: true, emailAddress: true } },
+            workPostCategory: {
+              include: {
+                workSubCategory: { include: { categoryInformation: true } },
+              },
             },
           },
         },
@@ -1276,89 +1202,88 @@ export const getWorkPostApplications = async (
       take,
     });
 
-    // ✅ Format each application same as before
+    // Format each application
     const formatted = applications.map((app) => {
       const wp = app.workPost;
 
-      // Format category
-      const formattedCategory = wp.categoryId
-        ? {
-            id: wp.categoryId,
-            name: wp.category?.name ?? '',
-            image: wp.category?.image ?? '',
-            status: wp.category?.status ?? '',
-            category: wp.category?.categoryInformation
-              ? {
-                  id: wp.category.categoryInformation.id,
-                  name: wp.category.categoryInformation.name,
-                  image: wp.category.categoryInformation.image ?? '',
-                }
-              : null,
-          }
-        : null;
+      // Format subcategories
+      const formattedSubcategories = (wp.workPostCategory || []).map((wpc) => ({
+        id: wpc.workPostId,
+        subCategoryId: wpc.subCategoryId,
+        subCategoryName: wpc.workSubCategory?.name ?? '',
+        categoryInformation: wpc.workSubCategory?.categoryInformation
+          ? {
+              id: wpc.workSubCategory.categoryInformation.id,
+              name: wpc.workSubCategory.categoryInformation.name ?? '',
+              image: wpc.workSubCategory.categoryInformation.image ?? '',
+            }
+          : null,
+      }));
 
-      // Format group members (admins + invited)
+      // Flatten group members
       let formattedGroup = null;
       if (app.group) {
-        const adminUsers = new Map<string, any>();
-        const invitedUsers: any[] = [];
-
-        app.group.groupUsersList.forEach((g) => {
-          if (g.adminUser && !adminUsers.has(g.adminUser.id)) {
-            adminUsers.set(g.adminUser.id, {
-              ...g.adminUser,
-              requestAccept: g.requestAccept,
-            });
-          }
-          if (g.invitedUser) {
-            invitedUsers.push({
-              ...g.invitedUser,
-              requestAccept: g.requestAccept,
-            });
-          }
-        });
-
         formattedGroup = {
           id: app.group.id,
           groupName: app.group.groupName,
           groupImage: app.group.groupImage,
           groupBio: app.group.groupBio,
-          members: {
-            admins: Array.from(adminUsers.values()),
-            invitedUsers,
-          },
+          members: app.group.groupUsersList
+            .map((entry) => {
+              const baseUser = entry.invitedUser || entry.adminUser;
+              if (!baseUser) return null;
+              return {
+                ...baseUser,
+                isAdmin: !!entry.adminUser && entry.adminUser.id === baseUser.id,
+                requestAccept: entry.requestAccept,
+              };
+            })
+            .filter(
+              (user, index, self) =>
+                user && index === self.findIndex((u) => u.id === user.id)
+            ),
         };
       }
 
       return {
-        ...app,
+        id: app.id,
+        workPostId: wp.id,
+        influencerId: app.influencerId,
+        groupId: app.groupId,
+        offerAmount: app.offerAmount ? Number(app.offerAmount).toFixed(2) : null,
+        message: app.message ?? '',
+        attachments: Array.isArray(app.attachments) ? app.attachments : [],
+        status: app.status,
+        createdAt: app.createdAt,
+        updatedAt: app.updatedAt,
+        influencer: app.influencer ?? null,
+        ...(formattedGroup && { group: formattedGroup }),
         workPost: {
           id: wp.id,
-          title: wp.title,
-          description: wp.description,
-          totalAmount: wp.totalAmount,
+          title: wp.title ?? '',
+          description: wp.description ?? '',
+          totalAmount:
+            wp.totalAmount !== undefined && wp.totalAmount !== null
+              ? Number(wp.totalAmount).toFixed(2)
+              : '',
           startDate: wp.startDate ?? '',
           endDate: wp.endDate ?? '',
           submissionDeadline: wp.submissionDeadline ?? '',
-          attachments: wp.attachments ?? [],
-          subcategory: formattedCategory,
-          business: wp.business,
+          attachments: Array.isArray(wp.attachments) ? wp.attachments : [],
+          subcategories: formattedSubcategories,
+          business: wp.business ?? {},
           createdAt: wp.createdAt,
           updatedAt: wp.updatedAt,
         },
-        ...(formattedGroup && { group: formattedGroup }),
       };
     });
-
-    // ✅ Pagination meta
-    const totalPages = Math.ceil(totalCount / Number(limit));
 
     return res.status(200).json({
       success: true,
       message: 'Applications fetched successfully',
       pagination: {
         totalCount,
-        totalPages,
+        totalPages: Math.ceil(totalCount / Number(limit)),
         currentPage: Number(page),
         limit: Number(limit),
       },

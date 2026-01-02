@@ -99,7 +99,6 @@ model Category {
   updatedBy                String?       @db.Uuid
   categoryInformation      SubCategory[]
   categoryInfo             UserSubCategory[]
-  workPosts                WorkPosts[]
 }
 
 model Country {
@@ -111,6 +110,7 @@ model Country {
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6)
   countryData              User[]
   countryKey               State[]
+  workPostCountry          WorkPosts[]
 }
 
 model State {
@@ -123,6 +123,7 @@ model State {
   countryKey               Country?      @relation(fields: [countryId], references: [id])
   stateKey                 City[]
   stateData                User[]
+  workPostState            WorkPosts[]
 }
 
 model City {
@@ -149,6 +150,7 @@ model SubCategory {
   updatedBy              String?        @db.Uuid
   categoryInformation    Category?      @relation(fields: [categoryId], references: [id])
   users                  UserSubCategory[]
+  workSubCategory        workPostSubCategory[]
 }
 
 model UserDetail {
@@ -625,7 +627,6 @@ model WorkPosts {
   description          String?      @db.VarChar
   status               PostStatus   @default(SENT)
   totalAmount          Decimal?     @db.Decimal(10,2)
-  categoryId           String       @db.Uuid
   deliverables         String[]
   platforms            String[]
   tags                 String[]
@@ -634,14 +635,30 @@ model WorkPosts {
   endDate              DateTime?
   submissionDeadline   DateTime?
   isDraft              Boolean      @default(false)
+  isGlobal             Boolean      @default(false)
+  countryId            String?      @db.Uuid
+  stateId              String?      @db.Uuid
+  cityId               String[]   
   createdAt            DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt            DateTime?    @updatedAt @db.Timestamp(6)
 
   business             User          @relation("businessOrder", fields: [businessId], references: [id])
-  category             Category?    @relation(fields: [categoryId], references: [id])
+  workPostCountry      Country?      @relation(fields: [countryId], references: [id])
+  workPostState        State?        @relation(fields: [stateId], references: [id])
   workPost             WorkPostApplication[]
+  workPostCategory     workPostSubCategory[]
 }
 
+model workPostSubCategory {
+  id            String          @default(dbgenerated("gen_random_uuid()"))@db.Uuid
+  workPostId    String          @db.Uuid
+  subCategoryId String          @db.Uuid
+
+  workPostCategory      WorkPosts?       @relation(fields: [workPostId], references: [id])
+  workSubCategory   SubCategory     @relation(fields: [subCategoryId], references: [id])
+
+   @@id([workPostId, subCategoryId])
+}
 
 model WorkPostApplication {
   id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
