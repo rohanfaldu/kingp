@@ -68,6 +68,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     availability = AvailabilityType,
     referralCode,
     subcategoriesId = [],
+    contactPersonName,
     ...userFields
   } = req.body;
 
@@ -87,6 +88,25 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
   const existingUser = await prisma.user.findUnique({
     where: { emailAddress },
   });
+
+  if (contactPersonName) {
+    const existingContact = await prisma.user.findFirst({
+      where: {
+        contactPersonName,
+        status: true, // Only active users
+      },
+    });
+
+    const isReSignupSameUser =
+      existingUser && existingUser.contactPersonName === contactPersonName;
+
+    if (existingContact && !isReSignupSameUser) {
+      return response.error(
+        res,
+        `UserName ${contactPersonName} is already in use.` // no quotes
+      );
+    }
+  }
 
   // Check if user exists and has active status
   if (existingUser && existingUser.status === true) {
@@ -159,6 +179,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         where: { id: existingUser.id },
         data: {
           ...userFields,
+          contactPersonName,
           password: hashedPassword ?? 'null',
           emailAddress,
           status,
@@ -304,6 +325,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     newUser = await prisma.user.create({
       data: {
         ...userFields,
+        contactPersonName,
         password: hashedPassword ?? 'null',
         emailAddress,
         status,
@@ -1817,7 +1839,10 @@ export const getAllUsersAndGroup = async (
     };
     if (andFilters.length > 0) whereFilter.AND = andFilters;
     if (search) {
-      whereFilter.name = { startsWith: search, mode: 'insensitive' };
+      whereFilter.OR = [
+        { name: { startsWith: search, mode: 'insensitive' } },
+        { contactPersonName: { startsWith: search, mode: 'insensitive' } },
+      ];      
     }
 
     // Determine what data to fetch based on subtype
@@ -2533,6 +2558,7 @@ export const editProfile = async (
     status,
     gender,
     referralCode,
+    contactPersonName,
     ...updatableFields
   } = userData;
 
@@ -2545,6 +2571,27 @@ export const editProfile = async (
   if (gender !== undefined) {
     finalUpdateData.gender = gender as unknown as any;
   }
+
+  if (contactPersonName) {
+    const existingContact = await prisma.user.findFirst({
+      where: {
+        contactPersonName,
+        status: true,
+        NOT: { id }, // exclude the current user
+      },
+    });
+
+    if (existingContact) {
+      return response.error(
+        res,
+        `UserName ${contactPersonName} is already in use.`
+      );
+    }
+
+    // If valid, include it in the update
+    finalUpdateData.contactPersonName = contactPersonName;
+  }
+
 
   const normalizeId = (value: any) =>
     value === '' || value === null ? undefined : value;
@@ -3130,10 +3177,20 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 
     // ✅ Search by name starting with
     if (search && typeof search === 'string') {
-      filter.name = {
-        startsWith: search,
-        mode: 'insensitive', // Optional: case-insensitive search
-      };
+      filter.OR = [
+        {
+          name: {
+            startsWith: search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          contactPersonName: {
+            startsWith: search,
+            mode: 'insensitive',
+          },
+        },
+      ];
     }
 
     // Validate and apply platform filter
