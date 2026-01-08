@@ -103,7 +103,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     if (existingContact && !isReSignupSameUser) {
       return response.error(
         res,
-        `UserName ${contactPersonName} is already in use.` // no quotes
+        `UserName ${contactPersonName} is already in use. Please use a unique UserName.` // no quotes
       );
     }
   }
@@ -2584,7 +2584,7 @@ export const editProfile = async (
     if (existingContact) {
       return response.error(
         res,
-        `UserName ${contactPersonName} is already in use.`
+        `UserName ${contactPersonName} is already in use. Please use a unique UserName.`
       );
     }
 
