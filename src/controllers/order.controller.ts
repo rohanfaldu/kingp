@@ -979,6 +979,25 @@ export const updateOrderStatus = async (
       );
     }
 
+    // ================= ORDER REJECT LOGIC =================
+    if (status === 7 && statusEnumValue === OfferStatus.ORDERREJECT) {
+      // Allow reject ONLY after order is submitted
+      if (currentOrder.status !== OfferStatus.ORDERSUBMITTED) {
+        return response.error(
+          res,
+          'Order can be rejected only after ORDERSUBMITTED'
+        );
+      }
+
+      await prisma.orders.update({
+        where: { id },
+        data: {
+          status: OfferStatus.ORDERREJECT,
+        },
+      });
+    }
+    // =====================================================
+
     // // REFUND LOGIC FOR CANCELED ORDERS
     if (status === 6 && statusEnumValue === OfferStatus.DECLINED) {
       try {
@@ -1346,7 +1365,7 @@ export const updateOrderStatus = async (
 
     // FCM NOTIFICATION LOGIC WITH DATABASE STORAGE
     try {
-      if ([1, 2, 5].includes(status)) {
+      if ([1, 2, 5, 7].includes(status)) {
         const influencerUsers: any[] = [];
 
         if (currentOrder.influencerId) {
@@ -1420,7 +1439,13 @@ export const updateOrderStatus = async (
               notificationBody = `Congratulations! Your order has been completed${amount ? ` and earnings of ${amount} have been distributed.` : '.'}`;
               notificationType = 'ORDER_COMPLETED';
               break;
+            case 7: // ✅ ORDER REJECTED
+              notificationTitle = 'Order Rejected';
+              notificationBody = 'Your submitted work was rejected by the business.';
+              notificationType = 'ORDER_REJECTED';
+              break;
           }
+          console.log('influencerUsers to notify:', influencerUsers);
 
           // Store notifications in database and send FCM
           const notificationPromises = influencerUsers.map(async (user) => {

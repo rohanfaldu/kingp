@@ -24,6 +24,8 @@ export const getStatusName = (code: number): OfferStatus => {
       return OfferStatus.COMPLETED;
     case 6:
       return OfferStatus.DECLINED;
+    case 7:
+      return OfferStatus.ORDERREJECT;
     default:
       throw new Error('Invalid status code');
   }
