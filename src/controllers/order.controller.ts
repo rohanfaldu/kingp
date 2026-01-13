@@ -1441,7 +1441,8 @@ export const updateOrderStatus = async (
               break;
             case 7: // ✅ ORDER REJECTED
               notificationTitle = 'Order Rejected';
-              notificationBody = 'Your submitted work was rejected by the business.';
+              notificationBody =
+                'Your submitted work was rejected by the business.';
               notificationType = 'ORDER_REJECTED';
               break;
           }
@@ -2111,17 +2112,21 @@ export const updateOrderStatus = async (
                                     new Prisma.Decimal(businessSummary.withdrawAmount ?? 0)
                                 )
                     */
-          const updatedBusinessSummary = await prisma.referralCoinSummary.update({
-            where: { userId: updated.businessId },
-            data: {
-              totalAmount: FinalTotalAmount,
-              netAmount: FinalNetAmount,
-              unlocked: true,
-            },
-          });
+          const updatedBusinessSummary =
+            await prisma.referralCoinSummary.update({
+              where: { userId: updated.businessId },
+              data: {
+                totalAmount: FinalTotalAmount,
+                netAmount: FinalNetAmount,
+                unlocked: true,
+              },
+            });
 
           // Check if business user qualifies for redeem points email (totalAmount >= 3500)
-          if (Number(updatedBusinessSummary.totalAmount) >= 3500 || Number(updatedBusinessSummary.netAmount) >= 3500) {
+          if (
+            Number(updatedBusinessSummary.totalAmount) >= 3500 ||
+            Number(updatedBusinessSummary.netAmount) >= 3500
+          ) {
             await sendRedeemPointsEmailToUser(updated.businessId);
           }
         } else {
@@ -2243,14 +2248,15 @@ export const updateOrderStatus = async (
                 });
 
                 if (summary) {
-                  const updatedReferralSummary = await prisma.referralCoinSummary.update({
-                    where: { userId: referral.referrerId },
-                    data: {
-                      totalAmount: (Number(summary.totalAmount) || 0) + 50,
-                      unlocked: true,
-                      unlockedAt: now,
-                    },
-                  });
+                  const updatedReferralSummary =
+                    await prisma.referralCoinSummary.update({
+                      where: { userId: referral.referrerId },
+                      data: {
+                        totalAmount: (Number(summary.totalAmount) || 0) + 50,
+                        unlocked: true,
+                        unlockedAt: now,
+                      },
+                    });
 
                   // Check if referrer qualifies for redeem points email (totalAmount >= 3500)
                   if (Number(updatedReferralSummary.totalAmount) >= 3500) {
@@ -2349,9 +2355,12 @@ export const getAllOrderList = async (
 
     const statusEnumValue = getStatusName(status);
     let whereStatus;
+
     if (status === 3) {
-      const completedEnumValue = getStatusName(4);
-      whereStatus = [statusEnumValue, completedEnumValue];
+      // Get the statuses for codes 4 and 7
+      const status4 = getStatusName(4);
+      const status7 = getStatusName(7);
+      whereStatus = [status4, status7];
     } else {
       whereStatus = [statusEnumValue];
     }
@@ -2946,7 +2955,6 @@ export const withdrawAmount = async (
 
     const country = userProfile.countryData?.name;
 
-
     const currentEarnings = user.totalEarnings ?? 0;
     const currentWithdrawals = user.totalWithdraw ?? 0;
 
@@ -2966,43 +2974,43 @@ export const withdrawAmount = async (
 
     // Fetch bank details
     let payoutAccountId: string;
-let payoutAccountHolderName: string;
+    let payoutAccountHolderName: string;
 
-if (country === 'India') {
-  const bankDetails = await prisma.userBankDetails.findFirst({
-    where: { userId, status: true },
-  });
+    if (country === 'India') {
+      const bankDetails = await prisma.userBankDetails.findFirst({
+        where: { userId, status: true },
+      });
 
-  if (
-    !bankDetails ||
-    !bankDetails.accountId ||
-    !bankDetails.accountHolderName
-  ) {
-    return response.error(
-      res,
-      'Please add valid bank details before withdrawing (India).'
-    );
-  }
+      if (
+        !bankDetails ||
+        !bankDetails.accountId ||
+        !bankDetails.accountHolderName
+      ) {
+        return response.error(
+          res,
+          'Please add valid bank details before withdrawing (India).'
+        );
+      }
 
-  payoutAccountId = bankDetails.accountId;
-  payoutAccountHolderName = bankDetails.accountHolderName;
-} else {
-  const paypalDetails = await prisma.userPaypalDetails.findFirst({
-    where: { userId, status: true },
-  });
+      payoutAccountId = bankDetails.accountId;
+      payoutAccountHolderName = bankDetails.accountHolderName;
+    } else {
+      const paypalDetails = await prisma.userPaypalDetails.findFirst({
+        where: { userId, status: true },
+      });
 
-  if (!paypalDetails || !paypalDetails.paypalEmail) {
-    return response.error(
-      res,
-      'Please add valid PayPal details before withdrawing (Non-India).'
-    );
-  }
+      if (!paypalDetails || !paypalDetails.paypalEmail) {
+        return response.error(
+          res,
+          'Please add valid PayPal details before withdrawing (Non-India).'
+        );
+      }
 
-  // Use PayPal email as payout identifier
-  payoutAccountId = paypalDetails.paypalPayerId || paypalDetails.paypalEmail;
-  payoutAccountHolderName = paypalDetails.paypalEmail;
-}
-
+      // Use PayPal email as payout identifier
+      payoutAccountId =
+        paypalDetails.paypalPayerId || paypalDetails.paypalEmail;
+      payoutAccountHolderName = paypalDetails.paypalEmail;
+    }
 
     // Step 1: Attempt to transfer FIRST
     const initiateTransferData = await initiateTransfer(
@@ -3073,7 +3081,10 @@ if (country === 'India') {
         });
 
         // Check if user qualifies for redeem points email (totalAmount >= 3500)
-        if (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500) {
+        if (
+          Number(updatedSummary.totalAmount) >= 3500 ||
+          Number(updatedSummary.netAmount) >= 3500
+        ) {
           await sendRedeemPointsEmailToUser(userId);
         }
       } else {
@@ -3581,7 +3592,11 @@ export const addCoins = async (req: Request, res: Response): Promise<any> => {
     ]);
 
     // Check if user qualifies for redeem points email (totalAmount >= 3500) - only if coins were added
-    if (addAmount > 0 && (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500)) {
+    if (
+      addAmount > 0 &&
+      (Number(updatedSummary.totalAmount) >= 3500 ||
+        Number(updatedSummary.netAmount) >= 3500)
+    ) {
       await sendRedeemPointsEmailToUser(userId);
     }
 
@@ -4054,14 +4069,17 @@ export const updateOrderStatusAndInsertEarnings = async (
   }
 };
 
-export const markSpinUsed = async (req: Request, res: Response): Promise<any> => {
+export const markSpinUsed = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(400).json({
         status: false,
-        message: "Unauthorized user",
+        message: 'Unauthorized user',
       });
     }
 
@@ -4071,8 +4089,8 @@ export const markSpinUsed = async (req: Request, res: Response): Promise<any> =>
     if (!user) {
       return res.status(404).json({
         status: false,
-        message: "User not found",
-        data: null
+        message: 'User not found',
+        data: null,
       });
     }
 
@@ -4080,7 +4098,7 @@ export const markSpinUsed = async (req: Request, res: Response): Promise<any> =>
       return res.status(400).json({
         status: false,
         message: "User has already used today's free spin",
-        data: null
+        data: null,
       });
     }
 
@@ -4092,15 +4110,14 @@ export const markSpinUsed = async (req: Request, res: Response): Promise<any> =>
 
     return res.json({
       status: true,
-      message: "Free spin used successfully",
+      message: 'Free spin used successfully',
       data: updatedUser,
     });
-
   } catch (error: any) {
-    console.error("Mark Spin Used Error:", error);
+    console.error('Mark Spin Used Error:', error);
     return res.status(500).json({
       status: false,
-      message: error.message || "Something went wrong",
+      message: error.message || 'Something went wrong',
     });
   }
 };
