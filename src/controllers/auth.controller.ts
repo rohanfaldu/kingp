@@ -634,6 +634,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return response.error(res, 'Invalid email address.');
     }
 
+    if (user.isSuspended) {
+      return response.error( res, 'Your account has been suspended. Please contact support to reactivate your account.');
+    }
+
     const isAdmin = user.type === 'ADMIN';
 
     if (!isAdmin && user.loginType === 'NONE') {
@@ -762,21 +766,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         userBadgeTitleData: true,
       },
     });
-
-    // const profileCompletion = calculateProfileCompletion({
-    //   ...userResponse, // includes categories, socialMediaPlatforms etc
-    //   bankDetails: !!user.bankDetails,
-    //   paypalDetails: !!user.paypalDetails,
-    // });
-
-    // // Update in DB
-    // await prisma.user.update({
-    //   where: { id: user.id },
-    //   data: { profileCompletion },
-    // });
-
-    // // Add to response object
-    // userResponse.profileCompletion = profileCompletion;
 
     return response.success(res, 'Login successful!', {
       user: userResponse,
@@ -3473,5 +3462,107 @@ export const getAllUsersForEmail = async (
     });
   } catch (error: any) {
     return response.error(res, error.message);
+  }
+};
+
+// Suspend or Reactivate User Account
+export const suspendOrReactivateUser = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id, action } = req.body;
+
+    if (!id || !isUuid(id)) {
+      return response.error(res, 'Invalid or missing UUID');
+    }
+
+    if (!['SUSPEND', 'REACTIVATE'].includes(action)) {
+      return response.error(res, 'Invalid action');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      return response.error(res, 'User not found');
+    }
+
+    /* ===================== REACTIVATE ===================== */
+    if (action === 'REACTIVATE') {
+      if (!user.isSuspended) {
+        return response.error(res, 'User is already active');
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: {
+          isSuspended: false,
+        },
+      });
+
+      return response.success(res, 'User account reactivated successfully', null);
+    }
+
+    /* ===================== SUSPEND ===================== */
+    if (user.isSuspended) {
+      return response.error(res, 'User already suspended');
+    }
+
+    // 1️⃣ Suspend user
+    await prisma.user.update({
+      where: { id },
+      data: {
+        isSuspended: true,
+      },
+    });
+
+    // 2️⃣ Decline all non-completed orders
+    await prisma.orders.updateMany({
+      where: {
+        OR: [{ influencerId: id }, { businessId: id }],
+        status: {
+          not: 'COMPLETED',
+        },
+      },
+      data: {
+        status: 'DECLINED',
+        reason: 'Order declined due to account suspension',
+      },
+    });
+
+    // 3️⃣ Refund declined orders
+    const declinedOrders = await prisma.orders.findMany({
+      where: {
+        OR: [{ influencerId: id }, { businessId: id }],
+        status: 'DECLINED',
+        paymentStatus: {
+          not: PaymentStatus.REFUND,
+        },
+      },
+    });
+
+    for (const order of declinedOrders) {
+      if (!order.finalAmount || !order.transactionId) continue;
+
+      const refundResponse = await paymentRefund(
+        order.transactionId,
+        order.finalAmount
+      );
+
+      if (refundResponse) {
+        await prisma.orders.update({
+          where: { id: order.id },
+          data: {
+            paymentStatus: PaymentStatus.REFUND,
+          },
+        });
+      }
+    }
+
+    return response.success(res, 'User account suspended successfully', null);
+  } catch (error: any) {
+    return response.error(res, error.message || 'Something went wrong');
   }
 };

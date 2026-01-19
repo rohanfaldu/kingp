@@ -100,6 +100,10 @@ export const getByIdCountry = async (req: Request, res: Response): Promise<any> 
 export const getAllCountry = async (req: Request, res: Response): Promise<any> => {
     try {
         const filter = {
+            where: {
+                status: true,
+                isVisible: true, 
+            },
             orderBy: {
                 name: 'asc'   // alphabetical order
             }
@@ -134,3 +138,55 @@ export const deleteCountry = async (req: Request, res: Response): Promise<any> =
         return response.error(res, error.message);
     }
 }
+
+export const toggleCountryVisibility = async ( req: Request,  res: Response): Promise<any> => {
+  try {
+    const { countryId, isVisible } = req.body;
+
+    if (!countryId || typeof isVisible !== 'boolean') {
+      return response.error(res, 'countryId and isVisible are required');
+    }
+
+    const country = await prisma.country.findUnique({
+      where: { id: countryId },
+    });
+
+    if (!country) {
+      return response.error(res, 'Country not found');
+    }
+
+    await prisma.country.update({
+      where: { id: countryId },
+      data: { isVisible },
+    });
+
+    return response.success(
+      res,
+      `Country ${isVisible ? 'shown' : 'hidden'} successfully`,
+      null
+    );
+  } catch (error: any) {
+    return response.error(res, error.message);
+  }
+};
+
+export const getAllCountryForAdmin = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const filter = {
+            orderBy: {
+                name: 'asc'  
+            }
+        };
+
+        const countries = await paginate(req, prisma.country, filter, "countries");
+
+        if (!countries || countries.countries.length === 0) {
+            throw new Error("Country not Found");
+        }
+
+        return response.success(res, 'Get All Countries successfully!', countries);
+
+    } catch (error: any) {
+        return response.error(res, error.message);
+    }
+};

@@ -2527,7 +2527,7 @@ export const getAdminAllOrderList = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { status, page = 1, limit = 10 } = req.body;
+    const { status, page = 1, limit = 10, search  } = req.body;
 
     const tokenUser = req.user;
     if (!tokenUser || !tokenUser.userId) {
@@ -2582,22 +2582,32 @@ export const getAdminAllOrderList = async (
     const parsedLimit = Number(limit) || 100;
     const skip = (parsedPage - 1) * parsedLimit;
 
+    /* ------------------ SEARCH CONDITION ------------------ */
+    const whereCondition: any = {
+      status: {
+        in: whereStatus,
+      },
+    };
+
+    if (search && typeof search === 'string') {
+      whereCondition.OR = [
+        {
+          orderId: {
+            contains: search,
+            mode: 'insensitive', // case-insensitive search
+          },
+        },
+      ];
+    }
+
     // Get total count
     const total = await prisma.orders.count({
-      where: {
-        status: {
-          in: whereStatus,
-        },
-      },
+       where: whereCondition,
     });
 
     // Option 1: Simple approach - exclude only userId (your original approach)
     const getOrder = await prisma.orders.findMany({
-      where: {
-        status: {
-          in: whereStatus,
-        },
-      },
+      where: whereCondition,
       include: {
         groupOrderData: {
           include: {

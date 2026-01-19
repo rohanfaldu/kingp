@@ -40,6 +40,7 @@ model User {
   availability             AvailabilityType?
   viewCount                Int?         @default(0)
   profileCompletion        Int          @default(0)
+  isSuspended              Boolean      @default(false)
   createsAt                DateTime?    @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?    @default(now()) @updatedAt @db.Timestamp(6)
   createdBy                String?      @db.Uuid
@@ -106,6 +107,7 @@ model Country {
   name                     String?        @db.VarChar
   countryCode              String?        @unique@db.VarChar
   status                   Boolean        @default(true)
+  isVisible                Boolean        @default(true)
   createsAt                DateTime?      @default(now()) @db.Timestamp(6)
   updatedAt                DateTime?      @default(now()) @db.Timestamp(6)
   countryData              User[]
@@ -503,6 +505,7 @@ model Contact {
   description         String?       @db.VarChar
   emailAddress        String?       @db.VarChar
   contactNumber       String?       @db.VarChar
+  status              ContactStatus @default(PENDING)
   createdAt           DateTime      @default(now()) @db.Timestamp(6)
   updatedAt           DateTime      @updatedAt @db.Timestamp(6)
 }
@@ -855,4 +858,10 @@ enum ApplicationStatus {
 enum PostStatus {
   SENT
   CONFIRMED
+}
+
+enum ContactStatus {
+  PENDING
+  COMPLETED
+  DELETED
 }

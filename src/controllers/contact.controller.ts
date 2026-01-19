@@ -40,6 +40,62 @@ export const submitContactForm = async (req: Request, res: Response): Promise<an
     }
 };
 
+export const updateContactRequestStatus = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const tokenUser = req.user;
+
+    if (!tokenUser?.userId) {
+      return response.error(res, 'Invalid token payload');
+    }
+
+    const { contactId, status } = req.body;
+
+    if (!contactId || !status) {
+      return response.error(res, 'contactId and status are required');
+    }
+
+    // Admin check
+    const loggedInUser = await prisma.user.findUnique({
+      where: { id: tokenUser.userId },
+    });
+
+    if (!loggedInUser || loggedInUser.type !== 'ADMIN') {
+      return response.error(
+        res,
+        'Unauthorized access. Only ADMIN can update contact request status.'
+      );
+    }
+
+    // Validate contact exists
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+
+    if (!contact) {
+      return response.error(res, 'Contact request not found');
+    }
+
+    // Update status
+    const updatedContact = await prisma.contact.update({
+      where: { id: contactId },
+      data: {
+        status,
+        updatedAt: new Date(),
+      },
+    });
+
+    return response.success(
+      res,
+      'Contact request status updated successfully',
+      updatedContact
+    );
+  } catch (error: any) {
+    return response.error(res, error.message || 'Something went wrong');
+  }
+};
 
 
 
@@ -99,7 +155,7 @@ export const deleteContactRequest = async (req: Request, res: Response): Promise
             return response.error(res, "Unauthorized access. Only ADMIN can delete contact requests.");
         }
 
-        const { contactId } = req.body;
+        const { id: contactId } = req.params;
 
         if (!contactId) {
             return response.error(res, "Contact ID is required for deletion.");
