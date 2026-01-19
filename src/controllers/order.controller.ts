@@ -2358,9 +2358,10 @@ export const getAllOrderList = async (
 
     if (status === 3) {
       // Get the statuses for codes 4 and 7
+      const status3 = getStatusName(3);
       const status4 = getStatusName(4);
       const status7 = getStatusName(7);
-      whereStatus = [status4, status7];
+      whereStatus = [status3, status4, status7];
     } else {
       whereStatus = [statusEnumValue];
     }
