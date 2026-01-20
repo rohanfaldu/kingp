@@ -820,6 +820,7 @@ export const updateOrderStatus = async (
     const {
       id,
       status,
+      reason,
       completionDate,
       groupId,
       influencerId,
@@ -1042,6 +1043,7 @@ export const updateOrderStatus = async (
               data: {
                 status: OfferStatus.DECLINED,
                 paymentStatus: PaymentStatus.REFUND,
+                ...(reason && { reason }),
               },
             });
 
