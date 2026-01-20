@@ -825,6 +825,7 @@ export const updateOrderStatus = async (
       influencerId,
       businessId,
       paymentStatus,
+      transactionId,
       ...safeUpdateFields
     } = orderData;
 
@@ -848,12 +849,30 @@ export const updateOrderStatus = async (
     if (!currentOrder) return response.error(res, 'Order not found');
 
     if (status === 3 && statusEnumValue === OfferStatus.ACTIVATED) {
-      await prisma.orders.update({
-        where: { id },
-        data: {
-          paymentStatus: PaymentStatus.COMPLETED,
-        },
-      });
+      // await prisma.orders.update({
+      //   where: { id },
+      //   data: {
+      //     paymentStatus: PaymentStatus.COMPLETED,
+      //   },
+      // });
+
+      if (!currentOrder.transactionId && orderData.transactionId) {
+        await prisma.orders.update({
+          where: { id },
+          data: {
+            transactionId: orderData.transactionId,
+            paymentStatus: PaymentStatus.COMPLETED,
+          },
+        });
+      } else {
+        // Do NOT touch transactionId again
+        await prisma.orders.update({
+          where: { id },
+          data: {
+            paymentStatus: PaymentStatus.COMPLETED,
+          },
+        });
+      }
 
       const user = await prisma.user.findUnique({
         where: { id: currentOrder?.businessId },
@@ -1871,90 +1890,6 @@ export const updateOrderStatus = async (
         }
       }
 
-      // const eligibleUserIds = [];
-
-      // if (updated.influencerId) eligibleUserIds.push(updated.influencerId);
-
-      // console.log(updated.influencerId, '>>>>>>>>>>>>> updated.influencerId');
-      // console.log(updated.groupId, '>>>>>>>>>>>>> updated.groupId');
-
-      // if (updated.groupId) {
-      //     const acceptedUsers = await prisma.groupUsersList.findMany({
-      //         where: { groupId: updated.groupId, requestAccept: 'ACCEPTED' },
-      //         select: { invitedUserId: true },
-      //     });
-      //     acceptedUsers.forEach(({ invitedUserId }) => eligibleUserIds.push(invitedUserId));
-
-      //     const groupAdmins = await prisma.groupUsers.findMany({
-      //         where: { groupId: updated.groupId },
-      //         select: { userId: true },
-      //     });
-      //     groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
-      // }
-
-      // if (eligibleUserIds.length > 0) {
-      //     // // Base amount for users (80% of total)
-      //     // const userShareBase = amount * 0.8;
-      //     // const perUserShare = userShareBase / eligibleUserIds.length;
-
-      //     // console.log(userShareBase, '>>>>>>>>>>>>>>>>>>>>>>userShareBase');
-      //     // console.log(perUserShare, '>>>>>>>>>>>>>>>>>>>>>>perUserShare');
-
-      //     // // Get GST registration status for each user
-      //     // const usersWithGstStatus = await prisma.user.findMany({
-      //     //     where: { id: { in: eligibleUserIds } },
-      //     //     select: { id: true, gstNumber: true },
-      //     // });
-
-      //     // const userGstMap = new Map();
-      //     // usersWithGstStatus.forEach(user => {
-      //     //     userGstMap.set(user.id, !!user.gstNumber);
-      //     // });
-
-      //     // // Calculate total GST amount that should be distributed
-      //     // const totalGstAmount = userShareBase * 0.18;
-      //     // let distributedGstAmount = 0;
-
-      //     // // Calculate TDS and TCS per user
-      //     // const perUserTds = globalTds / eligibleUserIds.length;
-      //     // const perUserTcs = globalTcs / eligibleUserIds.length;
-
-      //     // for (const userId of eligibleUserIds) {
-      //     //     const userHasGst = userGstMap.get(userId) || false;
-
-      //     //     // Calculate GST for this user
-      //     //     const userGstAmount = userHasGst ? (perUserShare * 0.18) : 0;
-      //     //     distributedGstAmount += userGstAmount;
-
-      //     //     // User's earning including GST but minus TDS/TCS
-      //     //     const userGrossEarning = perUserShare;
-      //     //     const userNetEarning = userGrossEarning - perUserTds - perUserTcs;
-
-      //         // // Store user's TotalGstData
-      //         // try {
-      //         //     await prisma.totalGstData.create({
-      //         //         data: {
-      //         //             orderId: updated.id,
-      //         //             userId: userId,
-      //         //             basicAmount: new Prisma.Decimal(perUserShare),
-      //         //             gst: new Prisma.Decimal(userGstAmount),
-      //         //             tds: new Prisma.Decimal(0),
-      //         //             tcs: new Prisma.Decimal(0),
-      //         //             otherAmount: new Prisma.Decimal(0),
-      //         //             totalAmt: new Prisma.Decimal(userNetEarning),
-      //         //         },
-      //         //     });
-      //         // } catch (error) {
-      //         //     console.error(`❌ Failed to insert TotalGstData for user ${userId}`, error);
-      //         // }
-
-      //         // earningsData.push({
-      //         //     ...baseEarning,
-      //         //     userId,
-      //         //     amount,
-      //         //     earningAmount: userNetEarning, // Store net earning after TDS/TCS deduction
-      //         // });
-      //     // }
 
       await prisma.earnings.createMany({
         data: earningsData,
