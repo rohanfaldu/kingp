@@ -1069,10 +1069,11 @@ const userStatss = await prisma.userStats.findFirst({
       },
     });
 
-    const totalEarnings = Number(userStats?.totalEarnings ?? 0);
+    const totalEarnings = (userStatss?.totalEarnings?.toNumber?.() ?? 0) + (userStatss?.totalWithdraw?.toNumber?.() ?? 0);
     const totalWithdraw = Number(userStats?.totalWithdraw ?? 0);
     const totalExpenses = Number(userStats?.totalExpenses ?? 0);
-    const netEarning = totalEarnings - totalWithdraw;
+    // const netEarning = totalEarnings - totalWithdraw;
+    const netEarning = Number(userStats?.totalEarnings ?? 0);
 
     const earningsSummary = {
       totalEarnings,
