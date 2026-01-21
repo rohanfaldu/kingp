@@ -899,7 +899,7 @@ export const getByIdUser = async (
       ? {
           ...userStats,
           totalEarnings: userStats.totalEarnings
-            ? Number(userStats.totalEarnings).toFixed(2)
+            ? Number(userStats.totalEarnings).toFixed(2) + Number(userStats.totalExpenses).toFixed(2)
             : '0.00',
           totalExpenses: userStats.totalExpenses
             ? Number(userStats.totalExpenses).toFixed(2)
@@ -919,10 +919,11 @@ export const getByIdUser = async (
           onTimeDelivery: userStats.onTimeDelivery
             ? Number(userStats.onTimeDelivery)
             : 0,
-          netEarning: (
-            (userStats.totalEarnings?.toNumber?.() ?? 0) -
-            (userStats.totalWithdraw?.toNumber?.() ?? 0)
-          ).toFixed(2),
+          // netEarning: (
+          //   (userStats.totalEarnings?.toNumber?.() ?? 0) -
+          //   (userStats.totalWithdraw?.toNumber?.() ?? 0)
+          // ).toFixed(2),
+          netEarning: Number(userStats?.totalEarnings ?? 0),
         }
       : {
           totalEarnings: '0.00',
