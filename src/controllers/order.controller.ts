@@ -3316,7 +3316,7 @@ export const getTransactionHistory = async (
         formattedBusinessOrders.push({
           id: order.id,
           type: 'EXPENSE',
-          amount: Number(order.finalAmount ?? 0),
+          amount: toTwoDecimal(Number(order.finalAmount ?? 0)),
           createdAt: order.createdAt!,
           title: order.title ?? 'Business Order',
           description: order.description ?? '',
