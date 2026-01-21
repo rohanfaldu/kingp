@@ -99,13 +99,23 @@ export const sendWelcomeEmailToUser = async (userId: string, otp: string): Promi
       .replace(/{{otp}}/g, otp || '');
 
     // 4️⃣ Send email
-    await resend.emails.send({
-      from: 'KringP <info@kringp.com>',
+    // await resend.emails.send({
+    //   from: 'KringP <info@kringp.com>',
+    //   to: user.emailAddress,
+    //   subject: template.subject,
+    //   html: htmlBody,
+    // });
+
+    // console.log(`✅ Sent WELCOME_EMAIL to ${user.emailAddress} with OTP`);
+
+     const response = await resend.emails.send({
+      from: 'KringP <info@kringp.com>', // must be verified
       to: user.emailAddress,
       subject: template.subject,
       html: htmlBody,
     });
 
+    console.log('✅ Resend email queued:', response);
     console.log(`✅ Sent WELCOME_EMAIL to ${user.emailAddress} with OTP`);
   } catch (err) {
     console.error(`Error sending welcome email to user ${userId}:`, err);
