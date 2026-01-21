@@ -3087,6 +3087,10 @@ const formatUserData = async (user: any) => {
 const toTwoDecimal = (value: number) =>
   Number(value.toFixed(2));
 
+const formatAmountTwoDecimal = (value: any) =>
+  Number(Number(value || 0).toFixed(2));
+
+
 
 export const getTransactionHistory = async (
   req: Request,
@@ -3338,10 +3342,15 @@ export const getTransactionHistory = async (
       ...formattedEarnings,
       ...formattedWithdrawals,
       ...formattedBusinessOrders,
-    ].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    ]
+    .map((tx) => ({
+      ...tx,
+      amount: formatAmountTwoDecimal(tx.amount), // ✅ FIX HERE
+    }))
+    .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
     let totalExpenses = 0;
 
