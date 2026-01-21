@@ -898,9 +898,13 @@ export const getByIdUser = async (
     const formattedUserStats = userStats
       ? {
           ...userStats,
-          totalEarnings: userStats.totalEarnings
-            ? Number(userStats.totalEarnings).toFixed(2) + Number(userStats.totalExpenses).toFixed(2)
-            : '0.00',
+          // totalEarnings: userStats.totalEarnings
+          //   ? Number(userStats.totalEarnings).toFixed(2) 
+          //   : '0.00',
+            totalEarnings: (
+            (Number(userStats.totalEarnings) || 0) +
+            (Number(userStats.totalExpenses) || 0)
+          ).toFixed(2),
           totalExpenses: userStats.totalExpenses
             ? Number(userStats.totalExpenses).toFixed(2)
             : '0.00',
@@ -919,11 +923,9 @@ export const getByIdUser = async (
           onTimeDelivery: userStats.onTimeDelivery
             ? Number(userStats.onTimeDelivery)
             : 0,
-          // netEarning: (
-          //   (userStats.totalEarnings?.toNumber?.() ?? 0) -
-          //   (userStats.totalWithdraw?.toNumber?.() ?? 0)
-          // ).toFixed(2),
-          netEarning: Number(userStats?.totalEarnings ?? 0),
+          netEarning: userStats.totalEarnings
+            ? Number(userStats.totalEarnings).toFixed(2) 
+            : '0.00',
         }
       : {
           totalEarnings: '0.00',
