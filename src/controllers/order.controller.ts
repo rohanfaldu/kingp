@@ -3084,6 +3084,10 @@ const formatUserData = async (user: any) => {
   };
 };
 
+const toTwoDecimal = (value: number) =>
+  Number(value.toFixed(2));
+
+
 export const getTransactionHistory = async (
   req: Request,
   res: Response
@@ -3363,10 +3367,10 @@ export const getTransactionHistory = async (
     }
 
     const responseData = {
-      totalEarnings,
-      totalWithdraw,
-      totalBusinessExpenses,
-      netEarnings: totalEarnings - totalWithdraw,
+      totalEarnings: toTwoDecimal(totalEarnings),
+      totalWithdraw: toTwoDecimal(totalWithdraw),
+      totalBusinessExpenses: toTwoDecimal(totalBusinessExpenses),
+      netEarnings: toTwoDecimal(totalEarnings - totalWithdraw),
       transactionData,
     };
 
