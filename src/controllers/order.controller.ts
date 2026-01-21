@@ -3087,10 +3087,8 @@ const formatUserData = async (user: any) => {
 const toTwoDecimal = (value: number) =>
   Number(value.toFixed(2));
 
-const formatAmountTwoDecimal = (value: any) =>
-  Number(Number(value || 0).toFixed(2));
-
-
+const formatAmountStringTwoDecimal = (value: any): string =>
+  Number(value || 0).toFixed(2);
 
 export const getTransactionHistory = async (
   req: Request,
@@ -3345,7 +3343,7 @@ export const getTransactionHistory = async (
     ]
     .map((tx) => ({
       ...tx,
-      amount: formatAmountTwoDecimal(tx.amount), // ✅ FIX HERE
+      amount: formatAmountStringTwoDecimal(tx.amount), // ✅ FIX HERE
     }))
     .sort(
         (a, b) =>
