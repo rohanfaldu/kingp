@@ -903,7 +903,7 @@ export const getByIdUser = async (
           //   : '0.00',
             totalEarnings: (
             (Number(userStats.totalEarnings) || 0) +
-            (Number(userStats.totalExpenses) || 0)
+            (Number(userStats.totalWithdraw) || 0)
           ).toFixed(2),
           totalExpenses: userStats.totalExpenses
             ? Number(userStats.totalExpenses).toFixed(2)
