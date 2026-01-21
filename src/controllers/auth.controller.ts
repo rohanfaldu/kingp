@@ -1060,48 +1060,25 @@ export const getByIdUser = async (
       data: transactions,
     };
 
-    // ✅ UPDATED: Fetch actual transaction data like getTransactionHistory
-    const earnings = await prisma.earnings.findMany({
+const userStatss = await prisma.userStats.findFirst({
       where: { userId: id },
-      select: { amount: true },
-    });
-
-    const withdrawals = await prisma.withdraw.findMany({
-      where: { userId: id },
-      select: { amount: true },
-    });
-
-    const businessOrders = await prisma.orders.findMany({
-      where: {
-        businessId: id,
-        status: 'COMPLETED',
+      select: {
+        totalEarnings: true,
+        totalWithdraw: true,
+        totalExpenses: true,
       },
-      select: { finalAmount: true },
     });
 
-    // Calculate totals using the same logic as getTransactionHistory
-    const totalEarnings = earnings.reduce(
-      (sum, e) => sum + Number(e.amount || 0),
-      0
-    );
-
-    const totalWithdraw = withdrawals.reduce(
-      (sum, w) => sum + Number(w.amount || 0),
-      0
-    );
-
-    const totalExpenses = businessOrders.reduce(
-      (sum, o) => sum + Number(o.finalAmount || 0),
-      0
-    );
-
+    const totalEarnings = Number(userStats?.totalEarnings ?? 0);
+    const totalWithdraw = Number(userStats?.totalWithdraw ?? 0);
+    const totalExpenses = Number(userStats?.totalExpenses ?? 0);
     const netEarning = totalEarnings - totalWithdraw;
 
     const earningsSummary = {
-      totalEarnings: totalEarnings.toFixed(2),
-      totalWithdraw: totalWithdraw.toFixed(2),
-      totalExpenses: totalExpenses.toFixed(2),
-      netEarning: netEarning.toFixed(2),
+      totalEarnings,
+      totalWithdraw,
+      totalExpenses,
+      netEarning,
     };
 
     console.log('Fetching token for userId:', id);
