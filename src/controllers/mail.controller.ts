@@ -704,7 +704,62 @@ export const deleteEmailTemplate = async (req: Request, res: Response): Promise<
 
 //--------------------- End Email Template  ---------------------//
 
-export const sendEmailToSelectedUsers = async (req: Request, res: Response): Promise<any> => {
+// export const sendEmailToSelectedUsers = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { templateId, userIds } = req.body;
+
+//     if (!templateId || !Array.isArray(userIds) || userIds.length === 0) {
+//       return response.error(res, "templateId and userIds are required");
+//     }
+
+//     // Fetch template
+//     const template = await prisma.emailTemplate.findUnique({
+//       where: { id: templateId },
+//     });
+
+//     if (!template) {
+//       return response.error(res, "Email template not found");
+//     }
+
+//     // Fetch users
+//     const users = await prisma.user.findMany({
+//       where: {
+//         id: { in: userIds },
+//       },
+//     });
+
+//     if (users.length === 0) {
+//       return response.error(res, "No users found for given userIds");
+//     }
+
+//     for (const user of users) {
+//       try {
+//         const htmlBody = template.body.replace(/{{userName}}/g, user.name || "User");
+
+//         await resend.emails.send({
+//           from: 'KringP <info@kringp.com>',
+//           to: user.emailAddress,
+//           subject: template.subject,
+//           html: htmlBody,
+//         });
+
+//         console.log(`📩 Email sent to: ${user.emailAddress}`);
+//       } catch (err) {
+//         console.error(`❌ Failed to send email to ${user.emailAddress}:`, err);
+//       }
+//     }
+
+//     return response.success(res, "Emails sent successfully");
+//   } catch (error) {
+//     console.error("sendEmailToSelectedUsers error:", error);
+//     return response.error(res, "Something went wrong");
+//   }
+// };
+
+export const sendEmailToSelectedUsers = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { templateId, userIds } = req.body;
 
@@ -732,24 +787,69 @@ export const sendEmailToSelectedUsers = async (req: Request, res: Response): Pro
       return response.error(res, "No users found for given userIds");
     }
 
-    for (const user of users) {
-      try {
-        const htmlBody = template.body.replace(/{{userName}}/g, user.name || "User");
+    // -------- CONFIG (IMPORTANT) --------
+    const BATCH_SIZE = 1;        // send 10 emails at a time
+    const DELAY_BETWEEN_BATCH = 1000; // 3 sec between batches
+    // -----------------------------------
 
-        await resend.emails.send({
-          from: 'KringP <info@kringp.com>',
-          to: user.emailAddress,
-          subject: template.subject,
-          html: htmlBody,
-        });
+    const delay = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
 
-        console.log(`📩 Email sent to: ${user.emailAddress}`);
-      } catch (err) {
-        console.error(`❌ Failed to send email to ${user.emailAddress}:`, err);
-      }
+    let successCount = 0;
+    let failedCount = 0;
+
+    // Split users into batches
+    for (let i = 0; i < users.length; i += BATCH_SIZE) {
+      const batch = users.slice(i, i + BATCH_SIZE);
+
+      await Promise.all(
+        batch.map(async (user) => {
+          try {
+            if (!user.emailAddress) return;
+
+            const htmlBody = template.body.replace(
+              /{{userName}}/g,
+              user.name || "User"
+            );
+
+            const result = await resend.emails.send({
+              from: "KringP <info@kringp.com>",
+              to: user.emailAddress,
+              subject: template.subject,
+              html: htmlBody,
+            });
+            console.log(result, '>>>>>>>>>>> result');
+
+            console.log(
+              `📩 Sent to ${user.emailAddress} | Resend ID: ${result?.data?.id}`
+            );
+
+            successCount++;
+            console.log(
+              `✅ Success for ${user.emailAddress}`, 'count', successCount
+            );
+          } catch (err) {
+            failedCount++;
+            console.error(
+              `❌ Failed for ${user.emailAddress}:`,
+              err
+            );
+          }
+        })
+      );
+
+      // Delay before next batch
+      console.log(
+        `⏳ Batch completed (${Math.min(i + BATCH_SIZE, users.length)}/${users.length})`
+      );
+      await delay(DELAY_BETWEEN_BATCH);
     }
 
-    return response.success(res, "Emails sent successfully");
+    return response.success(res, "Emails sent successfully", {
+      totalSelected: users.length,
+      sent: successCount,
+      failed: failedCount,
+    });
   } catch (error) {
     console.error("sendEmailToSelectedUsers error:", error);
     return response.error(res, "Something went wrong");
