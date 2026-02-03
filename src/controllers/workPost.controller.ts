@@ -408,16 +408,30 @@ export const getAllWorkPosts = async (
   try {
     const userId = req.user?.userId;
 
-    const { categoryId, search, page = 1, limit = 10 } = req.body;
+    const {
+      subCategoryIds = [], 
+      countryId,
+      stateId,
+      cityIds = [], 
+      search,
+      page = 1,
+      limit = 10,
+    } = req.body;
 
     const pageNumber = Number(page);
     const pageSize = Number(limit);
     const skip = (pageNumber - 1) * pageSize;
 
-    // ✅ Dynamic filter
+    // ---------- Build dynamic where condition ----------
     const whereCondition: any = { isDraft: false };
 
-    if (categoryId) whereCondition.categoryId = String(categoryId);
+    if (countryId) whereCondition.countryId = countryId;
+    if (stateId) whereCondition.stateId = stateId;
+    if (cityIds.length > 0) whereCondition.cityId = { hasSome: cityIds };
+    if (subCategoryIds.length > 0)
+      whereCondition.workPostCategory = {
+        some: { subCategoryId: { in: subCategoryIds } },
+      };
 
     if (search) {
       whereCondition.OR = [
@@ -428,7 +442,6 @@ export const getAllWorkPosts = async (
       ];
     }
 
-    // ✅ Fetch data and count in parallel
     const [posts, totalCount] = await Promise.all([
       prisma.workPosts.findMany({
         where: whereCondition,
@@ -445,10 +458,18 @@ export const getAllWorkPosts = async (
               cityData: { select: { id: true, name: true } },
             },
           },
-          category: {
+          workPostCountry: { select: { id: true, name: true } },
+          workPostState: { select: { id: true, name: true } },
+          workPostCategory: {
             include: {
-              categoryInformation: {
-                select: { id: true, name: true, image: true },
+              workSubCategory: {
+                select: {
+                  id: true,
+                  name: true,
+                  categoryInformation: {
+                    select: { id: true, name: true, image: true },
+                  },
+                },
               },
             },
           },
@@ -460,8 +481,18 @@ export const getAllWorkPosts = async (
       prisma.workPosts.count({ where: whereCondition }),
     ]);
 
-    // ✅ Fetch all applications by this user for these posts
-    let userApplications: string[] = [];
+    // ---------- Fetch all city names for mapping ----------
+    const allCityIds = posts.flatMap((p) => p.cityId || []);
+    const uniqueCityIds = Array.from(new Set(allCityIds));
+    const cities = uniqueCityIds.length
+      ? await prisma.city.findMany({
+          where: { id: { in: uniqueCityIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const cityMap = Object.fromEntries(cities.map((c) => [c.id, c.name]));
+
+    let userAppliedWorkPostIds: Set<string> = new Set();
     if (userId) {
       const applications = await prisma.workPostApplication.findMany({
         where: {
@@ -470,21 +501,18 @@ export const getAllWorkPosts = async (
         },
         select: { workPostId: true },
       });
-      userApplications = applications.map((a) => a.workPostId);
+      userAppliedWorkPostIds = new Set(applications.map((a) => a.workPostId));
     }
 
-    // ✅ Format response (replace null → "")
+    // ---------- Format posts ----------
     const formattedPosts = posts.map((post) => ({
       id: post.id,
-      businessId: post.businessId ?? '',
       title: post.title ?? '',
       description: post.description ?? '',
-      status: post.status ?? '',
       totalAmount:
         post.totalAmount !== undefined && post.totalAmount !== null
           ? Number(post.totalAmount).toFixed(2)
           : '',
-      categoryId: post.categoryId ?? '',
       deliverables: Array.isArray(post.deliverables) ? post.deliverables : [],
       platforms: Array.isArray(post.platforms) ? post.platforms : [],
       tags: Array.isArray(post.tags) ? post.tags : [],
@@ -493,28 +521,20 @@ export const getAllWorkPosts = async (
       endDate: post.endDate ?? '',
       submissionDeadline: post.submissionDeadline ?? '',
       isDraft: post.isDraft ?? false,
+      isGlobal: post.isGlobal ?? false,
       createdAt: post.createdAt ?? '',
       updatedAt: post.updatedAt ?? '',
       business: post.business ?? {},
-      subcategory: post.category
-        ? {
-            id: post.category.id,
-            name: post.category.name ?? '',
-            image: post.category.image ?? '',
-            status: post.category.status ?? '',
-            category: post.category.categoryInformation
-              ? {
-                  id: post.category.categoryInformation.id,
-                  name: post.category.categoryInformation.name ?? '',
-                  image: post.category.categoryInformation.image ?? '',
-                }
-              : '',
-          }
-        : '',
-       applyWorkPost: userId ? userApplications.includes(post.id) : false, 
+      workPostCategory: post.workPostCategory || [],
+      country: post.workPostCountry || null,
+      state: post.workPostState || null,
+      cities: (post.cityId || []).map((cid) => ({
+        id: cid,
+        name: cityMap[cid] || '',
+      })),
+      applyWorkPost: userId ? userAppliedWorkPostIds.has(post.id) : false,
     }));
 
-    // ✅ Final response
     return res.status(200).json({
       success: true,
       message: 'Work posts fetched successfully',
