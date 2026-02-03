@@ -1,10 +1,10 @@
-import { Badges } from './../../node_modules/.prisma/client/index.d';
+import { Badges } from '@prisma/client';
 import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
-import response from '../utils/response';
-import { getStatusName } from '../utils/commonFunction';
-import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
-import { IOrder, EditIOrder } from './../interfaces/order.interface';
+import response from '../../utils/response';
+import { getStatusName } from '../../utils/commonFunction';
+import { getUserCategoriesWithSubcategories } from '../../utils/getUserCategoriesWithSubcategories';
+import { IOrder, EditIOrder } from '../../interfaces/order.interface';
 import { addDays } from 'date-fns';
 import {
   OfferStatus,
@@ -16,21 +16,21 @@ import {
   formatEarningToTransaction,
   formatWithdrawToTransaction,
   TransactionHistoryItem,
-} from './../interfaces/responseInterface/history.interface';
-import { formatBirthDate } from '../controllers/auth.controller';
-import { UserType } from '../enums/userType.enum';
-import { sendFCMNotificationToUsers } from '../utils/notification';
+} from '../../interfaces/responseInterface/history.interface';
+import { formatBirthDate } from '../../controllers/v1/auth.controller';
+import { UserType } from '../../enums/userType.enum';
+import { sendFCMNotificationToUsers } from '../../utils/notification';
 import { CoinType, CoinStatus } from '@prisma/client';
-import { paginate } from '../utils/pagination';
+import { paginate } from '../../utils/pagination';
 import {
   paymentRefund,
   getBageData,
   initiateTransfer,
-} from '../utils/commonFunction';
+} from '../../utils/commonFunction';
 import {
   sendEmailWithOptionalPdf,
   generateInvoicePdf,
-} from '../utils/sendMail';
+} from '../../utils/sendMail';
 import { sendRedeemPointsEmailToUser } from './mail.controller';
 import fs from 'fs';
 import path from 'path';
@@ -820,11 +820,13 @@ export const updateOrderStatus = async (
     const {
       id,
       status,
+      reason,
       completionDate,
       groupId,
       influencerId,
       businessId,
       paymentStatus,
+      transactionId,
       ...safeUpdateFields
     } = orderData;
 
@@ -848,12 +850,30 @@ export const updateOrderStatus = async (
     if (!currentOrder) return response.error(res, 'Order not found');
 
     if (status === 3 && statusEnumValue === OfferStatus.ACTIVATED) {
-      await prisma.orders.update({
-        where: { id },
-        data: {
-          paymentStatus: PaymentStatus.COMPLETED,
-        },
-      });
+      // await prisma.orders.update({
+      //   where: { id },
+      //   data: {
+      //     paymentStatus: PaymentStatus.COMPLETED,
+      //   },
+      // });
+
+      if (!currentOrder.transactionId && orderData.transactionId) {
+        await prisma.orders.update({
+          where: { id },
+          data: {
+            transactionId: orderData.transactionId,
+            paymentStatus: PaymentStatus.COMPLETED,
+          },
+        });
+      } else {
+        // Do NOT touch transactionId again
+        await prisma.orders.update({
+          where: { id },
+          data: {
+            paymentStatus: PaymentStatus.COMPLETED,
+          },
+        });
+      }
 
       const user = await prisma.user.findUnique({
         where: { id: currentOrder?.businessId },
@@ -874,6 +894,7 @@ export const updateOrderStatus = async (
             select: {
               name: true,
               emailAddress: true,
+              contactCountryCode: true,
               contactPersonPhoneNumber: true,
               cityData: { select: { name: true } },
               stateData: { select: { name: true } },
@@ -883,6 +904,7 @@ export const updateOrderStatus = async (
             select: {
               name: true,
               emailAddress: true,
+              contactCountryCode: true,
               contactPersonPhoneNumber: true,
               cityData: { select: { name: true } },
               stateData: { select: { name: true } },
@@ -916,6 +938,7 @@ export const updateOrderStatus = async (
           select: {
             name: true,
             emailAddress: true,
+            contactCountryCode: true,
             contactPersonPhoneNumber: true,
             cityData: { select: { name: true } },
             stateData: { select: { name: true } },
@@ -976,6 +999,25 @@ export const updateOrderStatus = async (
       );
     }
 
+    // ================= ORDER REJECT LOGIC =================
+    if (status === 7 && statusEnumValue === OfferStatus.ORDERREJECT) {
+      // Allow reject ONLY after order is submitted
+      if (currentOrder.status !== OfferStatus.ORDERSUBMITTED) {
+        return response.error(
+          res,
+          'Order can be rejected only after ORDERSUBMITTED'
+        );
+      }
+
+      await prisma.orders.update({
+        where: { id },
+        data: {
+          status: OfferStatus.ORDERREJECT,
+        },
+      });
+    }
+    // =====================================================
+
     // // REFUND LOGIC FOR CANCELED ORDERS
     if (status === 6 && statusEnumValue === OfferStatus.DECLINED) {
       try {
@@ -983,6 +1025,13 @@ export const updateOrderStatus = async (
           const refundAmountInPaise = currentOrder.finalAmount;
           //const refundAmountInPaise = 1;
           const razorpayPaymentId = currentOrder.transactionId;
+
+          console.log(
+            refundAmountInPaise,
+            'refundAmountInPaise',
+            razorpayPaymentId,
+            'razorpayPaymentId'
+          );
 
           const paymentRefundResponse = await paymentRefund(
             razorpayPaymentId,
@@ -994,6 +1043,7 @@ export const updateOrderStatus = async (
               data: {
                 status: OfferStatus.DECLINED,
                 paymentStatus: PaymentStatus.REFUND,
+                ...(reason && { reason }),
               },
             });
 
@@ -1336,7 +1386,7 @@ export const updateOrderStatus = async (
 
     // FCM NOTIFICATION LOGIC WITH DATABASE STORAGE
     try {
-      if ([1, 2, 5].includes(status)) {
+      if ([1, 2, 5, 7].includes(status)) {
         const influencerUsers: any[] = [];
 
         if (currentOrder.influencerId) {
@@ -1410,7 +1460,14 @@ export const updateOrderStatus = async (
               notificationBody = `Congratulations! Your order has been completed${amount ? ` and earnings of ${amount} have been distributed.` : '.'}`;
               notificationType = 'ORDER_COMPLETED';
               break;
+            case 7: // ✅ ORDER REJECTED
+              notificationTitle = 'Order Rejected';
+              notificationBody =
+                'Your submitted work was rejected by the business.';
+              notificationType = 'ORDER_REJECTED';
+              break;
           }
+          console.log('influencerUsers to notify:', influencerUsers);
 
           // Store notifications in database and send FCM
           const notificationPromises = influencerUsers.map(async (user) => {
@@ -1835,90 +1892,6 @@ export const updateOrderStatus = async (
         }
       }
 
-      // const eligibleUserIds = [];
-
-      // if (updated.influencerId) eligibleUserIds.push(updated.influencerId);
-
-      // console.log(updated.influencerId, '>>>>>>>>>>>>> updated.influencerId');
-      // console.log(updated.groupId, '>>>>>>>>>>>>> updated.groupId');
-
-      // if (updated.groupId) {
-      //     const acceptedUsers = await prisma.groupUsersList.findMany({
-      //         where: { groupId: updated.groupId, requestAccept: 'ACCEPTED' },
-      //         select: { invitedUserId: true },
-      //     });
-      //     acceptedUsers.forEach(({ invitedUserId }) => eligibleUserIds.push(invitedUserId));
-
-      //     const groupAdmins = await prisma.groupUsers.findMany({
-      //         where: { groupId: updated.groupId },
-      //         select: { userId: true },
-      //     });
-      //     groupAdmins.forEach(({ userId }) => eligibleUserIds.push(userId));
-      // }
-
-      // if (eligibleUserIds.length > 0) {
-      //     // // Base amount for users (80% of total)
-      //     // const userShareBase = amount * 0.8;
-      //     // const perUserShare = userShareBase / eligibleUserIds.length;
-
-      //     // console.log(userShareBase, '>>>>>>>>>>>>>>>>>>>>>>userShareBase');
-      //     // console.log(perUserShare, '>>>>>>>>>>>>>>>>>>>>>>perUserShare');
-
-      //     // // Get GST registration status for each user
-      //     // const usersWithGstStatus = await prisma.user.findMany({
-      //     //     where: { id: { in: eligibleUserIds } },
-      //     //     select: { id: true, gstNumber: true },
-      //     // });
-
-      //     // const userGstMap = new Map();
-      //     // usersWithGstStatus.forEach(user => {
-      //     //     userGstMap.set(user.id, !!user.gstNumber);
-      //     // });
-
-      //     // // Calculate total GST amount that should be distributed
-      //     // const totalGstAmount = userShareBase * 0.18;
-      //     // let distributedGstAmount = 0;
-
-      //     // // Calculate TDS and TCS per user
-      //     // const perUserTds = globalTds / eligibleUserIds.length;
-      //     // const perUserTcs = globalTcs / eligibleUserIds.length;
-
-      //     // for (const userId of eligibleUserIds) {
-      //     //     const userHasGst = userGstMap.get(userId) || false;
-
-      //     //     // Calculate GST for this user
-      //     //     const userGstAmount = userHasGst ? (perUserShare * 0.18) : 0;
-      //     //     distributedGstAmount += userGstAmount;
-
-      //     //     // User's earning including GST but minus TDS/TCS
-      //     //     const userGrossEarning = perUserShare;
-      //     //     const userNetEarning = userGrossEarning - perUserTds - perUserTcs;
-
-      //         // // Store user's TotalGstData
-      //         // try {
-      //         //     await prisma.totalGstData.create({
-      //         //         data: {
-      //         //             orderId: updated.id,
-      //         //             userId: userId,
-      //         //             basicAmount: new Prisma.Decimal(perUserShare),
-      //         //             gst: new Prisma.Decimal(userGstAmount),
-      //         //             tds: new Prisma.Decimal(0),
-      //         //             tcs: new Prisma.Decimal(0),
-      //         //             otherAmount: new Prisma.Decimal(0),
-      //         //             totalAmt: new Prisma.Decimal(userNetEarning),
-      //         //         },
-      //         //     });
-      //         // } catch (error) {
-      //         //     console.error(`❌ Failed to insert TotalGstData for user ${userId}`, error);
-      //         // }
-
-      //         // earningsData.push({
-      //         //     ...baseEarning,
-      //         //     userId,
-      //         //     amount,
-      //         //     earningAmount: userNetEarning, // Store net earning after TDS/TCS deduction
-      //         // });
-      //     // }
 
       await prisma.earnings.createMany({
         data: earningsData,
@@ -2076,17 +2049,21 @@ export const updateOrderStatus = async (
                                     new Prisma.Decimal(businessSummary.withdrawAmount ?? 0)
                                 )
                     */
-          const updatedBusinessSummary = await prisma.referralCoinSummary.update({
-            where: { userId: updated.businessId },
-            data: {
-              totalAmount: FinalTotalAmount,
-              netAmount: FinalNetAmount,
-              unlocked: true,
-            },
-          });
+          const updatedBusinessSummary =
+            await prisma.referralCoinSummary.update({
+              where: { userId: updated.businessId },
+              data: {
+                totalAmount: FinalTotalAmount,
+                netAmount: FinalNetAmount,
+                unlocked: true,
+              },
+            });
 
           // Check if business user qualifies for redeem points email (totalAmount >= 3500)
-          if (Number(updatedBusinessSummary.totalAmount) >= 3500 || Number(updatedBusinessSummary.netAmount) >= 3500) {
+          if (
+            Number(updatedBusinessSummary.totalAmount) >= 3500 ||
+            Number(updatedBusinessSummary.netAmount) >= 3500
+          ) {
             await sendRedeemPointsEmailToUser(updated.businessId);
           }
         } else {
@@ -2208,14 +2185,15 @@ export const updateOrderStatus = async (
                 });
 
                 if (summary) {
-                  const updatedReferralSummary = await prisma.referralCoinSummary.update({
-                    where: { userId: referral.referrerId },
-                    data: {
-                      totalAmount: (Number(summary.totalAmount) || 0) + 50,
-                      unlocked: true,
-                      unlockedAt: now,
-                    },
-                  });
+                  const updatedReferralSummary =
+                    await prisma.referralCoinSummary.update({
+                      where: { userId: referral.referrerId },
+                      data: {
+                        totalAmount: (Number(summary.totalAmount) || 0) + 50,
+                        unlocked: true,
+                        unlockedAt: now,
+                      },
+                    });
 
                   // Check if referrer qualifies for redeem points email (totalAmount >= 3500)
                   if (Number(updatedReferralSummary.totalAmount) >= 3500) {
@@ -2314,9 +2292,13 @@ export const getAllOrderList = async (
 
     const statusEnumValue = getStatusName(status);
     let whereStatus;
+
     if (status === 3) {
-      const completedEnumValue = getStatusName(4);
-      whereStatus = [statusEnumValue, completedEnumValue];
+      // Get the statuses for codes 4 and 7
+      const status3 = getStatusName(3);
+      const status4 = getStatusName(4);
+      const status7 = getStatusName(7);
+      whereStatus = [status3, status4, status7];
     } else {
       whereStatus = [statusEnumValue];
     }
@@ -2483,7 +2465,7 @@ export const getAdminAllOrderList = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { status, page = 1, limit = 10 } = req.body;
+    const { status, page = 1, limit = 10, search  } = req.body;
 
     const tokenUser = req.user;
     if (!tokenUser || !tokenUser.userId) {
@@ -2538,22 +2520,32 @@ export const getAdminAllOrderList = async (
     const parsedLimit = Number(limit) || 100;
     const skip = (parsedPage - 1) * parsedLimit;
 
+    /* ------------------ SEARCH CONDITION ------------------ */
+    const whereCondition: any = {
+      status: {
+        in: whereStatus,
+      },
+    };
+
+    if (search && typeof search === 'string') {
+      whereCondition.OR = [
+        {
+          orderId: {
+            contains: search,
+            mode: 'insensitive', // case-insensitive search
+          },
+        },
+      ];
+    }
+
     // Get total count
     const total = await prisma.orders.count({
-      where: {
-        status: {
-          in: whereStatus,
-        },
-      },
+       where: whereCondition,
     });
 
     // Option 1: Simple approach - exclude only userId (your original approach)
     const getOrder = await prisma.orders.findMany({
-      where: {
-        status: {
-          in: whereStatus,
-        },
-      },
+      where: whereCondition,
       include: {
         groupOrderData: {
           include: {
@@ -2898,6 +2890,19 @@ export const withdrawAmount = async (
     const user = await prisma.userStats.findFirst({ where: { userId } });
     if (!user) return response.error(res, 'User stats not found');
 
+    const userProfile = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        countryData: { select: { name: true } },
+      },
+    });
+
+    if (!userProfile) {
+      return response.error(res, 'User not found');
+    }
+
+    const country = userProfile.countryData?.name;
+
     const currentEarnings = user.totalEarnings ?? 0;
     const currentWithdrawals = user.totalWithdraw ?? 0;
 
@@ -2916,23 +2921,50 @@ export const withdrawAmount = async (
     }
 
     // Fetch bank details
-    const userBankDetail = await prisma.userBankDetails.findFirst({
-      where: { userId },
-    });
+    let payoutAccountId: string;
+    let payoutAccountHolderName: string;
 
-    if (
-      !userBankDetail ||
-      !userBankDetail.accountId ||
-      !userBankDetail.accountHolderName
-    ) {
-      return response.error(res, 'Bank details are incomplete.');
+    if (country === 'India') {
+      const bankDetails = await prisma.userBankDetails.findFirst({
+        where: { userId, status: true },
+      });
+
+      if (
+        !bankDetails ||
+        !bankDetails.accountId ||
+        !bankDetails.accountHolderName
+      ) {
+        return response.error(
+          res,
+          'Please add valid bank details before withdrawing (India).'
+        );
+      }
+
+      payoutAccountId = bankDetails.accountId;
+      payoutAccountHolderName = bankDetails.accountHolderName;
+    } else {
+      const paypalDetails = await prisma.userPaypalDetails.findFirst({
+        where: { userId, status: true },
+      });
+
+      if (!paypalDetails || !paypalDetails.paypalEmail) {
+        return response.error(
+          res,
+          'Please add valid PayPal details before withdrawing (Non-India).'
+        );
+      }
+
+      // Use PayPal email as payout identifier
+      payoutAccountId =
+        paypalDetails.paypalPayerId || paypalDetails.paypalEmail;
+      payoutAccountHolderName = paypalDetails.paypalEmail;
     }
 
     // Step 1: Attempt to transfer FIRST
     const initiateTransferData = await initiateTransfer(
       withdrawAmount,
-      userBankDetail.accountId,
-      userBankDetail.accountHolderName
+      payoutAccountId,
+      payoutAccountHolderName
     );
 
     console.log('Transfer Result:', initiateTransferData);
@@ -2997,7 +3029,10 @@ export const withdrawAmount = async (
         });
 
         // Check if user qualifies for redeem points email (totalAmount >= 3500)
-        if (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500) {
+        if (
+          Number(updatedSummary.totalAmount) >= 3500 ||
+          Number(updatedSummary.netAmount) >= 3500
+        ) {
           await sendRedeemPointsEmailToUser(userId);
         }
       } else {
@@ -3048,6 +3083,12 @@ const formatUserData = async (user: any) => {
     cityName: user.cityData?.name ?? null,
   };
 };
+
+const toTwoDecimal = (value: number) =>
+  Number(value.toFixed(2));
+
+const formatAmountStringTwoDecimal = (value: any): string =>
+  Number(value || 0).toFixed(2);
 
 export const getTransactionHistory = async (
   req: Request,
@@ -3277,7 +3318,7 @@ export const getTransactionHistory = async (
         formattedBusinessOrders.push({
           id: order.id,
           type: 'EXPENSE',
-          amount: Number(order.finalAmount ?? 0),
+          amount: toTwoDecimal(Number(order.finalAmount ?? 0)),
           createdAt: order.createdAt!,
           title: order.title ?? 'Business Order',
           description: order.description ?? '',
@@ -3299,10 +3340,15 @@ export const getTransactionHistory = async (
       ...formattedEarnings,
       ...formattedWithdrawals,
       ...formattedBusinessOrders,
-    ].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    ]
+    .map((tx) => ({
+      ...tx,
+      amount: formatAmountStringTwoDecimal(tx.amount), // ✅ FIX HERE
+    }))
+    .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
     let totalExpenses = 0;
 
@@ -3328,10 +3374,10 @@ export const getTransactionHistory = async (
     }
 
     const responseData = {
-      totalEarnings,
-      totalWithdraw,
-      totalBusinessExpenses,
-      netEarnings: totalEarnings - totalWithdraw,
+      totalEarnings: toTwoDecimal(totalEarnings),
+      totalWithdraw: toTwoDecimal(totalWithdraw),
+      totalBusinessExpenses: toTwoDecimal(totalBusinessExpenses),
+      netEarnings: toTwoDecimal(totalEarnings - totalWithdraw),
       transactionData,
     };
 
@@ -3505,7 +3551,11 @@ export const addCoins = async (req: Request, res: Response): Promise<any> => {
     ]);
 
     // Check if user qualifies for redeem points email (totalAmount >= 3500) - only if coins were added
-    if (addAmount > 0 && (Number(updatedSummary.totalAmount) >= 3500 || Number(updatedSummary.netAmount) >= 3500)) {
+    if (
+      addAmount > 0 &&
+      (Number(updatedSummary.totalAmount) >= 3500 ||
+        Number(updatedSummary.netAmount) >= 3500)
+    ) {
       await sendRedeemPointsEmailToUser(userId);
     }
 
@@ -3978,14 +4028,17 @@ export const updateOrderStatusAndInsertEarnings = async (
   }
 };
 
-export const markSpinUsed = async (req: Request, res: Response): Promise<any> => {
+export const markSpinUsed = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(400).json({
         status: false,
-        message: "Unauthorized user",
+        message: 'Unauthorized user',
       });
     }
 
@@ -3995,8 +4048,8 @@ export const markSpinUsed = async (req: Request, res: Response): Promise<any> =>
     if (!user) {
       return res.status(404).json({
         status: false,
-        message: "User not found",
-        data: null
+        message: 'User not found',
+        data: null,
       });
     }
 
@@ -4004,7 +4057,7 @@ export const markSpinUsed = async (req: Request, res: Response): Promise<any> =>
       return res.status(400).json({
         status: false,
         message: "User has already used today's free spin",
-        data: null
+        data: null,
       });
     }
 
@@ -4016,15 +4069,14 @@ export const markSpinUsed = async (req: Request, res: Response): Promise<any> =>
 
     return res.json({
       status: true,
-      message: "Free spin used successfully",
+      message: 'Free spin used successfully',
       data: updatedUser,
     });
-
   } catch (error: any) {
-    console.error("Mark Spin Used Error:", error);
+    console.error('Mark Spin Used Error:', error);
     return res.status(500).json({
       status: false,
-      message: error.message || "Something went wrong",
+      message: error.message || 'Something went wrong',
     });
   }
 };

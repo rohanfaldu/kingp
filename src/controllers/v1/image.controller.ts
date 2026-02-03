@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import response from '../utils/response';
-import { IImage } from '../interfaces/images.interface';
+import response from '../../utils/response';
+import { IImage } from '../../interfaces/images.interface';
 
 // Define file type categories
 const FILE_TYPES = {
@@ -54,7 +54,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 20 * 1024 * 1024 }, // 50 MB limit
+    limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB limit
     fileFilter: (req, file, cb) => {
         console.log('File received:', file.fieldname, file.originalname);
         cb(null, true); // Accept all files
@@ -93,7 +93,7 @@ export const uploadMultipleImages = (req: Request, res: Response) => {
                     name: file.filename,
                     path: filePath,
                     url: `${isUrl}/${filePath}`,
-                    size: `${(file.size / 1024).toFixed(2)} KB`,
+                    size: `${(file.size / 1024 / 1024).toFixed(2)} KB`,
                     type: category,
                     extension: path.extname(file.filename).toLowerCase()
                 };

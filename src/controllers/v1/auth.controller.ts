@@ -1,7 +1,7 @@
 import { chatViewCount } from './dashboard.controller';
 import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
-import { IUser } from '../interfaces/user.interface';
+import { IUser } from '../../interfaces/user.interface';
 import * as bcrypt from 'bcryptjs';
 import {
   UserType,
@@ -9,26 +9,26 @@ import {
   LoginType,
   AvailabilityType,
   PaymentStatus,
-} from '../enums/userType.enum';
-import response from '../utils/response';
-import { resolveStatus } from '../utils/commonFunction';
+} from '../../enums/userType.enum';
+import response from '../../utils/response';
+import { resolveStatus } from '../../utils/commonFunction';
 import jwt from 'jsonwebtoken';
 import { validate as isUuid } from 'uuid';
-import { paginate } from '../utils/pagination';
+import { paginate } from '../../utils/pagination';
 import {
   calculateProfileCompletion,
   calculateBusinessProfileCompletion,
-} from '../utils/calculateProfileCompletion';
-import { getUserCategoriesWithSubcategories } from '../utils/getUserCategoriesWithSubcategories';
+} from '../../utils/calculateProfileCompletion';
+import { getUserCategoriesWithSubcategories } from '../../utils/getUserCategoriesWithSubcategories';
 import { omit } from 'lodash';
 import { Role } from '@prisma/client';
 import { RequestStatus } from '@prisma/client';
 import { contains } from 'class-validator/types';
-import { generateUniqueReferralCode } from '../utils/referral';
+import { generateUniqueReferralCode } from '../../utils/referral';
 import { CoinType } from '@prisma/client';
 import { subMonths } from 'date-fns';
-import { paymentRefund } from '../utils/commonFunction';
-import { sendRedeemPointsEmailToUser, sendWelcomeEmailToUser } from '../controllers/mail.controller';
+import { paymentRefund } from '../../utils/commonFunction';
+import { sendRedeemPointsEmailToUser, sendWelcomeEmailToUser } from '../v1/mail.controller';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
@@ -68,6 +68,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     availability = AvailabilityType,
     referralCode,
     subcategoriesId = [],
+    contactPersonName,
     ...userFields
   } = req.body;
 
@@ -87,6 +88,25 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
   const existingUser = await prisma.user.findUnique({
     where: { emailAddress },
   });
+
+  if (contactPersonName) {
+    const existingContact = await prisma.user.findFirst({
+      where: {
+        contactPersonName,
+        status: true, // Only active users
+      },
+    });
+
+    const isReSignupSameUser =
+      existingUser && existingUser.contactPersonName === contactPersonName;
+
+    if (existingContact && !isReSignupSameUser) {
+      return response.error(
+        res,
+        `UserName ${contactPersonName} is already in use. Please use a unique UserName.` // no quotes
+      );
+    }
+  }
 
   // Check if user exists and has active status
   if (existingUser && existingUser.status === true) {
@@ -159,6 +179,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         where: { id: existingUser.id },
         data: {
           ...userFields,
+          contactPersonName,
           password: hashedPassword ?? 'null',
           emailAddress,
           status,
@@ -304,6 +325,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     newUser = await prisma.user.create({
       data: {
         ...userFields,
+        contactPersonName,
         password: hashedPassword ?? 'null',
         emailAddress,
         status,
@@ -612,6 +634,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return response.error(res, 'Invalid email address.');
     }
 
+    if (user.isSuspended) {
+      return response.error( res, 'Your account has been suspended. Please contact support to reactivate your account.');
+    }
+
     const isAdmin = user.type === 'ADMIN';
 
     if (!isAdmin && user.loginType === 'NONE') {
@@ -741,21 +767,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    // const profileCompletion = calculateProfileCompletion({
-    //   ...userResponse, // includes categories, socialMediaPlatforms etc
-    //   bankDetails: !!user.bankDetails,
-    //   paypalDetails: !!user.paypalDetails,
-    // });
-
-    // // Update in DB
-    // await prisma.user.update({
-    //   where: { id: user.id },
-    //   data: { profileCompletion },
-    // });
-
-    // // Add to response object
-    // userResponse.profileCompletion = profileCompletion;
-
     return response.success(res, 'Login successful!', {
       user: userResponse,
       token,
@@ -864,12 +875,36 @@ export const getByIdUser = async (
       },
     });
 
+    const userLevelBadges = await prisma.userBadges.findMany({
+      where: { userId: user.id },
+       orderBy: {
+        createdAt: 'desc', 
+      },
+      include: {
+        userBadgeTitleData: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    const badgeLevels = userLevelBadges
+      .map(badge => badge.userBadgeTitleData?.title)
+      .filter(Boolean)
+      .join(', ');
+
+
     const formattedUserStats = userStats
       ? {
           ...userStats,
-          totalEarnings: userStats.totalEarnings
-            ? Number(userStats.totalEarnings).toFixed(2)
-            : '0.00',
+          // totalEarnings: userStats.totalEarnings
+          //   ? Number(userStats.totalEarnings).toFixed(2) 
+          //   : '0.00',
+            totalEarnings: (
+            (Number(userStats.totalEarnings) || 0) +
+            (Number(userStats.totalWithdraw) || 0)
+          ).toFixed(2),
           totalExpenses: userStats.totalExpenses
             ? Number(userStats.totalExpenses).toFixed(2)
             : '0.00',
@@ -883,14 +918,14 @@ export const getByIdUser = async (
           repeatClient: userStats.repeatClient
             ? Number(userStats.repeatClient)
             : 0,
-          level: userStats.level ? Number(userStats.level) : 0,
+          // level: userStats.level ? Number(userStats.level) : 0,
+          level: badgeLevels || "",
           onTimeDelivery: userStats.onTimeDelivery
             ? Number(userStats.onTimeDelivery)
             : 0,
-          netEarning: (
-            (userStats.totalEarnings?.toNumber?.() ?? 0) -
-            (userStats.totalWithdraw?.toNumber?.() ?? 0)
-          ).toFixed(2),
+          netEarning: userStats.totalEarnings
+            ? Number(userStats.totalEarnings).toFixed(2) 
+            : '0.00',
         }
       : {
           totalEarnings: '0.00',
@@ -899,7 +934,7 @@ export const getByIdUser = async (
           totalDeals: 0,
           averageValue: '0.00',
           repeatClient: 0,
-          level: 0,
+          level: badgeLevels || null,
           onTimeDelivery: 0,
           netEarning: '0.00',
         };
@@ -1028,7 +1063,7 @@ export const getByIdUser = async (
       data: transactions,
     };
 
-    const userStatss = await prisma.userStats.findFirst({
+const userStatss = await prisma.userStats.findFirst({
       where: { userId: id },
       select: {
         totalEarnings: true,
@@ -1037,10 +1072,11 @@ export const getByIdUser = async (
       },
     });
 
-    const totalEarnings = Number(userStats?.totalEarnings ?? 0);
+    const totalEarnings = (userStatss?.totalEarnings?.toNumber?.() ?? 0) + (userStatss?.totalWithdraw?.toNumber?.() ?? 0);
     const totalWithdraw = Number(userStats?.totalWithdraw ?? 0);
     const totalExpenses = Number(userStats?.totalExpenses ?? 0);
-    const netEarning = totalEarnings - totalWithdraw;
+    // const netEarning = totalEarnings - totalWithdraw;
+    const netEarning = Number(userStats?.totalEarnings ?? 0);
 
     const earningsSummary = {
       totalEarnings,
@@ -1048,6 +1084,7 @@ export const getByIdUser = async (
       totalExpenses,
       netEarning,
     };
+
     console.log('Fetching token for userId:', id);
 
     const token = await prisma.userAuthToken.findUnique({
@@ -1064,6 +1101,22 @@ export const getByIdUser = async (
       },
     });
 
+    // Fetch referral coin summary for the user
+    const referralCoinSummaryRow = await prisma.referralCoinSummary.findUnique({
+      where: { userId: user.id },
+      select: {
+        totalAmount: true,
+        netAmount: true,
+      },
+    });
+
+    // Format like rewards
+    const referralCoinSummary = {
+      totalAmount: referralCoinSummaryRow?.totalAmount?.toNumber?.() ?? 0,
+      netAmount: referralCoinSummaryRow?.netAmount?.toNumber?.() ?? 0,
+    };
+
+
     return response.success(res, 'User fetched successfully!', {
       user: responseUser,
       token: token?.UserAuthToken,
@@ -1071,6 +1124,7 @@ export const getByIdUser = async (
       analyticSummary,
       rewards,
       earningsSummary,
+      referralCoinSummary
     });
   } catch (error: any) {
     return response.error(res, error.message);
@@ -1779,7 +1833,10 @@ export const getAllUsersAndGroup = async (
     };
     if (andFilters.length > 0) whereFilter.AND = andFilters;
     if (search) {
-      whereFilter.name = { startsWith: search, mode: 'insensitive' };
+      whereFilter.OR = [
+        { name: { startsWith: search, mode: 'insensitive' } },
+        { contactPersonName: { startsWith: search, mode: 'insensitive' } },
+      ];      
     }
 
     // Determine what data to fetch based on subtype
@@ -2495,6 +2552,7 @@ export const editProfile = async (
     status,
     gender,
     referralCode,
+    contactPersonName,
     ...updatableFields
   } = userData;
 
@@ -2508,22 +2566,66 @@ export const editProfile = async (
     finalUpdateData.gender = gender as unknown as any;
   }
 
-  if (stateId) {
-    const state = await prisma.state.findUnique({ where: { id: stateId } });
-    if (!state) return response.error(res, 'Invalid stateId');
-    if (countryId && state.countryId !== countryId) {
-      return response.error(res, 'State does not belong to provided country');
+  if (contactPersonName) {
+    const existingContact = await prisma.user.findFirst({
+      where: {
+        contactPersonName,
+        status: true,
+        NOT: { id }, // exclude the current user
+      },
+    });
+
+    if (existingContact) {
+      return response.error(
+        res,
+        `UserName ${contactPersonName} is already in use. Please use a unique UserName.`
+      );
     }
-    finalUpdateData.stateData = { connect: { id: stateId } };
+
+    // If valid, include it in the update
+    finalUpdateData.contactPersonName = contactPersonName;
   }
 
-  if (cityId) {
-    const city = await prisma.city.findUnique({ where: { id: cityId } });
+
+  const normalizeId = (value: any) =>
+    value === '' || value === null ? undefined : value;
+
+  const normalizedStateId = normalizeId(stateId);
+  const normalizedCityId = normalizeId(cityId);
+  const normalizedCountryId = normalizeId(countryId);
+
+
+  if (stateId === null || stateId === '') {
+    finalUpdateData.stateData = { disconnect: true };
+    finalUpdateData.cityData = { disconnect: true };
+  } else if (normalizedStateId) {
+    const state = await prisma.state.findUnique({
+      where: { id: normalizedStateId },
+    });
+
+    if (!state) return response.error(res, 'Invalid stateId');
+
+    if (normalizedCountryId && state.countryId !== normalizedCountryId) {
+      return response.error(res, 'State does not belong to provided country');
+    }
+
+    finalUpdateData.stateData = { connect: { id: normalizedStateId } };
+  }
+
+  if (cityId === null || cityId === '') {
+    finalUpdateData.cityData = { disconnect: true };
+  } else if (normalizedCityId) {
+    const city = await prisma.city.findUnique({
+      where: { id: normalizedCityId },
+    });
+
     if (!city) return response.error(res, 'Invalid cityId');
-    if (stateId && city.stateId !== stateId) {
+
+    if (normalizedStateId && city.stateId !== normalizedStateId) {
       return response.error(res, 'City does not belong to provided State');
     }
-    finalUpdateData.cityData = { connect: { id: cityId } };
+
+    finalUpdateData.cityData = { connect: { id: normalizedCityId } };
   }
 
   if (countryId) {
@@ -3069,10 +3171,20 @@ export const getAllInfo = async (req: Request, res: Response): Promise<any> => {
 
     // ✅ Search by name starting with
     if (search && typeof search === 'string') {
-      filter.name = {
-        startsWith: search,
-        mode: 'insensitive', // Optional: case-insensitive search
-      };
+      filter.OR = [
+        {
+          name: {
+            startsWith: search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          contactPersonName: {
+            startsWith: search,
+            mode: 'insensitive',
+          },
+        },
+      ];
     }
 
     // Validate and apply platform filter
@@ -3355,5 +3467,107 @@ export const getAllUsersForEmail = async (
     });
   } catch (error: any) {
     return response.error(res, error.message);
+  }
+};
+
+// Suspend or Reactivate User Account
+export const suspendOrReactivateUser = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id, action } = req.body;
+
+    if (!id || !isUuid(id)) {
+      return response.error(res, 'Invalid or missing UUID');
+    }
+
+    if (!['SUSPEND', 'REACTIVATE'].includes(action)) {
+      return response.error(res, 'Invalid action');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      return response.error(res, 'User not found');
+    }
+
+    /* ===================== REACTIVATE ===================== */
+    if (action === 'REACTIVATE') {
+      if (!user.isSuspended) {
+        return response.error(res, 'User is already active');
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: {
+          isSuspended: false,
+        },
+      });
+
+      return response.success(res, 'User account reactivated successfully', null);
+    }
+
+    /* ===================== SUSPEND ===================== */
+    if (user.isSuspended) {
+      return response.error(res, 'User already suspended');
+    }
+
+    // 1️⃣ Suspend user
+    await prisma.user.update({
+      where: { id },
+      data: {
+        isSuspended: true,
+      },
+    });
+
+    // 2️⃣ Decline all non-completed orders
+    await prisma.orders.updateMany({
+      where: {
+        OR: [{ influencerId: id }, { businessId: id }],
+        status: {
+          not: 'COMPLETED',
+        },
+      },
+      data: {
+        status: 'DECLINED',
+        reason: 'Order declined due to account suspension',
+      },
+    });
+
+    // 3️⃣ Refund declined orders
+    const declinedOrders = await prisma.orders.findMany({
+      where: {
+        OR: [{ influencerId: id }, { businessId: id }],
+        status: 'DECLINED',
+        paymentStatus: {
+          not: PaymentStatus.REFUND,
+        },
+      },
+    });
+
+    for (const order of declinedOrders) {
+      if (!order.finalAmount || !order.transactionId) continue;
+
+      const refundResponse = await paymentRefund(
+        order.transactionId,
+        order.finalAmount
+      );
+
+      if (refundResponse) {
+        await prisma.orders.update({
+          where: { id: order.id },
+          data: {
+            paymentStatus: PaymentStatus.REFUND,
+          },
+        });
+      }
+    }
+
+    return response.success(res, 'User account suspended successfully', null);
+  } catch (error: any) {
+    return response.error(res, error.message || 'Something went wrong');
   }
 };

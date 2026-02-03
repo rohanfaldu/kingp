@@ -1,7 +1,7 @@
 import express from 'express';
-import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, getAllUsersAndGroup, getAllUsersForEmail, editProfile, getUsersWithType, incrementInfluencerClick, socialLogin, updateUserBannerStatusByUserId, getRawUserDetailList, getUserBannerStatusByUserId } from '../controllers/auth.controller';
-import { sendMail } from '../controllers/mail.controller';
-import { authenticateToken } from '../services/authorization';
+import { signup, login, deleteUser, getAllInfo, getAllUsers, getByIdUser, getAllUsersAndGroup, getAllUsersForEmail, editProfile, getUsersWithType, suspendOrReactivateUser, incrementInfluencerClick, socialLogin, updateUserBannerStatusByUserId, getRawUserDetailList, getUserBannerStatusByUserId } from '../../controllers/v1/auth.controller';
+import { sendMail } from '../../controllers/v1/mail.controller';
+import { authenticateToken } from '../../services/authorization';
 
 
 const router = express.Router();
@@ -23,6 +23,8 @@ router.post('/social-id', socialLogin)
 router.post('/user/bannerStatus', updateUserBannerStatusByUserId);
 router.post('/user/getAllBanner', getRawUserDetailList);
 router.post('/user/getByUserId', getUserBannerStatusByUserId);
+
+router.post('/user/suspendOrReactivateUser', authenticateToken, suspendOrReactivateUser)
 
 
 

@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
+
+// ------------------ main routes --------------------- //
 import authRoutes from './routes/auth.routes';
 import countryRoutes from './routes/country.routes';
 import imageRoutes from './routes/image.routes';
@@ -27,6 +29,34 @@ import AbuseReportRoutes from './routes/abuseReport.routes';
 import WorkPostRoutes from './routes/workPost.routes';
 import productRoutes from './routes/product.routes';
 import mailRoutes from './routes/mail.routes';
+
+// ------------------ v1 routes --------------------- //
+import authRoutesv1 from './routes/v1/auth.routes';
+import countryRoutesv1 from './routes/v1/country.routes';
+import imageRoutesv1 from './routes/v1/image.routes';
+import categoryRoutesv1 from './routes/v1/category.routes';
+import subcategoryRoutesv1 from './routes/v1/subcategory.routes';
+import passwordRoutesv1 from './routes/v1/password.routes';
+import stateRoutesv1 from './routes/v1/state.routes';
+import cityRoutesv1 from './routes/v1/city.routes';
+import brandTypeRoutesv1 from './routes/v1/brandType.routes';
+import socialMediaRoutesv1 from './routes/v1/socialMedia.routes';
+import groupRoutesv1 from './routes/v1/group.routes';
+import locationRoutesv1 from './routes/v1/location.routes';
+import VersionControleRoutesv1 from './routes/v1/versionControl.routes';
+import BadgesRoutesv1 from './routes/v1/badges.routes';
+import OrderRoutesv1 from './routes/v1/order.routes';
+import MediaRoutesv1 from './routes/v1/media.routes';
+import DashboardRoutesv1 from './routes/v1/dashboard.routes';
+import RatingsRoutesv1 from './routes/v1/rating.routes';
+import NotificationRoutesv1 from './routes/v1/notification.routes';
+import ContactRoutesv1 from './routes/v1/contact.routes';
+import TipsRoutesv1 from './routes/v1/tips.routes';
+import BankDetailsRoutesv1 from './routes/v1/bankDetail.routes';
+import AbuseReportRoutesv1 from './routes/v1/abuseReport.routes';
+import WorkPostRoutesv1 from './routes/v1/workPost.routes';
+import productRoutesv1 from './routes/v1/product.routes';
+import mailRoutesv1 from './routes/v1/mail.routes';
 
 
 
@@ -62,6 +92,7 @@ app.get('/api/get', (req, res) => {
   res.json({ message: 'Hello, Welcome to KingP!' });
 });
 
+// --------------- main routes --------------------- //
 app.use('/api', authRoutes);
 app.use('/api/country', countryRoutes);
 app.use('/api/upload', imageRoutes);
@@ -88,37 +119,35 @@ app.use('/api/report', AbuseReportRoutes);
 app.use('/api/work-post', WorkPostRoutes);
 app.use('/api/product', productRoutes);
 app.use('/api/mail', mailRoutes);
-// app.use('/api/v1/mail', mailRoutes);
 
-// app.use('/api/v1', authRoutes);
-// app.use('/api/v1/country', countryRoutes);
-// app.use('/api/v1/upload', imageRoutes);
-// app.use('/api/v1/categories', categoryRoutes);
-// app.use('/api/v1/sub-categories', subcategoryRoutes);
-// app.use('/api/v1', passwordRoutes);
-// app.use('/api/v1/state', stateRoutes);
-// app.use('/api/v1/city', cityRoutes);
-// app.use('/api/v1/brand-type', brandTypeRoutes);
-// app.use('/api/v1/social-media', socialMediaRoutes);
-// app.use('/api/v1/group', groupRoutes);
-// app.use('/api/v1/location', locationRoutes);
-// app.use('/api/v1/app-data', VersionControleRoutes);
-// app.use('/api/v1/badges', BadgesRoutes);
-// app.use('/api/v1/order', OrderRoutes);
-// app.use('/api/v1/media', MediaRoutes);
-// app.use('/api/v1/dashboard', DashboardRoutes);
-// app.use('/api/v1/ratings', RatingsRoutes);
-// app.use('/api/v1/notification', NotificationRoutes);
-// app.use('/api/v1/contact', ContactRoutes);
-// app.use('/api/v1/tips', TipsRoutes);
-// app.use('/api/v1/bank', BankDetailsRoutes);
-// app.use('/api/v1/report', AbuseReportRoutes);
-// app.use('/api/v1/work-post', WorkPostRoutes);
-
-
-
-app.use('/api/mail', authRoutes);
-// app.use('/api/v1/mail', authRoutes);
+// ------------------ v1 routes --------------------- //
+app.use('/api/v1', authRoutesv1);
+app.use('/api/v1/country', countryRoutesv1);
+app.use('/api/v1/upload', imageRoutesv1);
+app.use('/api/v1/categories', categoryRoutesv1);
+app.use('/api/v1/sub-categories', subcategoryRoutesv1);
+app.use('/api/v1', passwordRoutesv1);
+app.use('/api/v1/state', stateRoutesv1);
+app.use('/api/v1/city', cityRoutesv1);
+app.use('/api/v1/brand-type', brandTypeRoutesv1);
+app.use('/api/v1/social-media', socialMediaRoutesv1);
+app.use('/api/v1/group', groupRoutesv1);
+app.use('/api/v1/location', locationRoutesv1);
+app.use('/api/v1/app-data', VersionControleRoutesv1);
+app.use('/api/v1/badges', BadgesRoutesv1);
+app.use('/api/v1/order', OrderRoutesv1);
+app.use('/api/v1/media', MediaRoutesv1);
+app.use('/api/v1/dashboard', DashboardRoutesv1);
+app.use('/api/v1/ratings', RatingsRoutesv1);
+app.use('/api/v1/notification', NotificationRoutesv1);
+app.use('/api/v1/contact', ContactRoutesv1);
+app.use('/api/v1/tips', TipsRoutesv1);
+app.use('/api/v1/bank', BankDetailsRoutesv1);
+app.use('/api/v1/report', AbuseReportRoutesv1);
+app.use('/api/v1/work-post', WorkPostRoutesv1);
+app.use('/api/v1/product', productRoutesv1);
+app.use('/api/v1/mail', mailRoutesv1);
+app.use('/api/v1/mail', authRoutesv1);
 
 // const PORT = process.env.PORT || 3001;
 
