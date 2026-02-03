@@ -864,12 +864,36 @@ export const getByIdUser = async (
       },
     });
 
+    const userLevelBadges = await prisma.userBadges.findMany({
+      where: { userId: user.id },
+       orderBy: {
+        createdAt: 'desc', 
+      },
+      include: {
+        userBadgeTitleData: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    const badgeLevels = userLevelBadges
+      .map(badge => badge.userBadgeTitleData?.title)
+      .filter(Boolean)
+      .join(', ');
+
+
     const formattedUserStats = userStats
       ? {
           ...userStats,
-          totalEarnings: userStats.totalEarnings
-            ? Number(userStats.totalEarnings).toFixed(2)
-            : '0.00',
+          // totalEarnings: userStats.totalEarnings
+          //   ? Number(userStats.totalEarnings).toFixed(2) 
+          //   : '0.00',
+            totalEarnings: (
+            (Number(userStats.totalEarnings) || 0) +
+            (Number(userStats.totalWithdraw) || 0)
+          ).toFixed(2),
           totalExpenses: userStats.totalExpenses
             ? Number(userStats.totalExpenses).toFixed(2)
             : '0.00',
@@ -883,14 +907,14 @@ export const getByIdUser = async (
           repeatClient: userStats.repeatClient
             ? Number(userStats.repeatClient)
             : 0,
-          level: userStats.level ? Number(userStats.level) : 0,
+          // level: userStats.level ? Number(userStats.level) : 0,
+          level: badgeLevels || "",
           onTimeDelivery: userStats.onTimeDelivery
             ? Number(userStats.onTimeDelivery)
             : 0,
-          netEarning: (
-            (userStats.totalEarnings?.toNumber?.() ?? 0) -
-            (userStats.totalWithdraw?.toNumber?.() ?? 0)
-          ).toFixed(2),
+          netEarning: userStats.totalEarnings
+            ? Number(userStats.totalEarnings).toFixed(2) 
+            : '0.00',
         }
       : {
           totalEarnings: '0.00',
@@ -899,7 +923,7 @@ export const getByIdUser = async (
           totalDeals: 0,
           averageValue: '0.00',
           repeatClient: 0,
-          level: 0,
+          level: badgeLevels || null,
           onTimeDelivery: 0,
           netEarning: '0.00',
         };
@@ -1028,7 +1052,7 @@ export const getByIdUser = async (
       data: transactions,
     };
 
-    const userStatss = await prisma.userStats.findFirst({
+const userStatss = await prisma.userStats.findFirst({
       where: { userId: id },
       select: {
         totalEarnings: true,
@@ -1037,10 +1061,11 @@ export const getByIdUser = async (
       },
     });
 
-    const totalEarnings = Number(userStats?.totalEarnings ?? 0);
+    const totalEarnings = (userStatss?.totalEarnings?.toNumber?.() ?? 0) + (userStatss?.totalWithdraw?.toNumber?.() ?? 0);
     const totalWithdraw = Number(userStats?.totalWithdraw ?? 0);
     const totalExpenses = Number(userStats?.totalExpenses ?? 0);
-    const netEarning = totalEarnings - totalWithdraw;
+    // const netEarning = totalEarnings - totalWithdraw;
+    const netEarning = Number(userStats?.totalEarnings ?? 0);
 
     const earningsSummary = {
       totalEarnings,
@@ -1048,6 +1073,7 @@ export const getByIdUser = async (
       totalExpenses,
       netEarning,
     };
+
     console.log('Fetching token for userId:', id);
 
     const token = await prisma.userAuthToken.findUnique({
@@ -1064,6 +1090,22 @@ export const getByIdUser = async (
       },
     });
 
+    // Fetch referral coin summary for the user
+    const referralCoinSummaryRow = await prisma.referralCoinSummary.findUnique({
+      where: { userId: user.id },
+      select: {
+        totalAmount: true,
+        netAmount: true,
+      },
+    });
+
+    // Format like rewards
+    const referralCoinSummary = {
+      totalAmount: referralCoinSummaryRow?.totalAmount?.toNumber?.() ?? 0,
+      netAmount: referralCoinSummaryRow?.netAmount?.toNumber?.() ?? 0,
+    };
+
+
     return response.success(res, 'User fetched successfully!', {
       user: responseUser,
       token: token?.UserAuthToken,
@@ -1071,6 +1113,7 @@ export const getByIdUser = async (
       analyticSummary,
       rewards,
       earningsSummary,
+      referralCoinSummary
     });
   } catch (error: any) {
     return response.error(res, error.message);
