@@ -123,7 +123,7 @@ app.use('/api/mail', mailRoutes);
 // ------------------ v1 routes --------------------- //
 app.use('/api/v1', authRoutesv1);
 app.use('/api/v1/country', countryRoutesv1);
-app.use('/api/v1/upload', imageRoutesv1);
+app.use('/api/v1/upload', imageRoutes);
 app.use('/api/v1/categories', categoryRoutesv1);
 app.use('/api/v1/sub-categories', subcategoryRoutesv1);
 app.use('/api/v1', passwordRoutesv1);
