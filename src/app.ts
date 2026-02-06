@@ -73,9 +73,14 @@ app.use(express.json({ limit: '1024mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1024mb' }));
 
 app.use(cors({
-    origin: [process.env.FRONT_URL || 'http://0.0.0.0:3001', 'https://staging.admin.kringp.com', 'http://192.241.131.97:3001' ], 
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Methods'], 
+  origin: [
+    'http://localhost:3001',
+    'https://staging.admin.kringp.com',
+    'http://192.241.131.97:3001'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // only if you use cookies or auth headers
 }));
 
 
