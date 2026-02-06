@@ -81,20 +81,21 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    // allow tools like Postman / server-to-server
+  origin: (origin, callback) => {
+    // allow Postman / curl / server-to-server
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('❌ Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
+      return callback(null, true);
     }
+
+    console.log('❌ CORS blocked:', origin);
+    return callback(null, false); // 🔥 DO NOT throw error
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 204
 }));
 
 // MUST be before routes
@@ -108,6 +109,12 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
+
+app.use((req, res, next) => {
+  console.log('➡️', req.method, req.url, req.headers.origin);
+  next();
+});
+
 
 app.get('/api/get', (req, res) => {
   res.json({ message: 'Hello, Welcome to KingP!' });
