@@ -78,10 +78,6 @@ const allowedOrigins = [
       'http://127.0.0.1:3001',
       'https://staging.admin.kringp.com',
       'http://192.241.131.97:3001',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'https://admin.kringp.com',
-      'http://192.241.131.97:3000'
 ];
 
 app.use(
