@@ -74,22 +74,29 @@ app.use(express.urlencoded({ extended: true, limit: '1024mb' }));
 
 
 const allowedOrigins = [
-      'http://localhost:3001',
-      'http://127.0.0.1:3001',
-      'https://staging.admin.kringp.com',
-      'http://192.241.131.97:3001'
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'https://staging.admin.kringp.com',
+  'http://192.241.131.97:3001'
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
+      // allow Postman / curl / server-to-server
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
 
-      console.log(`❌ CORS blocked: ${origin}`);
-      return callback(new Error('Not allowed by CORS'));
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log('❌ CORS blocked:', origin);
+      return callback(null, false); // 🔥 NEVER throw error
     },
-    credentials: true
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 204
   })
 );
 
