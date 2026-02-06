@@ -73,7 +73,7 @@ app.use(express.json({ limit: '1024mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1024mb' }));
 
 app.use(cors({
-    origin: [process.env.FRONT_URL || 'http://localhost:3000'], 
+    origin: [process.env.FRONT_URL || 'http://0.0.0.0:3001', 'https://staging.admin.kringp.com' ], 
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Methods'], 
 }));
