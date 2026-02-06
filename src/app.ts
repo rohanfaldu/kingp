@@ -74,7 +74,10 @@ app.use(express.urlencoded({ extended: true, limit: '1024mb' }));
 
 
 const allowedOrigins = [
-  'https://staging.admin.kringp.com'
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'https://staging.admin.kringp.com',
+  'http://192.241.131.97:3001'
 ];
 
 app.use(
@@ -106,10 +109,10 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// app.use((req, res, next) => {
-//   console.log('➡️', req.method, req.url, req.headers.origin);
-//   next();
-// });
+app.use((req, res, next) => {
+  console.log('➡️', req.method, req.url, req.headers.origin);
+  next();
+});
 
 
 app.get('/api/get', (req, res) => {
