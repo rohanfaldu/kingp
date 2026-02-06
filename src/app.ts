@@ -72,17 +72,33 @@ console.log(process.env.FRONT_URL,'>>>>>>>>>>>> process');
 app.use(express.json({ limit: '1024mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1024mb' }));
 
+
+const allowedOrigins = [
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'https://staging.admin.kringp.com',
+  'http://192.241.131.97:3001'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3001',
-    'https://staging.admin.kringp.com',
-    'http://192.241.131.97:3001'
-  ],
+  origin: function (origin, callback) {
+    // allow tools like Postman / server-to-server
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('❌ Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true // only if you use cookies or auth headers
+  credentials: true
 }));
 
+// MUST be before routes
+app.options('*', cors());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json());
