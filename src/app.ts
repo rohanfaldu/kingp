@@ -74,10 +74,7 @@ app.use(express.urlencoded({ extended: true, limit: '1024mb' }));
 
 
 const allowedOrigins = [
-  'http://localhost:3001',
-  'http://127.0.0.1:3001',
-  'https://staging.admin.kringp.com',
-  'http://192.241.131.97:3001'
+  'https://staging.admin.kringp.com'
 ];
 
 app.use(
